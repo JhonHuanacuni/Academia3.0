@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
@@ -6,6 +6,18 @@ import './App.css'
 
 function App() {
   const [count, setCount] = useState(0)
+  const [backendMessage, setBackendMessage] = useState('Conectando con backend...')
+
+  useEffect(() => {
+    fetch('/api/status/')
+      .then((response) => response.json())
+      .then((data) => {
+        setBackendMessage(data.message ?? 'Backend conectado')
+      })
+      .catch(() => {
+        setBackendMessage('No se pudo conectar con el backend')
+      })
+  }, [])
 
   return (
     <>
@@ -16,10 +28,8 @@ function App() {
           <img src={viteLogo} className="vite" alt="Vite logo" />
         </div>
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
+          <h1>Frontend React + Backend Django</h1>
+          <p>{backendMessage}</p>
         </div>
         <button
           type="button"
