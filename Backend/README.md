@@ -91,5 +91,71 @@ En producción, si el SP ya está creado en SQL Server, no necesitas ejecutar es
 - `http://127.0.0.1:8000/api/status/`
 - `http://127.0.0.1:8000/api/clientes/`
 - `http://127.0.0.1:8000/api/clientes-sp/`
+- `http://127.0.0.1:8000/api/login/` (POST)
 
 El frontend React está configurado para usar `/api` como proxy hacia este servidor.
+
+## Login con SQL Server
+
+Este proyecto ahora incluye un endpoint de login que verifica credenciales usando SQL Server.
+- El stored procedure está en: `db_scripts/06_05_2026/usp_validate_user.sql`
+- El backend llama a `usp_validate_user` desde `api/services.py`.
+- El frontend envía `username` y `password` a `POST /api/login/`.
+
+### Ejemplo de `usp_validate_user`
+
+El procedimiento almacenado valida el usuario en la tabla `USUARIO` y devuelve:
+- `is_valid = 1` si el usuario es correcto
+- `is_valid = 0` cuando no lo es
+- `role` con el tipo de acceso (`usuario`, `secretario`, `admin`)
+
+## Ejecución local
+
+### Backend
+
+1. Crear entorno virtual en `Backend`:
+   ```powershell
+   cd Backend
+   python -m venv venv
+   .\venv\Scripts\Activate.ps1
+   ```
+2. Instalar dependencias:
+   ```powershell
+   pip install -r requirements.txt
+   ```
+3. Configurar `.env` con tus datos de SQL Server:
+   ```ini
+   SECRET_KEY=django-insecure-change-me
+   DEBUG=True
+   DB_ENGINE=mssql
+   DB_NAME=<tu_base_de_datos>
+   DB_USER=<tu_usuario>
+   DB_PASSWORD=<tu_contraseña>
+   DB_HOST=localhost
+   DB_PORT=1433
+   DB_DRIVER=ODBC Driver 18 for SQL Server
+   DB_TRUSTED_CONNECTION=true
+   ```
+   - Si usas autenticación Windows, puedes dejar `DB_USER` y `DB_PASSWORD` vacíos y usar `DB_TRUSTED_CONNECTION=true`.
+4. Iniciar el servidor Django:
+   ```powershell
+   python manage.py runserver
+   ```
+
+### Frontend
+
+1. Desde la carpeta `Frontend`:
+   ```powershell
+   cd Frontend
+   npm install
+   npm run dev
+   ```
+
+### SQL Server
+
+1. Ejecutar el script `db_scripts/05_05_2026/tables.sql` para crear tablas.
+2. Cargar datos de prueba con `db_scripts/05_05_2026/data.sql`.
+3. Crear el login stored procedure:
+   - `db_scripts/06_05_2026/usp_validate_user.sql`
+
+Con eso, el backend ya puede validar el login y el frontend mostrará el formulario de acceso.
