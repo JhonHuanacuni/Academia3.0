@@ -3,3 +3,5 @@ mssql-django>=1.0
 pyodbc>=4.0
 python-dotenv>=1.0
 django-cors-headers>=4.0
+djangorestframework>=3.0
+drf-spectacular>=0.25
