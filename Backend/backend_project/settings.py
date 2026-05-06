@@ -52,8 +52,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'backend_project.wsgi.application'
 
 DB_ENGINE = os.getenv('DB_ENGINE', 'sqlite')
+DB_TRUSTED_CONNECTION = os.getenv('DB_TRUSTED_CONNECTION', 'false').lower() in ('1', 'true', 'yes')
 
 if DB_ENGINE == 'mssql':
+    mssql_options = {
+        'driver': os.getenv('DB_DRIVER', 'ODBC Driver 18 for SQL Server'),
+    }
+    if DB_TRUSTED_CONNECTION:
+        mssql_options['trusted_connection'] = 'yes'
+
     DATABASES = {
         'default': {
             'ENGINE': 'mssql',
@@ -62,9 +69,7 @@ if DB_ENGINE == 'mssql':
             'PASSWORD': os.getenv('DB_PASSWORD', ''),
             'HOST': os.getenv('DB_HOST', '127.0.0.1'),
             'PORT': os.getenv('DB_PORT', '1433'),
-            'OPTIONS': {
-                'driver': os.getenv('DB_DRIVER', 'ODBC Driver 18 for SQL Server'),
-            },
+            'OPTIONS': mssql_options,
         }
     }
 else:
