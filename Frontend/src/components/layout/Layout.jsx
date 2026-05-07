@@ -1,4 +1,4 @@
-import Header from "../header/Header";
+import Navbar from "../navbar/Navbar";
 import Sidebar from "../sidebar/Sidebar";
 import Footer from "../footer/Footer";
 
@@ -10,7 +10,6 @@ const Layout = ({
   isSidebarOpen,
   onToggleSidebar,
   onCloseSidebar,
-  onChangeRole,
   onLogout,
   backendMessage,
 }) => {
@@ -25,9 +24,8 @@ const Layout = ({
       />
 
       <div className="main-content">
-        <Header
+        <Navbar
           role={role}
-          onChangeRole={onChangeRole}
           onToggleSidebar={onToggleSidebar}
           onLogout={onLogout}
           backendMessage={backendMessage}

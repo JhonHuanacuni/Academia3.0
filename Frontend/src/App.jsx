@@ -43,10 +43,10 @@ const pageContent = {
 
 function App() {
   const [backendMessage, setBackendMessage] = useState("Conectando con backend...");
-  const [role, setRole] = useState("admin");
-  const [activePage, setActivePage] = useState("dashboard");
+  const [role, setRole] = useState(() => localStorage.getItem("role") || "admin");
+  const [activePage, setActivePage] = useState(() => localStorage.getItem("activePage") || "dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem("isAuthenticated") === "true");
   const [loginError, setLoginError] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -84,12 +84,16 @@ function App() {
       }
 
       if (data.valid) {
+        const userRole = data.role || "usuario";
         setIsAuthenticated(true);
-        setRole(data.role || "usuario");
+        setRole(userRole);
         setActivePage("dashboard");
         setPassword("");
         setUsername("");
         setLoginError("");
+        localStorage.setItem("isAuthenticated", "true");
+        localStorage.setItem("role", userRole);
+        localStorage.setItem("activePage", "dashboard");
       } else {
         setLoginError("Usuario o contraseña incorrectos");
       }
@@ -103,7 +107,18 @@ function App() {
     setActivePage("dashboard");
     setRole("admin");
     setIsSidebarOpen(false);
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("role");
+    localStorage.removeItem("activePage");
   };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("role", role);
+      localStorage.setItem("activePage", activePage);
+    }
+  }, [isAuthenticated, role, activePage]);
 
   if (!isAuthenticated) {
     return (
@@ -153,7 +168,6 @@ function App() {
       isSidebarOpen={isSidebarOpen}
       onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
       onCloseSidebar={() => setIsSidebarOpen(false)}
-      onChangeRole={setRole}
       onLogout={handleLogout}
       backendMessage={backendMessage}
     >
