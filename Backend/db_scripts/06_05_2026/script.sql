@@ -1,0 +1,116 @@
+---- CAMBIO DE MINUSCULA A MAYUSCULA EN LOS NOMBRES DE LAS TABLAS Y CAMPOS
+
+
+IF COL_LENGTH('TIPOUSUARIO', 'idTipoUsuario') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'TIPOUSUARIO.idTipoUsuario', 'IDTIPOUSUARIO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('TIPOUSUARIO', 'descripcion') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'TIPOUSUARIO.descripcion', 'DESCRIPCION', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'idUsuario') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.idUsuario', 'IDUSUARIO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'contra') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.contra', 'CONTRA', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'nombre') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.nombre', 'NOMBRE', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'apellido') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.apellido', 'APELLIDO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'dni') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.dni', 'DNI', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'fechaNacimiento') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.fechaNacimiento', 'FECHANACIMIENTO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'direccion') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.direccion', 'DIRECCION', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'estado') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.estado', 'ESTADO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'distrito') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.distrito', 'DISTRITO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'colegio') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.colegio', 'COLEGIO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'grado') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.grado', 'GRADO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'fechaActivo') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.fechaActivo', 'FECHAACTIVO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'email') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.email', 'EMAIL', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'telPersonal') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.telPersonal', 'TELPERSONAL', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'telApoderado') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.telApoderado', 'TELAPODERADO', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'situacionAcademica') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.situacionAcademica', 'SITUACIONACADEMICA', 'COLUMN';
+END
+GO
+
+IF COL_LENGTH('USUARIO', 'idTipoUsuario') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'USUARIO.idTipoUsuario', 'IDTIPOUSUARIO', 'COLUMN';
+END
+GO
