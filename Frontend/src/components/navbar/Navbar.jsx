@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars, faBell, faUser } from "@fortawesome/free-solid-svg-icons";
 
-const Navbar = ({ role, onToggleSidebar, onLogout, backendMessage }) => {
+const Navbar = ({ role, onToggleSidebar, onLogout }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -43,12 +43,9 @@ const Navbar = ({ role, onToggleSidebar, onLogout, backendMessage }) => {
         <div className="navbar-brand" onClick={() => window.scrollTo(0, 0)}>
           ACADEMIA VITA
         </div>
-        <div className="navbar-subtitle">Actualización a Academia 3.0</div>
       </div>
 
       <div className="navbar-right">
-        <div className="backend-status">{backendMessage}</div>
-
         <button
           className="navbar-icon-btn"
           onClick={() => {

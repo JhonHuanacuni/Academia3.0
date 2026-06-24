@@ -13,6 +13,7 @@ import {
   faIdCard,
   faChevronLeft,
   faChevronRight,
+  faCog,
 } from "@fortawesome/free-solid-svg-icons";
 import SidebarSection from "./SidebarSection";
 import SidebarSubLink from "./SidebarSubLink";
@@ -61,6 +62,12 @@ const sidebarConfig = {
       children: [
         { icon: faClipboardList, label: "Ver notas", page: "notas" },
       ],
+    },
+    {
+      type: "link",
+      icon: faCog,
+      label: "Administración de Módulos",
+      page: "admin-modulos",
     },
   ],
   secretario: [

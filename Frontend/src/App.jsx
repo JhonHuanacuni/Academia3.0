@@ -1,11 +1,12 @@
 ﻿import { useEffect, useState } from "react";
 import Layout from "./components/layout/Layout";
+import AdminModulos from "./components/admin/AdminModulos";
 import "./App.css";
 
 const pageContent = {
   dashboard: {
     title: "Dashboard",
-    description: "Bienvenido a Academia 3.0. Aquí se muestra el estado general del sistema.",
+    description: "Bienvenido. Aquí se muestra el estado general del sistema.",
   },
   usuarios: {
     title: "Usuarios",
@@ -39,10 +40,14 @@ const pageContent = {
     title: "Notas",
     description: "Visualiza notas, calificaciones y progreso académico.",
   },
+  "admin-modulos": {
+    title: "Administración de Módulos",
+    description: "Asigna acceso a módulos y gestiona permisos de usuarios.",
+    component: AdminModulos,
+  },
 };
 
 function App() {
-  const [backendMessage, setBackendMessage] = useState("Conectando con backend...");
   const [role, setRole] = useState(() => localStorage.getItem("role") || "admin");
   const [activePage, setActivePage] = useState(() => localStorage.getItem("activePage") || "dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -50,17 +55,6 @@ function App() {
   const [loginError, setLoginError] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-
-  useEffect(() => {
-    fetch("/api/status/")
-      .then((response) => response.json())
-      .then((data) => {
-        setBackendMessage(data.message ?? "Backend conectado");
-      })
-      .catch(() => {
-        setBackendMessage("No se pudo conectar con el backend");
-      });
-  }, []);
 
   const page = pageContent[activePage] || pageContent.dashboard;
 
@@ -125,7 +119,7 @@ function App() {
       <div className="login-page">
         <div className="login-card">
           <h1>Iniciar sesión</h1>
-          <p>Ingresa con tu usuario de SQL Server para acceder a Academia 3.0.</p>
+          <p>Ingresa tus credenciales para acceder al sistema.</p>
           <form className="login-form" onSubmit={handleLogin}>
             <label>
               Usuario
@@ -152,9 +146,6 @@ function App() {
               Entrar
             </button>
           </form>
-          <div className="login-footer">
-            <span>{backendMessage}</span>
-          </div>
         </div>
       </div>
     );
@@ -169,19 +160,22 @@ function App() {
       onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
       onCloseSidebar={() => setIsSidebarOpen(false)}
       onLogout={handleLogout}
-      backendMessage={backendMessage}
     >
-      <div className="page-header">
-        <h1>{page.title}</h1>
-        <p>{page.description}</p>
-      </div>
-      <section className="page-body">
-        <div className="page-card">
-          <h2>Contenido de {page.title}</h2>
-          <p>Esta vista está adaptada desde el diseño de Academia 2.0.</p>
-          <p>Selecciona otra opción del sidebar para ver los distintos módulos.</p>
-        </div>
-      </section>
+      {page.component ? (
+        <page.component />
+      ) : (
+        <>
+          <div className="page-header">
+            <h1>{page.title}</h1>
+            <p>{page.description}</p>
+          </div>
+          <section className="page-body">
+            <div className="page-card">
+              <p>Selecciona otra opción del menú para navegar entre módulos.</p>
+            </div>
+          </section>
+        </>
+      )}
     </Layout>
   );
 }

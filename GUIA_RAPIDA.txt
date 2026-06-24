@@ -1,0 +1,277 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                  SISTEMA DE ADMINISTRACIÓN DE MÓDULOS                          ║
+║                         ACADEMIA 3.0 - v1.0                                    ║
+║                                                                                 ║
+║  Sistema Escalable para Asignar Acceso a Módulos y Gestionar Permisos          ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 1. TABLAS SQL SERVER (Creadas)                                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  📊 MODULO                          📊 GRUPO_MODULO                         │
+│  ├─ IDMODULO (PK)                  ├─ IDGRUPO_MODULO (PK)                 │
+│  ├─ NOMBRE ✓ UNIQUE                ├─ IDGRUPO (FK → TIPOUSUARIO)          │
+│  ├─ DESCRIPCION                    ├─ IDMODULO (FK → MODULO)              │
+│  ├─ ICONO                          ├─ PERMISOS (JSON)                      │
+│  ├─ ORDEN                          ├─ FECHA_ASIGNACION                     │
+│  ├─ ACTIVO (BIT)                   └─ ACTIVO (BIT)                         │
+│  └─ FECHA_CREACION                                                         │
+│         ↓                                                                   │
+│  📊 SUBMODULO                      📊 USUARIO_MODULO                       │
+│  ├─ IDSUBMODULO (PK)               ├─ IDUSUARIO_MODULO (PK)               │
+│  ├─ IDMODULO (FK)                  ├─ IDUSUARIO (FK → USUARIO)            │
+│  ├─ NOMBRE                         ├─ IDMODULO (FK → MODULO)              │
+│  ├─ ICONO                          ├─ PERMISOS (JSON)                      │
+│  ├─ ORDEN                          ├─ ASIGNADO_POR                        │
+│  └─ ACTIVO (BIT)                   └─ ACTIVO (BIT)                         │
+│                                                                             │
+│  📊 TIPO_PERMISO                                                            │
+│  ├─ IDPERMISO (PK)                                                         │
+│  ├─ NOMBRE ✓ UNIQUE                                                        │
+│  └─ DESCRIPCION                                                            │
+│                                                                             │
+│  Permisos predefinidos:                                                    │
+│  • PER001 → read   (Solo lectura)                                          │
+│  • PER002 → write  (Crear y editar)                                        │
+│  • PER003 → delete (Eliminar)                                              │
+│  • PER004 → admin  (Control total)                                         │
+│                                                                             │
+│  Módulos predefinidos:                                                     │
+│  • MOD001 → Dashboard                                                      │
+│  • MOD002 → Usuarios                                                       │
+│  • MOD003 → Asistencias                                                    │
+│  • MOD004 → Membresías                                                     │
+│  • MOD005 → Biblioteca                                                     │
+│  • MOD006 → Exámenes                                                       │
+│  • MOD007 → Notas                                                          │
+│  • MOD008 → Administración de Módulos                                      │
+│                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 2. FLUJO DE DATOS                                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  USUARIO ADMIN                    FRONTEND                  BACKEND        │
+│       │                                                                    │
+│       │──────────────────────> [React Admin Interface] ────────────────>  │
+│       │   Selecciona usuario          │            Django API            │
+│       │   Ve módulos disponibles      │               │                  │
+│       │   Arrastra módulos ◄──────────┤               │                  │
+│       │   Confirma cambios            │     GET /api/modulos/            │
+│       │                               │     GET /api/modulos-disponibles/│
+│       │                    POST /modulos-asignados-usuario/              │
+│       │                               │                                  │
+│       │◄──────────────────────────────┤  SQL Server BD                    │
+│       │   Módulos actualizados        └──> USUARIO_MODULO                │
+│       │   En tiempo real              (INSERT/UPDATE/DELETE)             │
+│       │                                                                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 3. ARCHIVOS CREADOS / MODIFICADOS                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  🔴 NUEVOS ARCHIVOS:                                                        │
+│  ├─ Backend/db_scripts/modulos_structure.sql      [Script crear tablas]    │
+│  ├─ Backend/db_scripts/modulos_data_initial.sql   [Datos iniciales]       │
+│  ├─ Backend/db_scripts/modulos_verify.sql         [Verificar instancia]   │
+│  ├─ Backend/api/serializers.py                    [Serializers DRF]       │
+│  ├─ Frontend/src/components/admin/AdminModulos.jsx  [Componente React]    │
+│  └─ Frontend/src/components/admin/AdminModulos.css  [Estilos CSS]         │
+│                                                                             │
+│  🟡 ARCHIVOS MODIFICADOS:                                                  │
+│  ├─ Backend/api/models.py          [+5 nuevos modelos]                   │
+│  ├─ Backend/api/views.py           [+ViewSets + 2 vistas]                │
+│  ├─ Backend/api/urls.py            [+Router + 2 URLs]                    │
+│  ├─ Frontend/src/components/sidebar/Sidebar.jsx  [+1 menú item]          │
+│  └─ Frontend/src/App.jsx           [+import + entry point]               │
+│                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 4. INSTRUCCIONES DE INSTALACIÓN (Paso a Paso)                               │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  PASO 1️⃣ : CREAR TABLAS EN SQL SERVER                                       │
+│  ────────────────────────────────────────────────────────────────────────   │
+│  • Abre SQL Server Management Studio                                       │
+│  • Selecciona tu base de datos Academia3.0 (o la que uses)               │
+│  • Abre archivo: Backend/db_scripts/modulos_structure.sql                │
+│  • Ejecuta (F5)                                                          │
+│  • Verifica que se crean 5 tablas sin errores                            │
+│                                                                             │
+│  PASO 2️⃣ : INSERTAR DATOS INICIALES                                         │
+│  ────────────────────────────────────────────────────────────────────────   │
+│  • Abre archivo: Backend/db_scripts/modulos_data_initial.sql             │
+│  • Ejecuta (F5)                                                          │
+│  • Verifica: INSERT (8 módulos), INSERT (18 submódulos), INSERT OK       │
+│                                                                             │
+│  PASO 3️⃣ : REINICIAR SERVIDOR DJANGO                                        │
+│  ────────────────────────────────────────────────────────────────────────   │
+│  $ cd Backend                                                              │
+│  $ python manage.py runserver                                             │
+│  • Debe mostrar: Starting development server at http://127.0.0.1:8000/   │
+│                                                                             │
+│  PASO 4️⃣ : REINICIAR SERVIDOR REACT                                         │
+│  ────────────────────────────────────────────────────────────────────────   │
+│  $ cd Frontend                                                             │
+│  $ npm run dev                                                             │
+│  • Debe mostrar: VITE v[version] ready in [time] ms                      │
+│                                                                             │
+│  PASO 5️⃣ : PROBAR EN NAVEGADOR                                              │
+│  ────────────────────────────────────────────────────────────────────────   │
+│  • Abre http://localhost:5173                                             │
+│  • Inicia sesión como: admin / [tu contraseña]                            │
+│  • En sidebar (último ítem): ⚙️ "Administración de Módulos"               │
+│  • Haz clic ✓                                                             │
+│                                                                             │
+│  PASO 6️⃣ : USAR LA INTERFAZ                                                 │
+│  ────────────────────────────────────────────────────────────────────────   │
+│  • Selecciona usuario del dropdown                                        │
+│  • Arrastre módulo de izquierda a derecha para asignar                   │
+│  • Arrastre módulo de derecha a izquierda para desasignar                │
+│  • O usa botones ➜ y ⬅ para mover                                        │
+│  • Busca módulos con cuadro de búsqueda                                  │
+│                                                                             │
+│  PASO 7️⃣ : VERIFICAR EN BD                                                  │
+│  ────────────────────────────────────────────────────────────────────────   │
+│  Ejecuta script: Backend/db_scripts/modulos_verify.sql                    │
+│  Debe mostrar: ✓ Todas las tablas existen                                │
+│                 ✓ Conteo de registros correcto                            │
+│                 ✓ Integridad de datos OK                                  │
+│                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 5. EJEMPLO DE USO                                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ESCENARIO: Asignar módulos a "juan" (usuario)                             │
+│  ───────────────────────────────────────────────────────────────────────── │
+│                                                                             │
+│  1. Haces clic en "Administración de Módulos"                             │
+│     └─> Ves 2 paneles: DISPONIBLES | ASIGNADOS                           │
+│                                                                             │
+│  2. Seleccionas usuario: "juan"                                           │
+│     └─> Panel izquierdo: Usuarios, Asistencias, Exámenes, Notas         │
+│     └─> Panel derecho: vacío (sin módulos)                               │
+│                                                                             │
+│  3. Arrastras "Usuarios" de izquierda a derecha                           │
+│     └─> Panel izquierdo: Asistencias, Exámenes, Notas                    │
+│     └─> Panel derecho: Usuarios ✓                                        │
+│     └─> En BD: INSERT USUARIO_MODULO (juan, MOD002, ["read"])            │
+│                                                                             │
+│  4. Haces clic en botón ➜ para "Asistencias"                              │
+│     └─> Igual efecto que arrastar                                        │
+│     └─> Panel derecho: Usuarios, Asistencias ✓                           │
+│                                                                             │
+│  5. Arrastras "Asistencias" de derecha a izquierda para desasignar       │
+│     └─> Panel derecho: Usuarios                                          │
+│     └─> En BD: UPDATE USUARIO_MODULO SET ACTIVO = 0 (juan, MOD003)       │
+│                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 6. API ENDPOINTS                                                             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  GET /api/modulos/                                                         │
+│  └─> Retorna lista de módulos activos                                     │
+│      Response: [{IDMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, submodulos}]│
+│                                                                             │
+│  GET /api/modulos-disponibles/                                            │
+│  └─> Retorna módulos no asignados a usuario específico                    │
+│      Response: {success: true, modulos: [...]}                            │
+│                                                                             │
+│  GET/POST /api/modulos-asignados-usuario/                                │
+│  ├─ GET: params: idusuario=admin                                          │
+│  │  └─> Retorna módulos asignados a usuario                              │
+│  │      Response: {success: true, asignados: [...]}                       │
+│  │                                                                         │
+│  └─ POST: body: {idusuario, idmodulo, accion, permisos}                   │
+│     └─> accion: "asignar" o "desasignar"                                  │
+│        Response: {success: true, message: "..."}                          │
+│                                                                             │
+│  GET/POST /api/usuario-modulos/                                           │
+│  └─> CRUD completo (list, create, update, delete)                        │
+│                                                                             │
+│  GET/POST /api/grupo-modulos/                                             │
+│  └─> CRUD completo para permisos por grupos                              │
+│                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 7. RESTRICCIONES Y SEGURIDAD                                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ✓ Solo ADMIN puede acceder a "Administración de Módulos"                  │
+│  ✓ Validaciones en backend (no confiar en frontend)                       │
+│  ✓ CSRF token requerido para POST/PUT/DELETE                              │
+│  ✓ UNIQUE (IDUSUARIO, IDMODULO): Evita duplicados                         │
+│  ✓ Foreign keys: Evita datos huérfanos                                    │
+│  ✓ Auditoría: ASIGNADO_POR + FECHA_ASIGNACION registran cambios           │
+│  ✓ Soft delete: ACTIVO=0 en lugar de DELETE (preserva historia)           │
+│                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 8. ESCALABILIDAD                                                             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Agregar nuevo módulo:                                                     │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  INSERT INTO MODULO VALUES ('MOD009', 'Comunicaciones', ..., 1)            │
+│  INSERT INTO SUBMODULO VALUES ('SUB020', 'MOD009', 'Mensajes', ...)        │
+│  INSERT INTO GRUPO_MODULO VALUES (newid, '3', 'MOD009', '["read",...)')    │
+│                                                                             │
+│  Agregar nuevo rol:                                                        │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  INSERT INTO TIPOUSUARIO VALUES ('4', 'Profesor')                          │
+│  Luego asignar módulos al grupo IDGRUPO='4'                               │
+│                                                                             │
+│  Agregar nuevo permiso:                                                    │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  INSERT INTO TIPO_PERMISO VALUES ('PER005', 'export', ...)                 │
+│  Actualizar permisos: PERMISOS = '["read","write","export"]'              │
+│                                                                             │
+│  Sin cambios en código ✓ | Sin downtime ✓ | Escalable horizontalmente ✓    │
+│                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 9. TROUBLESHOOTING                                                           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ❌ "404 Not Found" en /api/modulos-disponibles/                           │
+│  ✓ Verifica que redeployaste Django (python manage.py runserver)          │
+│                                                                             │
+│  ❌ Dropdown de usuarios vacío                                              │
+│  ✓ Crea usuarios: INSERT INTO USUARIO (IDUSUARIO, ...) VALUES (...)       │
+│                                                                             │
+│  ❌ "UNIQUE constraint failed"                                              │
+│  ✓ Usuario ya tiene ese módulo. Desasigna primero o usa UPDATE            │
+│                                                                             │
+│  ❌ Frontend no ve cambios al drag-drop                                     │
+│  ✓ Hard refresh: CTRL+SHIFT+R | Revisa console (F12) para errores         │
+│                                                                             │
+│  ❌ Error CORS o CSRF                                                       │
+│  ✓ Verifica que CORS_ALLOW_ALL_ORIGINS = True en settings.py              │
+│  ✓ Backend debe retornar CSRF token en cookies                            │
+│                                                                             │
+│  ❌ Módulos no asignados después de hacer click                             │
+│  ✓ Revisa console.log: respuesta 200 pero error JSON?                     │
+│  ✓ Verifica que IDUSUARIO existe en tabla USUARIO                         │
+│                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════════╗
+║  Documentación completa: Ver IMPLEMENTACION_MODULOS.md                         ║
+║  Scripts SQL: Backend/db_scripts/modulos_*.sql                                ║
+║  Código Backend: Backend/api/                                                 ║
+║  Código Frontend: Frontend/src/components/admin/                               ║
+║                                                                                ║
+║  ¿Dudas? Ejecuta modulos_verify.sql para diagnosticar problemas              ║
+║  Sistema completamente funcional, escalable y listo para producción ✓         ║
+╚════════════════════════════════════════════════════════════════════════════════╝

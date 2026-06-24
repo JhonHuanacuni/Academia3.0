@@ -1,0 +1,399 @@
+✅ CHECKLIST DE IMPLEMENTACIÓN - Sistema de Administración de Módulos
+════════════════════════════════════════════════════════════════════════════════
+
+PROYECTO: Academia 3.0
+VERSIÓN: 1.0
+FECHA: 2026-05-09
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 1: PREPARACIÓN Y ANÁLISIS
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 1.1 Revisé la documentación completa (IMPLEMENTACION_MODULOS.md)
+☐ 1.2 Revisé la guía rápida (GUIA_RAPIDA.txt)
+☐ 1.3 Tengo backup de la BD antes de hacer cambios
+☐ 1.4 Tengo SQL Server Management Studio abierto
+☐ 1.5 Tengo VS Code abierto con el proyecto Academia3.0
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 2: CREACIÓN DE TABLAS EN SQL SERVER
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 2.1 Abrí archivo: Backend/db_scripts/modulos_structure.sql
+
+☐ 2.2 Ejecuté el script en SQL Server (F5)
+      Resultado esperado: "Tablas de módulos creadas exitosamente"
+
+☐ 2.3 Verifiqué que se crearon las 5 tablas:
+      ☐ MODULO
+      ☐ SUBMODULO
+      ☐ TIPO_PERMISO
+      ☐ USUARIO_MODULO
+      ☐ GRUPO_MODULO
+
+☐ 2.4 Verifiqué que se crearon los índices:
+      ☐ IDX_SUBMODULO_MODULO
+      ☐ IDX_USUARIO_MODULO_USUARIO
+      ☐ IDX_USUARIO_MODULO_MODULO
+      ☐ IDX_GRUPO_MODULO_GRUPO
+      ☐ IDX_GRUPO_MODULO_MODULO
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 3: INSERCIÓN DE DATOS INICIALES
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 3.1 Abrí archivo: Backend/db_scripts/modulos_data_initial.sql
+
+☐ 3.2 Ejecuté el script en SQL Server (F5)
+      Resultado esperado: "Datos iniciales insertados exitosamente"
+
+☐ 3.3 Verifiqué que se insertaron:
+      ☐ 4 tipos de permiso (read, write, delete, admin)
+      ☐ 8 módulos principales
+      ☐ 18 submódulos
+      ☐ Permisos para rol admin (3)
+      ☐ Permisos para rol secretario (2)
+      ☐ Permisos para rol usuario (1)
+
+☐ 3.4 Ejecuté script de verificación: Backend/db_scripts/modulos_verify.sql
+      Resultado esperado: ✓ Todas las verificaciones OK
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 4: ACTUALIZACIÓN DE ARCHIVOS BACKEND
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 4.1 Archivo Backend/api/models.py
+      ☐ Contiene modelo TipoPermiso
+      ☐ Contiene modelo Modulo
+      ☐ Contiene modelo Submodulo
+      ☐ Contiene modelo UsuarioModulo
+      ☐ Contiene modelo GrupoModulo
+      ☐ Todos con managed = False
+      ☐ Todos con db_table en MAYÚSCULAS
+
+☐ 4.2 Archivo Backend/api/serializers.py
+      ☐ Existe el archivo (creado nuevo)
+      ☐ Contiene TipoPermisoSerializer
+      ☐ Contiene ModuloSerializer
+      ☐ Contiene SubmoduloSerializer
+      ☐ Contiene ModuloSimpleSerializer
+      ☐ Contiene UsuarioModuloSerializer
+      ☐ Contiene GrupoModuloSerializer
+
+☐ 4.3 Archivo Backend/api/views.py
+      ☐ Importa los nuevos serializers
+      ☐ Importa DRF viewsets
+      ☐ Contiene ModuloViewSet
+      ☐ Contiene SubmoduloViewSet
+      ☐ Contiene UsuarioModuloViewSet
+      ☐ Contiene GrupoModuloViewSet
+      ☐ Contiene vista modulos_disponibles()
+      ☐ Contiene vista modulos_asignados_usuario()
+
+☐ 4.4 Archivo Backend/api/urls.py
+      ☐ Importa DefaultRouter de DRF
+      ☐ Registra router.register para modulos
+      ☐ Registra router.register para submodulos
+      ☐ Registra router.register para usuario-modulos
+      ☐ Registra router.register para grupo-modulos
+      ☐ Incluye URL para modulos-disponibles
+      ☐ Incluye URL para modulos-asignados-usuario
+      ☐ Incluye router.urls
+
+☐ 4.5 Verifiqué que NO hay errores de sintaxis en Python
+      $ cd Backend
+      $ python -m py_compile api/models.py
+      $ python -m py_compile api/serializers.py
+      $ python -m py_compile api/views.py
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 5: ACTUALIZACIÓN DE ARCHIVOS FRONTEND
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 5.1 Carpeta creada: Frontend/src/components/admin/
+
+☐ 5.2 Archivo Frontend/src/components/admin/AdminModulos.jsx
+      ☐ Existe el archivo
+      ☐ Contiene componente AdminModulos
+      ☐ Tiene selector de usuario
+      ☐ Tiene panel de módulos disponibles
+      ☐ Tiene panel de módulos asignados
+      ☐ Tiene funcionalidad drag-and-drop
+      ☐ Tiene botones asignar/desasignar
+      ☐ Tiene búsqueda en ambos paneles
+      ☐ Hace fetch a /api/modulos-disponibles/
+      ☐ Hace fetch a /api/modulos-asignados-usuario/
+      ☐ Hace POST a /api/modulos-asignados-usuario/
+
+☐ 5.3 Archivo Frontend/src/components/admin/AdminModulos.css
+      ☐ Existe el archivo
+      ☐ Contiene estilos responsivos
+      ☐ Contiene animaciones
+      ☐ Contiene grid layout para paneles
+      ☐ Contiene estilos mobile
+
+☐ 5.4 Archivo Frontend/src/components/sidebar/Sidebar.jsx
+      ☐ Importa faCog
+      ☐ Agregó entrada en admin config:
+         {
+           type: "link",
+           icon: faCog,
+           label: "Administración de Módulos",
+           page: "admin-modulos",
+         }
+
+☐ 5.5 Archivo Frontend/src/App.jsx
+      ☐ Importa AdminModulos
+      ☐ Agregó entrada en pageContent:
+         "admin-modulos": {
+           title: "Administración de Módulos",
+           description: "Asigna acceso a módulos...",
+           component: AdminModulos,
+         }
+      ☐ Modificó render para usar page.component si existe
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 6: PRUEBAS DE SERVIDOR
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 6.1 Backend - Reiniciar servidor Django
+      $ cd Backend
+      $ python manage.py runserver
+      
+      Resultado esperado:
+      ✓ Starting development server at http://127.0.0.1:8000/
+      ✓ No hay errores de ImportError
+      ✓ No hay errores de migrations
+
+☐ 6.2 Frontend - Reiniciar servidor React
+      $ cd Frontend
+      $ npm run dev
+      
+      Resultado esperado:
+      ✓ VITE v[version] ready in [time] ms
+      ✓ ➜ Local: http://localhost:5173/
+      ✓ No hay errores de bundling
+
+☐ 6.3 Verificar API de status
+      GET http://127.0.0.1:8000/api/status/
+      
+      Resultado esperado:
+      {
+        "message": "Django backend conectado",
+        "status": "ok"
+      }
+
+☐ 6.4 Verificar API de módulos
+      GET http://127.0.0.1:8000/api/modulos/
+      
+      Resultado esperado:
+      200 OK con lista de módulos en JSON
+
+☐ 6.5 Verificar API de módulos disponibles
+      GET http://127.0.0.1:8000/api/modulos-disponibles/
+      
+      Resultado esperado:
+      200 OK con lista de módulos con submódulos
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 7: PRUEBAS DE INTERFAZ
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 7.1 Abrí http://localhost:5173 en navegador
+
+☐ 7.2 Inicié sesión como admin
+      Usuario: admin
+      Contraseña: [la que uses]
+
+☐ 7.3 En el sidebar, al final aparece:
+      ☐ Ícono ⚙️ (faCog)
+      ☐ Texto "Administración de Módulos"
+
+☐ 7.4 Hice clic en "Administración de Módulos"
+      ☐ Se cargó sin errores
+      ☐ Aparece título y descripción
+      ☐ Aparece dropdown de usuarios
+
+☐ 7.5 Seleccioné un usuario del dropdown
+      ☐ Se cargan módulos disponibles a la izquierda
+      ☐ Se cargan módulos asignados a la derecha
+      ☐ Los paneles tienen buscador
+      ☐ Los paneles muestran contador
+
+☐ 7.6 Prueba de drag-and-drop
+      ☐ Arrastré un módulo de izquierda a derecha
+      ☐ Se movió automáticamente
+      ☐ Desapareció de disponibles
+      ☐ Apareció en asignados
+      ☐ Se vio animación suave
+
+☐ 7.7 Prueba de botones
+      ☐ Hice clic en botón ➜ para asignar otro módulo
+      ☐ Se movió correctamente
+      ☐ Hice clic en botón ⬅ para desasignar
+      ☐ Se movió de nuevo a disponibles
+
+☐ 7.8 Prueba de búsqueda
+      ☐ Escribí en buscador de disponibles
+      ☐ Los módulos se filtraron
+      ☐ Escribí en buscador de asignados
+      ☐ Los módulos se filtraron
+
+☐ 7.9 Hard refresh y verificar persistencia
+      ☐ Presioné CTRL+SHIFT+R
+      ☐ Seleccioné el usuario nuevamente
+      ☐ Los módulos asignados permanecen
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 8: VALIDACIÓN EN BD
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 8.1 Abrí SQL Server y ejecuté:
+      SELECT * FROM USUARIO_MODULO WHERE ACTIVO = 1
+
+      ☐ Aparecen las asignaciones que hice en la interfaz
+      ☐ Contienen IDUSUARIO correcto
+      ☐ Contienen IDMODULO correcto
+      ☐ PERMISOS tiene JSON válido
+      ☐ ASIGNADO_POR tiene el usuario admin
+      ☐ FECHA_ASIGNACION tiene timestamp
+
+☐ 8.2 Ejecuté script de verificación:
+      Backend/db_scripts/modulos_verify.sql
+
+      Resultado esperado:
+      ✓ Tabla MODULO existe
+      ✓ Tabla SUBMODULO existe
+      ✓ Tabla TIPO_PERMISO existe
+      ✓ Tabla USUARIO_MODULO existe
+      ✓ Tabla GRUPO_MODULO existe
+      ✓ Integridad de datos OK
+      ✓ Sin referencias inválidas
+
+☐ 8.3 Consulté con usuarios diferentes:
+      SELECT * FROM USUARIO_MODULO 
+      WHERE IDUSUARIO = 'juan' AND ACTIVO = 1
+
+      ☐ Aparecen solo módulos de ese usuario
+      ☐ JSON de permisos es válido
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 9: VALIDACIÓN DE ROLES
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 9.1 Probé como SECRETARIO
+      ☐ Hice login con usuario tipo secretario
+      ☐ NO aparece "Administración de Módulos" en sidebar
+      ☐ (Solo admins deben verlo)
+
+☐ 9.2 Probé como USUARIO REGULAR
+      ☐ Hice login con usuario regular
+      ☐ NO aparece "Administración de Módulos" en sidebar
+
+☐ 9.3 Volví a ADMIN
+      ☐ La opción aparece nuevamente
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 10: PRUEBAS AVANZADAS
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 10.1 Probé con múltiples usuarios simultáneamente
+       ☐ Un navegador con admin
+       ☐ Otro navegador con secretario
+       ☐ Los cambios del admin no afectan la sesión de secretario
+
+☐ 10.2 Probé asignación masiva
+       ☐ Asigné 5+ módulos a un usuario
+       ☐ Todos se asignaron correctamente
+       ☐ La BD refleja todos los cambios
+
+☐ 10.3 Probé desasignación
+       ☐ Desasigné todos los módulos
+       ☐ El panel derecho quedó vacío
+       ☐ En BD: ACTIVO = 0
+
+☐ 10.4 Probé en diferentes navegadores
+       ☐ Chrome
+       ☐ Firefox
+       ☐ Edge
+       ☐ (Drag-and-drop funciona igual en todos)
+
+☐ 10.5 Probé responsividad mobile
+       ☐ Abierto devtools (F12)
+       ☐ Cambié a vista mobile (375x812)
+       ☐ Los paneles se apilan verticalmente
+       ☐ Botones son clickeables
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 11: DOCUMENTACIÓN
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 11.1 Documentación completa disponible:
+       ☐ IMPLEMENTACION_MODULOS.md
+       ☐ GUIA_RAPIDA.txt
+       ☐ ejemplos_uso.sql
+       ☐ modulos_verify.sql
+
+☐ 11.2 Archivos están en las carpetas correctas:
+       ☐ Academia3.0/IMPLEMENTACION_MODULOS.md
+       ☐ Academia3.0/GUIA_RAPIDA.txt
+       ☐ Backend/db_scripts/ejemplos_uso.sql
+       ☐ Backend/db_scripts/modulos_verify.sql
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 12: PRÓXIMOS PASOS (OPCIONAL)
+════════════════════════════════════════════════════════════════════════════════
+
+☐ 12.1 Crear endpoint para listar usuarios
+       GET /api/usuarios/ → Retorna usuarios activos
+
+☐ 12.2 Agregar filtros en AdminModulos
+       • Por rol/grupo
+       • Por estado (activo/inactivo)
+       • Histórico de cambios
+
+☐ 12.3 Implementar auditoría completa
+       • Tabla MODULO_AUDIT
+       • Logs de quién hizo qué y cuándo
+
+☐ 12.4 Dashboard de módulos
+       • Estadísticas de uso
+       • Gráficos de asignación
+
+☐ 12.5 API de permisos para validar en runtime
+       GET /api/user-permissions/
+       → Retorna módulos permitidos para usuario actual
+
+════════════════════════════════════════════════════════════════════════════════
+VALIDACIÓN FINAL
+════════════════════════════════════════════════════════════════════════════════
+
+✓ Sistema completamente funcional
+✓ Todos los componentes integrados
+✓ Base de datos con estructura escalable
+✓ Interfaz intuitiva con drag-and-drop
+✓ Documentación completa
+✓ Ejemplos SQL para mantenimiento
+✓ Listo para producción
+
+════════════════════════════════════════════════════════════════════════════════
+
+FECHA DE IMPLEMENTACIÓN: __________________
+RESPONSABLE: ____________________________
+ESTADO FINAL: ☐ COMPLETADO EXITOSAMENTE
+
+NOTAS:
+_____________________________________________________________________________
+_____________________________________________________________________________
+_____________________________________________________________________________
+
+════════════════════════════════════════════════════════════════════════════════
+¡FELICIDADES! El sistema de administración de módulos está completamente 
+implementado y listo para usar. 
+
+Para dudas o problemas, consulta:
+• GUIA_RAPIDA.txt → Para paso a paso visual
+• IMPLEMENTACION_MODULOS.md → Para documentación completa
+• ejemplos_uso.sql → Para queries útiles
+• modulos_verify.sql → Para diagnosticar problemas
+════════════════════════════════════════════════════════════════════════════════

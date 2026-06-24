@@ -11,7 +11,6 @@ const Layout = ({
   onToggleSidebar,
   onCloseSidebar,
   onLogout,
-  backendMessage,
 }) => {
   return (
     <div className="app-shell">
@@ -28,7 +27,6 @@ const Layout = ({
           role={role}
           onToggleSidebar={onToggleSidebar}
           onLogout={onLogout}
-          backendMessage={backendMessage}
         />
         <main className="content">{children}</main>
         <Footer />

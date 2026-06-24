@@ -3,7 +3,7 @@ const Footer = () => {
 
   return (
     <footer className="app-footer">
-      <span>Academia 3.0 © {currentYear} — Todos los derechos reservados.</span>
+      <span>Academia VITA © {currentYear} — Todos los derechos reservados.</span>
     </footer>
   );
 };

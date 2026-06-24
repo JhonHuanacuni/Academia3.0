@@ -1,4 +1,4 @@
-const Header = ({ onToggleSidebar, role, onChangeRole, onLogout, backendMessage }) => {
+const Header = ({ onToggleSidebar, role, onChangeRole, onLogout }) => {
   return (
     <header className="app-header">
       <div className="header-left">
@@ -7,12 +7,10 @@ const Header = ({ onToggleSidebar, role, onChangeRole, onLogout, backendMessage 
         </button>
         <div>
           <div className="brand-title">ACADEMIA VITA</div>
-          <div className="brand-subtitle">Actualización a Academia 3.0</div>
         </div>
       </div>
 
       <div className="header-right">
-        <div className="backend-status">{backendMessage}</div>
         <label className="role-label" htmlFor="role-select">
           Rol:
           <select

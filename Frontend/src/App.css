@@ -9,6 +9,7 @@
   --card: #ffffff;
   --shadow: 0 18px 45px rgba(28, 22, 61, 0.08);
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 18px;
 }
 
 * {
@@ -26,8 +27,16 @@ body {
 }
 
 button,
-select {
+select,
+input,
+textarea {
   font: inherit;
+}
+
+select,
+option {
+  color: var(--text);
+  background-color: #fff;
 }
 
 .app-shell {
@@ -36,8 +45,8 @@ select {
 }
 
 .sidebar {
-  width: 280px;
-  min-width: 280px;
+  width: 220px;
+  min-width: 220px;
   background: linear-gradient(180deg, #3d348b 0%, #5d4aa2 100%);
   color: #fff;
   display: flex;
@@ -50,8 +59,8 @@ select {
 }
 
 .sidebar-collapsed {
-  width: 80px;
-  min-width: 80px;
+  width: 60px;
+  min-width: 60px;
 }
 
 .sidebar-collapsed .sidebar-label,
@@ -67,7 +76,7 @@ select {
   position: fixed;
   left: 0;
   top: 0;
-  width: 280px;
+  width: 220px;
   z-index: 12;
   transform: translateX(-100%);
   transition: transform 0.2s ease;
@@ -81,7 +90,7 @@ select {
 .sidebar-top {
   align-items: center;
   justify-content: space-between;
-  padding: 24px 20px;
+  padding: 14px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   text-align: center;
 }
@@ -93,9 +102,9 @@ select {
 
 
 .brand {
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -104,17 +113,18 @@ select {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   cursor: pointer;
+  font-size: 0.75rem;
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 16px 8px;
+  padding: 10px 6px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -130,12 +140,13 @@ select {
   background: transparent;
   color: #f2f3f8;
   text-align: left;
-  padding: 12px 18px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  font-size: 0.85rem;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
@@ -146,7 +157,8 @@ select {
 }
 
 .sidebar-icon {
-  width: 20px;
+  width: 16px;
+  font-size: 0.85rem;
   text-align: center;
   opacity: 0.85;
 }
@@ -168,7 +180,7 @@ select {
 }
 
 .sidebar-section {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .sidebar-section-toggle {
@@ -176,13 +188,14 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 8px 10px;
   border: none;
-  border-radius: 14px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   cursor: pointer;
+  font-size: 0.85rem;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
@@ -194,7 +207,8 @@ select {
 .sidebar-section-icon,
 .sidebar-sublink-icon,
 .sidebar-icon {
-  width: 24px;
+  width: 18px;
+  font-size: 0.85rem;
   display: inline-flex;
   justify-content: center;
   align-items: center;
@@ -203,11 +217,11 @@ select {
 .sidebar-section-label {
   flex: 1;
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
 .sidebar-section-arrow {
-  font-size: 1rem;
+  font-size: 0.8rem;
   transition: transform 0.2s ease;
 }
 
@@ -218,8 +232,8 @@ select {
 .sidebar-section-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: 6px;
+  padding: 8px;
   /* margin-top: 10px; */
   border-radius: 22px;
   /* background: rgba(255, 255, 255, 0.18); */
@@ -247,12 +261,13 @@ select {
   border: none;
   background: #ffffff;
   color: #3d348b;
-  padding: 12px 16px;
-  border-radius: 16px;
+  padding: 8px 12px;
+  border-radius: 10px;
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   box-shadow: 0 12px 24px rgba(33, 15, 96, 0.06);
@@ -301,7 +316,7 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
+  padding: 10px 18px;
   background: #fff;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   position: sticky;
@@ -318,23 +333,18 @@ select {
 
 .navbar-toggle {
   border: none;
-  /* background: #f2f3f8; */
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 1.2rem;
+  font-size: 0.95rem;
 }
 
 .navbar-brand {
   font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
   cursor: pointer;
-}
-
-.navbar-subtitle {
-  color: var(--text-muted);
-  font-size: 0.9rem;
 }
 
 .navbar-right {
@@ -346,13 +356,12 @@ select {
 
 .navbar-icon-btn {
   border: none;
-  /* background: #f2f3f8; */
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   cursor: pointer;
   position: relative;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
 }
 
 .navbar-badge {
@@ -368,6 +377,7 @@ select {
 
 .navbar-role {
   font-weight: 600;
+  font-size: 0.85rem;
   color: var(--text);
 }
 
@@ -400,14 +410,6 @@ select {
 
 .navbar-dropdown-item:hover {
   background: rgba(74, 61, 144, 0.07);
-}
-
-.backend-status {
-  color: var(--text-muted);
-  font-size: 0.92rem;
-  background: #f5f6fb;
-  border-radius: 12px;
-  padding: 10px 14px;
 }
 
 .main-content {
@@ -447,13 +449,8 @@ select {
 }
 
 .brand-title {
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 700;
-}
-
-.brand-subtitle {
-  font-size: 0.9rem;
-  color: var(--text-muted);
 }
 
 .header-right {
@@ -463,20 +460,12 @@ select {
   flex-wrap: wrap;
 }
 
-.backend-status {
-  color: var(--text-muted);
-  font-size: 0.92rem;
-  background: #f5f6fb;
-  border-radius: 12px;
-  padding: 10px 14px;
-}
-
 .role-label {
   display: inline-flex;
   gap: 8px;
   align-items: center;
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
 .role-label select {
@@ -487,18 +476,19 @@ select {
 }
 
 .content {
-  padding: 24px;
+  padding: 16px;
   flex: 1;
 }
 
 .page-header h1 {
-  margin: 0 0 8px;
-  font-size: clamp(2rem, 2.5vw, 2.6rem);
+  margin: 0 0 6px;
+  font-size: 1.35rem;
 }
 
 .page-header p {
   margin: 0;
   color: var(--text-muted);
+  font-size: 0.85rem;
   max-width: 720px;
 }
 
@@ -510,9 +500,19 @@ select {
 .page-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 22px;
-  padding: 26px;
+  border-radius: 14px;
+  padding: 18px;
   box-shadow: var(--shadow);
+}
+
+.page-card h2 {
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+
+.page-card p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .login-page {
@@ -535,13 +535,14 @@ select {
 }
 
 .login-card h1 {
-  margin: 0 0 12px;
-  font-size: 2rem;
+  margin: 0 0 10px;
+  font-size: 1.4rem;
 }
 
 .login-card p {
-  margin: 0 0 24px;
+  margin: 0 0 20px;
   color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .login-form {
@@ -551,8 +552,8 @@ select {
 
 .login-form label {
   display: grid;
-  gap: 8px;
-  font-size: 0.95rem;
+  gap: 6px;
+  font-size: 0.85rem;
   color: var(--text);
 }
 
@@ -585,10 +586,10 @@ select {
   background: #4b3d90;
   color: #fff;
   border: none;
-  border-radius: 14px;
-  padding: 14px 20px;
+  border-radius: 10px;
+  padding: 10px 16px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.9rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -597,27 +598,22 @@ select {
   box-shadow: 0 14px 28px rgba(74, 61, 144, 0.16);
 }
 
-.login-footer {
-  margin-top: 20px;
-  color: var(--text-muted);
-  font-size: 0.95rem;
+.app-footer {
+  background: #3d348b;
+  color: #fff;
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 0.8rem;
 }
 
 .logout-button {
   border: none;
   background: #f2f3f8;
   color: var(--text);
-  border-radius: 12px;
-  padding: 10px 16px;
+  border-radius: 10px;
+  padding: 8px 12px;
   cursor: pointer;
-}
-
-.app-footer {
-  background: #3d348b;
-  color: #fff;
-  text-align: center;
-  padding: 16px 20px;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
 @media (max-width: 960px) {
@@ -636,13 +632,13 @@ select {
   }
 
   .sidebar-collapsed {
-    width: 80px;
-    min-width: 80px;
+    width: 60px;
+    min-width: 60px;
   }
 
   .sidebar-mobile.sidebar-collapsed {
-    width: 280px;
-    min-width: 280px;
+    width: 220px;
+    min-width: 220px;
   }
 
   .app-shell {
