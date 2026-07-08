@@ -1,0 +1,32 @@
+ORDEN DE EJECUCIÓN — 29/06/2026
+================================
+
+Prerequisito: ejecutar primero los scripts de la carpeta 22_06_2026
+(esquema_completo.sql, modulos_admin.sql y demás según tu entorno).
+
+1. usp_aula_crud.sql
+   - 5 SPs CRUD mantenedor de aulas (listar, obtener, insertar, actualizar, eliminar)
+
+2. modulo_academico.sql
+   - MOD009 Académico + SUB010 Mantenedor de aulas
+   - Permisos por rol (administrador, docente)
+   - Datos de ejemplo en tabla AULA (si está vacía)
+
+STORED PROCEDURES (usp_aula_crud.sql):
+  - usp_aula_listar
+  - usp_aula_obtener
+  - usp_aula_insertar
+  - usp_aula_actualizar
+   - usp_aula_eliminar          — eliminación física (bloquea si hay membresías)
+
+API (Mantenedor Aulas):
+  GET    /api/aulas/?buscar=&estado=&ordenarPor=&direccion=&pagina=&tamanio=
+  GET    /api/aulas/{id}/
+  POST   /api/aulas/
+  PUT    /api/aulas/{id}/
+  DELETE /api/aulas/{id}/
+
+Frontend:
+  Menú Académico → Mantenedor de aulas (página academico-aulas)
+
+Ver carpeta 06_07_2026 para scripts del módulo Informes / Asistencias.

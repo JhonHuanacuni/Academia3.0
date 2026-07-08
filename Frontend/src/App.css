@@ -3,8 +3,10 @@
   --text-muted: #6d6d6d;
   --bg: #f2f3f8;
   --surface: #ffffff;
-  --primary: #4b3d90;
-  --primary-alt: #5d4aa2;
+  --sidebar-bg: #6a42e5;
+  --primary: var(--sidebar-bg);
+  --primary-alt: #5a35c9;
+  --primary-hover: #5a35c9;
   --border: #e3e4ec;
   --card: #ffffff;
   --shadow: 0 18px 45px rgba(28, 22, 61, 0.08);
@@ -20,6 +22,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  overflow-x: hidden;
 }
 
 #root {
@@ -47,7 +50,7 @@ option {
 .sidebar {
   width: 220px;
   min-width: 220px;
-  background: linear-gradient(180deg, #3d348b 0%, #5d4aa2 100%);
+  background: var(--sidebar-bg);
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -68,10 +71,6 @@ option {
   display: none;
 }
 
-.sidebar-collapsed .brand {
-  display: none;
-}
-
 .sidebar-mobile {
   position: fixed;
   left: 0;
@@ -87,41 +86,65 @@ option {
   transform: translateX(0);
 }
 
-.sidebar-top {
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  text-align: center;
+.sidebar-brand {
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  padding: 10px 0 12px 10px;
+  line-height: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+  margin-bottom: 4px;
 }
 
-.sidebar-collapsed .sidebar-top {
+.sidebar-logo {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sidebar-collapsed .sidebar-brand {
+  padding: 8px 0 0 6px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 10px 14px;
   display: flex;
-  justify-content: center;
-}
-
-
-.brand {
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
 }
 
 .collapse-toggle {
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.22);
   color: #fff;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.collapse-toggle:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.sidebar-footer-toggle {
+  flex-shrink: 0;
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 10px 6px;
+  padding: 8px 6px 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -133,6 +156,21 @@ option {
 .sidebar-nav::-webkit-scrollbar {
   width: 0px;
   height: 0px;
+}
+
+.sidebar-loading,
+.sidebar-error,
+.sidebar-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 0.8rem;
+  color: rgba(242, 243, 248, 0.75);
+}
+
+.sidebar-error {
+  color: #ffb4b4;
 }
 
 .sidebar-link {
@@ -260,7 +298,7 @@ option {
   width: 100%;
   border: none;
   background: #ffffff;
-  color: #3d348b;
+  color: var(--primary);
   padding: 8px 12px;
   border-radius: 10px;
   text-align: left;
@@ -279,8 +317,8 @@ option {
 }
 
 .sidebar-sublink.active {
-  background: #e8e5ff;
-  color: #3d348b;
+  background: #ede8fc;
+  color: var(--primary);
 }
 
 .sidebar-sublink.collapsed {
@@ -409,7 +447,7 @@ option {
 }
 
 .navbar-dropdown-item:hover {
-  background: rgba(74, 61, 144, 0.07);
+  background: rgba(106, 66, 229, 0.07);
 }
 
 .main-content {
@@ -417,6 +455,8 @@ option {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-width: 0;
+  overflow-x: hidden;
   background: #eef0f7;
 }
 
@@ -478,6 +518,9 @@ option {
 .content {
   padding: 16px;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .page-header h1 {
@@ -531,7 +574,7 @@ option {
   border-radius: 24px;
   box-shadow: 0 24px 60px rgba(28, 22, 61, 0.12);
   padding: 32px;
-  border: 1px solid rgba(74, 61, 144, 0.08);
+  border: 1px solid rgba(106, 66, 229, 0.08);
 }
 
 .login-card h1 {
@@ -572,7 +615,7 @@ option {
 }
 
 .login-form input:focus {
-  border-color: rgba(74, 61, 144, 0.4);
+  border-color: rgba(106, 66, 229, 0.4);
 }
 
 .login-error {
@@ -583,23 +626,24 @@ option {
 }
 
 .login-button {
-  background: #4b3d90;
+  background: var(--primary);
   color: #fff;
   border: none;
   border-radius: 10px;
   padding: 10px 16px;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .login-button:hover {
+  background: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(74, 61, 144, 0.16);
+  box-shadow: 0 14px 28px rgba(106, 66, 229, 0.2);
 }
 
 .app-footer {
-  background: #3d348b;
+  background: var(--sidebar-bg);
   color: #fff;
   text-align: center;
   padding: 10px 16px;

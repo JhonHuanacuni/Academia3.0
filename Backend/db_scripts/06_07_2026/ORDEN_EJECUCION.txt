@@ -1,0 +1,75 @@
+ORDEN DE EJECUCIÓN — 06/07/2026
+================================
+
+Prerequisito: ejecutar primero los scripts de las carpetas 22_06_2026 y 29_06_2026
+(esquema_completo.sql, modulos_admin.sql, usp_aula_crud.sql, modulo_academico.sql, etc.).
+
+--- Informes ---
+
+1. 1.modulo_informes.sql
+   - Columna opcional AULA.IDTUTORA (tutora del aula para el informe)
+   - MOD010 Informes + SUB011 Asistencias
+   - Permisos por rol (administrador, docente)
+
+2. 2.usp_asistencia_informe.sql
+   - SP informe de asistencias por rango de fechas
+
+3. 3.alter_usp_asistencia_informe_vence.sql
+   - Agrega columna FECHA_VENCE (fecha fin membresía vigente → VENCE en Excel)
+
+10. 10.usp_asistencia_informe_vence_vigente.sql
+   - Misma lógica que script 3 si ya lo ejecutaste antes de este ajuste
+   - FECHA_VENCE = FECHAFIN de la membresía activa vigente en el período
+
+--- Usuario — foto de perfil (Base64) ---
+
+4. 4.usuario_columna_foto.sql
+   - Columna USUARIO.FOTO (NVARCHAR(MAX), Base64 sin prefijo data:image/...)
+
+5. 5.usp_usuario_foto.sql
+   - usp_usuario_obtener / insertar / actualizar con soporte FOTO
+   - usp_usuario_listar NO incluye FOTO (evita cargar imágenes en el listado)
+
+--- Membresías ---
+
+6. 6.membresia_alter_catalogos.sql
+   - Columnas TIPOMEMBRESIA, ASESOR, FECHACANCELACION, ESTADO en MEMBRESIA
+   - Catálogos: [PLAN], TURNO, METODO_PAGO
+
+7. 7.usp_membresia_crud.sql
+   - usp_membresia_listar / obtener / insertar / actualizar / eliminar
+   - usp_membresia_buscar_estudiantes
+
+8. 8.usp_membresia_listar_activos.sql
+   - Listado por defecto solo membresías Activas (eliminar = baja lógica, desaparece del listado)
+
+9. 9.usp_membresia_eliminar_roles.sql
+   - Admin (tipo 3): eliminación física (MEMBRESIA + pagos + notificaciones)
+   - Otros roles: desactivar (ESTADO = Inactivo)
+
+STORED PROCEDURES (informes):
+  - usp_asistencia_informe — estudiantes + marcas diarias (+ FECHA_VENCE si se ejecutó el script 3)
+
+STORED PROCEDURES (membresías):
+  - usp_membresia_* — CRUD mantenedor membresías
+
+API (Informe Asistencias):
+  GET /api/informes/asistencias/?fechaDesde=01072026&fechaHasta=06072026&buscar=
+
+API (Membresías):
+  GET    /api/membresias/
+  GET    /api/membresias/{id}/
+  POST   /api/membresias/
+  PUT    /api/membresias/{id}/
+  DELETE /api/membresias/{id}/
+  GET    /api/membresias/catalogos/
+  GET    /api/membresias/estudiantes/?buscar=
+
+Frontend:
+  Menú Informes → Asistencias (informes-asistencias)
+  Menú Membresías → Ver membresías (membresias)
+
+Notas:
+  - PLAN es palabra reservada en SQL Server: siempre usar [PLAN]
+  - Las marcas usan: A = presente, T = tardanza, F = falta, R = retiro/justificado
+  - ESTADOMIEMBRO: 1=Nuevo, 2=Activo, 3=Vencido, 4=Cancelado

@@ -1,0 +1,58 @@
+ORDEN DE EJECUCIÓN — 22/06/2026
+================================
+
+1. esquema_completo.sql
+   - Crea todas las tablas base + usuarios seed + usp_validate_user
+   - DESTRUCTIVO: hace DROP de tablas existentes
+
+2. modulos_admin.sql
+   - Tabla USUARIO_MODULO_EXCLUIDO (revocar módulos heredados por rol)
+   - Datos: TIPO_PERMISO, MODULO, SUBMODULO, GRUPO_MODULO
+   - SPs de administración de módulos
+
+3. roles_fix.sql  (solo si la BD ya existía con nombres de rol antiguos)
+   - Actualiza TIPOUSUARIO y usp_validate_user
+
+4. submodulos_admin.sql
+   - Tabla USUARIO_SUBMODULO_EXCLUIDO (revocar submódulos por usuario)
+   - SPs: usp_submodulos_modulo_usuario, usp_submodulo_asignar_usuario, usp_submodulo_desasignar_usuario
+
+5. usp_usuario_crud.sql
+   - 5 SPs CRUD mantenedor usuarios
+
+6. usp_asistencia.sql
+   - Marcar asistencia por DNI, listar del día, índice anti-duplicados
+
+STORED PROCEDURES (modulos_admin.sql):
+  - usp_listar_usuarios_activos
+  - usp_modulos_listar_activos
+  - usp_submodulos_por_modulo
+  - usp_modulos_efectivos_usuario
+  - usp_modulo_asignar_usuario
+  - usp_modulo_desasignar_usuario
+
+API (Frontend Admin Módulos):
+  GET  /api/usuarios-activos/
+  GET  /api/modulos-disponibles/?idusuario={id}
+  GET  /api/modulos-asignados-usuario/?idusuario={id}
+  POST /api/modulos-asignados-usuario/  { idusuario, idmodulo, accion: asignar|desasignar }
+  GET  /api/submodulos-modulo-usuario/?idusuario={id}&idmodulo={idmodulo}
+  POST /api/submodulos-modulo-usuario/  { idusuario, idsubmodulo, accion: asignar|desasignar }
+
+API (Mantenedor Usuarios — Listado):
+  GET    /api/usuarios/?buscar=&estado=&ordenarPor=&direccion=&pagina=&tamanio=
+  GET    /api/usuarios/{id}/
+  POST   /api/usuarios/
+  PUT    /api/usuarios/{id}/
+  DELETE /api/usuarios/{id}/
+  GET    /api/tipos-usuario/
+  POST   /api/asistencias/               { dni, idRegistrador } — marcar (QR o manual)
+  GET    /api/asistencias/?fecha=&buscar= — listado del día
+  GET    /api/usuarios/{id}/carnet/      — PDF carnet (template Intranet_Vita)
+
+Ver carpeta 29_06_2026 para scripts del módulo Académico / Aulas.
+
+Usuarios de prueba (login):
+  IDUSUARIO=1, CONTRA=1234 → estudiante
+  IDUSUARIO=2, CONTRA=1234 → docente
+  IDUSUARIO=3, CONTRA=1234 → administrador

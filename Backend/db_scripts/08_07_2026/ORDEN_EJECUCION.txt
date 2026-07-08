@@ -1,0 +1,24 @@
+ORDEN DE EJECUCIÓN — 08/07/2026
+================================
+
+Prerequisito: ejecutar primero los scripts de 06_07_2026
+(especialmente 10.usp_asistencia_informe_vence_vigente.sql).
+
+--- Informes ---
+
+1. 1.usp_asistencia_informe_filtro_plan.sql
+   - Parámetro opcional @IDPlan para filtrar estudiantes por tipo de plan
+   - Filtro usado en Informe de asistencias (resumen + exportación Excel)
+
+2. 2.usp_asistencia_informe_filtro_estado.sql
+   - Parámetro opcional @EstadoUsuario (Activo / Inactivo / vacío = todos)
+
+3. 3.usp_asistencia_informe_faltas_desde_membresia.sql
+   - Columna FECHA_INICIO_MEM (FECHAINICIO de membresía)
+   - Las faltas automáticas solo cuentan desde inicio hasta fin de membresía
+
+API (Informe Asistencias):
+  GET /api/informes/asistencias/?fechaDesde=01072026&fechaHasta=31072026&buscar=&idPlan=PLN001&estado=Activo
+
+Frontend:
+  Informes → Asistencias → filtros "Tipo de plan" y "Estado"

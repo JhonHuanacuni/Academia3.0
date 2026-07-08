@@ -2,6 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars, faBell, faUser } from "@fortawesome/free-solid-svg-icons";
 
+const ROLE_LABELS = {
+  estudiante: "Estudiante",
+  docente: "Docente",
+  administrador: "Administrador",
+  usuario: "Estudiante",
+  secretario: "Docente",
+  admin: "Administrador",
+};
+
 const Navbar = ({ role, onToggleSidebar, onLogout }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -9,7 +18,7 @@ const Navbar = ({ role, onToggleSidebar, onLogout }) => {
   const userMenuRef = useRef(null);
   const notificationsRef = useRef(null);
 
-  const userRole = role ? role.charAt(0).toUpperCase() + role.slice(1) : "Usuario";
+  const userRole = ROLE_LABELS[role] || "Usuario";
 
   useEffect(() => {
     const handleClickOutside = (event) => {

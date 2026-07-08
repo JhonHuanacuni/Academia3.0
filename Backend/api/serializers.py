@@ -5,7 +5,7 @@ from .models import Modulo, Submodulo, UsuarioModulo, GrupoModulo, TipoPermiso
 class TipoPermisoSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoPermiso
-        fields = ['IDPERMISO', 'NOMBRE', 'DESCRIPCION']
+        fields = ['IDTIPOPERMISO', 'DESCRIPCION']
 
 
 class SubmoduloSerializer(serializers.ModelSerializer):
@@ -19,11 +19,12 @@ class ModuloSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Modulo
-        fields = ['IDMODULO', 'NOMBRE', 'DESCRIPCION', 'ICONO', 'ORDEN', 'ACTIVO', 'submodulos']
+        fields = [
+            'IDMODULO', 'NOMBRE', 'DESCRIPCION', 'ICONO', 'ORDEN', 'ACTIVO', 'submodulos',
+        ]
 
 
 class ModuloSimpleSerializer(serializers.ModelSerializer):
-    """Serializer simplificado para listas de módulos"""
     class Meta:
         model = Modulo
         fields = ['IDMODULO', 'NOMBRE', 'DESCRIPCION', 'ICONO', 'ORDEN']
@@ -31,15 +32,17 @@ class ModuloSimpleSerializer(serializers.ModelSerializer):
 
 class UsuarioModuloSerializer(serializers.ModelSerializer):
     modulo_detail = ModuloSimpleSerializer(source='IDMODULO', read_only=True)
+    permiso = serializers.CharField(source='IDTIPOPERMISO.DESCRIPCION', read_only=True)
 
     class Meta:
         model = UsuarioModulo
-        fields = ['IDUSUARIO_MODULO', 'IDUSUARIO', 'IDMODULO', 'modulo_detail', 'PERMISOS', 'ACTIVO']
+        fields = ['IDUSUARIOMODULO', 'IDUSUARIO', 'IDMODULO', 'modulo_detail', 'permiso']
 
 
 class GrupoModuloSerializer(serializers.ModelSerializer):
     modulo_detail = ModuloSimpleSerializer(source='IDMODULO', read_only=True)
+    permiso = serializers.CharField(source='IDTIPOPERMISO.DESCRIPCION', read_only=True)
 
     class Meta:
         model = GrupoModulo
-        fields = ['IDGRUPO_MODULO', 'IDGRUPO', 'IDMODULO', 'modulo_detail', 'PERMISOS', 'ACTIVO']
+        fields = ['IDGRUPOMODULO', 'IDTIPOUSUARIO', 'IDMODULO', 'modulo_detail', 'permiso']

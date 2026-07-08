@@ -5,8 +5,10 @@ import Footer from "../footer/Footer";
 const Layout = ({
   children,
   role,
+  idusuario,
   activePage,
   onChangePage,
+  onMenuLoaded,
   isSidebarOpen,
   onToggleSidebar,
   onCloseSidebar,
@@ -15,9 +17,10 @@ const Layout = ({
   return (
     <div className="app-shell">
       <Sidebar
-        role={role}
+        idusuario={idusuario}
         activePage={activePage}
         onChangePage={onChangePage}
+        onMenuLoaded={onMenuLoaded}
         isOpen={isSidebarOpen}
         onClose={onCloseSidebar}
       />

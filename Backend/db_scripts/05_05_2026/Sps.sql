@@ -20,17 +20,17 @@ BEGIN
         SELECT
             CAST(1 AS BIT) AS is_valid,
             CASE @idTipoUsuario
-                WHEN '1' THEN 'usuario'
-                WHEN '2' THEN 'secretario'
-                WHEN '3' THEN 'admin'
-                ELSE 'usuario'
+                WHEN '1' THEN 'estudiante'
+                WHEN '2' THEN 'docente'
+                WHEN '3' THEN 'administrador'
+                ELSE 'estudiante'
             END AS role;
     END
     ELSE
     BEGIN
         SELECT
             CAST(0 AS BIT) AS is_valid,
-            'usuario' AS role;
+            'estudiante' AS role;
     END
 END;
 GO

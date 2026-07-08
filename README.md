@@ -113,12 +113,15 @@ Vite proxyea `/api/*` hacia Django (`vite.config.js`).
 
 ### SQL Server — orden de scripts
 
-Ejecutar en SSMS en este orden (ajustar según estado de la BD):
+**Esquema canónico (recomendado):** `db_scripts/22_06_2026/esquema_completo.sql`  
+Crea todas las tablas, datos seed y `usp_validate_user`. **Destructivo** (hace DROP antes de crear).
+
+Scripts anteriores (históricos / parciales):
 
 | Orden | Archivo | Qué hace |
 |-------|---------|----------|
-| 1 | `db_scripts/05_05_2026/tables.sql` | Crea `TIPOUSUARIO`, `USUARIO` (nombres originales en camelCase) |
-| 2 | `db_scripts/05_05_2026/data.sql` | Datos de prueba de usuarios |
+| — | `db_scripts/22_06_2026/esquema_completo.sql` | **Esquema completo actual** (usar este en BD nueva) |
+| 1 | `db_scripts/05_05_2026/tables.sql` | Crea `TIPOUSUARIO`, `USUARIO` (legacy) |
 | 3 | `db_scripts/05_05_2026/Sps.sql` | `usp_validate_user` (versión camelCase) |
 | 4 | `db_scripts/07_05_2026/script.sql` | Renombra columnas a MAYÚSCULAS (`IDUSUARIO`, `IDTIPOUSUARIO`, etc.) |
 | 5 | `db_scripts/07_05_2026/SPs.sql` | Actualiza `usp_validate_user` a columnas en MAYÚSCULAS |

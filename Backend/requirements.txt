@@ -5,3 +5,7 @@ python-dotenv>=1.0
 django-cors-headers>=4.0
 djangorestframework>=3.0
 drf-spectacular>=0.25
+qrcode[pil]>=7.4
+Pillow>=10.0
+pypdf>=4.0
+reportlab>=4.0

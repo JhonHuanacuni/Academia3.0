@@ -1,0 +1,50 @@
+# Módulos que se muestran como un solo enlace (sin desplegar submódulos)
+MODULOS_MENU_DIRECTO = frozenset({
+    'MOD001',  # Dashboard
+    'MOD002',  # Usuarios (solo listado; alta vía + Nuevo)
+    'MOD005',  # Biblioteca
+    'MOD006',  # Exámenes
+    'MOD008',  # Administración de módulos
+})
+
+# Módulos que un administrador (tipo 3) no puede perder nunca
+MODULOS_PROTEGIDOS_ADMIN = frozenset({
+    'MOD001',  # Dashboard — siempre visible
+    'MOD008',  # Administración de módulos — evita bloqueo del panel
+})
+
+MODULO_PAGE_MAP = {
+    'MOD001': 'dashboard',
+    'MOD002': 'usuarios',
+    'MOD003': 'asistencias',
+    'MOD004': 'membresias',
+    'MOD005': 'biblioteca',
+    'MOD006': 'examenes',
+    'MOD007': 'notas',
+    'MOD008': 'admin-modulos',
+    'MOD009': 'academico',
+    'MOD010': 'informes',
+}
+
+SUBMODULO_PAGE_MAP = {
+    'SUB002': 'usuarios',
+    'SUB003': 'asistencias-marcar',
+    'SUB004': 'asistencias-listado',
+    'SUB005': 'membresias',
+    'SUB006': 'membresias',
+    'SUB007': 'pagos',
+    'SUB008': 'notas',
+    'SUB009': 'admin-modulos',
+    'SUB010': 'academico-aulas',
+    'SUB011': 'informes-asistencias',
+}
+
+ROLE_TO_TIPOUSUARIO = {
+    'estudiante': '1',
+    'docente': '2',
+    'administrador': '3',
+    # compatibilidad legacy
+    'usuario': '1',
+    'secretario': '2',
+    'admin': '3',
+}

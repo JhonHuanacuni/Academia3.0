@@ -1,0 +1,16 @@
+/* Desactiva SUB001 (Registrar usuario) — el alta se hace desde Listado (+ Nuevo) */
+UPDATE SUBMODULO SET ACTIVO = 0 WHERE IDSUBMODULO = 'SUB001';
+GO
+
+IF OBJECT_ID('dbo.USUARIO_SUBMODULO_EXCLUIDO', 'U') IS NOT NULL
+BEGIN
+    DELETE FROM USUARIO_SUBMODULO_EXCLUIDO WHERE IDSUBMODULO = 'SUB001';
+END
+GO
+
+UPDATE SUBMODULO SET ORDEN = 1, NOMBRE = 'Listado de usuarios'
+WHERE IDSUBMODULO = 'SUB002';
+GO
+
+PRINT 'SUB001 desactivado. Usuarios queda solo con Listado.';
+GO

@@ -1,0 +1,218 @@
+.asistencia-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+
+.asistencia-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.asistencia-header p {
+  margin: 0;
+  color: var(--color-muted, #6b7280);
+  font-size: 0.85rem;
+}
+
+.asistencia-layout {
+  max-width: 520px;
+}
+
+.asistencia-panel {
+  padding: 1.25rem;
+}
+
+.asistencia-marcar-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dni-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dni-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.dni-form input {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border, #e3e6ef);
+  border-radius: 8px;
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+}
+
+.asistencia-camara-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.asistencia-camara-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.asistencia-scanner-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.qr-reader {
+  width: 100%;
+  min-height: 280px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #111;
+}
+
+.qr-reader video {
+  width: 100% !important;
+  border-radius: 8px;
+}
+
+.scanner-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-muted, #6b7280);
+}
+
+/* Notificación estilo Intranet_Vita — tarjeta con foto/avatar */
+.asistencia-notif-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+  animation: notifFadeIn 0.2s ease-out;
+}
+
+.asistencia-notif-card {
+  position: relative;
+  width: min(100%, 340px);
+  padding: 1.75rem 1.5rem 1.5rem;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(20, 30, 60, 0.25);
+  text-align: center;
+  animation: notifSlideIn 0.28s ease-out;
+}
+
+.asistencia-notif-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.65rem;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-muted, #6b7280);
+  cursor: pointer;
+  padding: 0.15rem 0.35rem;
+}
+
+.asistencia-notif-avatar {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 0.85rem;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid var(--color-border, #e3e6ef);
+  background: var(--color-primary-soft, #eaeefb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.asistencia-notif-card--success .asistencia-notif-avatar {
+  border-color: #1e9e5a;
+}
+
+.asistencia-notif-card--warning .asistencia-notif-avatar {
+  border-color: #c7891b;
+}
+
+.asistencia-notif-card--error .asistencia-notif-avatar {
+  border-color: #d23b3b;
+}
+
+.asistencia-notif-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.asistencia-notif-iniciales {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-primary, #6a42e5);
+}
+
+.asistencia-notif-nombre {
+  margin: 0 0 0.2rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text, #1c2333);
+}
+
+.asistencia-notif-dni {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-muted, #6b7280);
+}
+
+.asistencia-notif-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 0.65rem;
+}
+
+.asistencia-notif-estado--presente {
+  background: #e6f6ee;
+  color: #0d5c36;
+}
+
+.asistencia-notif-estado--tarde {
+  background: #fff8e6;
+  color: #7a5610;
+}
+
+.asistencia-notif-mensaje {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--color-muted, #6b7280);
+  line-height: 1.45;
+}
+
+@keyframes notifFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes notifSlideIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 900px) {
+  .asistencia-layout {
+    max-width: 100%;
+  }
+}

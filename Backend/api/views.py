@@ -1,24 +1,34 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Q
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets
+from rest_framework.permissions import AllowAny
 from .services import get_clientes, get_clientes_sp, validate_user
+from .modulos_services import (
+    get_usuarios_activos,
+    listar_modulos_con_submodulos,
+    listar_modulos_efectivos_usuario,
+    get_effective_modulos,
+    get_menu_for_user,
+    asignar_modulo_usuario,
+    desasignar_modulo_usuario,
+    asignar_modulo_usuario_orm,
+    desasignar_modulo_usuario_orm,
+    listar_submodulos_modulo_usuario,
+    asignar_submodulo_usuario,
+    desasignar_submodulo_usuario,
+    asignar_submodulo_usuario_orm,
+    desasignar_submodulo_usuario_orm,
+)
 from .models import Modulo, Submodulo, UsuarioModulo, GrupoModulo
 from .serializers import (
     ModuloSerializer, SubmoduloSerializer, UsuarioModuloSerializer,
-    GrupoModuloSerializer, ModuloSimpleSerializer
+    GrupoModuloSerializer,
 )
 
 
 def status_api(request):
-    return JsonResponse({
-        'message': 'Django backend conectado',
-        'status': 'ok',
-    })
+    return JsonResponse({'message': 'Django backend conectado', 'status': 'ok'})
 
 
 def clientes(request):
@@ -54,115 +64,115 @@ def login(request):
     except Exception as exc:
         return JsonResponse({'error': str(exc)}, status=500)
 
-    return JsonResponse({'valid': valid, 'role': role})
+    return JsonResponse({
+        'valid': valid,
+        'role': role,
+        'idusuario': username if valid else None,
+    })
 
 
-# ============================================
-# ViewSets para Gestión de Módulos
-# ============================================
+@csrf_exempt
+def menu_usuario(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    idusuario = request.GET.get('idusuario')
+    if not idusuario:
+        return JsonResponse({'error': 'idusuario es requerido'}, status=400)
+
+    try:
+        menu = get_menu_for_user(idusuario)
+        return JsonResponse({'success': True, 'menu': menu})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@csrf_exempt
+def usuarios_activos(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        return JsonResponse({'success': True, 'usuarios': get_usuarios_activos()})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
 
 class ModuloViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet para Módulos - Solo lectura"""
     queryset = Modulo.objects.filter(ACTIVO=True).order_by('ORDEN')
     serializer_class = ModuloSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        # Filtrar módulos activos
-        return Modulo.objects.filter(ACTIVO=True).order_by('ORDEN')
+    permission_classes = [AllowAny]
 
 
 class SubmoduloViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet para Submódulos"""
     queryset = Submodulo.objects.filter(ACTIVO=True).order_by('ORDEN')
     serializer_class = SubmoduloSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
 
-class UsuarioModuloViewSet(viewsets.ModelViewSet):
-    """ViewSet para Asignación de Módulos a Usuarios"""
-    queryset = UsuarioModulo.objects.filter(ACTIVO=True)
+class UsuarioModuloViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = UsuarioModulo.objects.all()
     serializer_class = UsuarioModuloSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        # Los usuarios normales solo ven sus propios módulos
-        # Los admins ven todos
-        user = self.request.user
-        # Aquí necesitarías verificar si el usuario es admin
-        # Por ahora retornamos todos (ajusta según tu lógica de permisos)
-        return UsuarioModulo.objects.filter(ACTIVO=True)
+    permission_classes = [AllowAny]
 
 
-class GrupoModuloViewSet(viewsets.ModelViewSet):
-    """ViewSet para Asignación de Módulos a Grupos"""
-    queryset = GrupoModulo.objects.filter(ACTIVO=True)
+class GrupoModuloViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = GrupoModulo.objects.all()
     serializer_class = GrupoModuloSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
-
-# ============================================
-# Vistas personalizadas para Admin de Módulos
-# ============================================
 
 @csrf_exempt
 def modulos_disponibles(request):
-    """
-    GET: Retorna lista de módulos disponibles con submódulos
-    Usado en el panel de admin para mostrar módulos sin asignar
-    """
     if request.method != 'GET':
         return JsonResponse({'error': 'Método no permitido'}, status=405)
 
     try:
-        modulos = Modulo.objects.filter(ACTIVO=True).values(
-            'IDMODULO', 'NOMBRE', 'DESCRIPCION', 'ICONO', 'ORDEN'
-        ).order_by('ORDEN')
+        idusuario = request.GET.get('idusuario')
+        todos = listar_modulos_con_submodulos()
 
-        modulos_list = list(modulos)
-        
-        # Agregar submódulos a cada módulo
-        for mod in modulos_list:
-            submodulos = Submodulo.objects.filter(
-                IDMODULO_id=mod['IDMODULO'], ACTIVO=True
-            ).values('IDSUBMODULO', 'NOMBRE', 'ICONO', 'ORDEN').order_by('ORDEN')
-            mod['submodulos'] = list(submodulos)
+        if idusuario:
+            efectivos = set(get_effective_modulos(idusuario).keys())
+            modulos_list = [m for m in todos if m['IDMODULO'] not in efectivos]
+        else:
+            modulos_list = todos
 
-        return JsonResponse({
-            'success': True,
-            'modulos': modulos_list
-        })
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({'success': True, 'modulos': modulos_list})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
 
 
 @csrf_exempt
 def modulos_asignados_usuario(request):
-    """
-    GET: Retorna módulos asignados a un usuario específico
-    POST: Asigna/desasigna módulos a un usuario
-    """
     if request.method == 'GET':
         idusuario = request.GET.get('idusuario')
         if not idusuario:
             return JsonResponse({'error': 'idusuario es requerido'}, status=400)
 
         try:
-            asignados = UsuarioModulo.objects.filter(
-                IDUSUARIO=idusuario, ACTIVO=True
-            ).values(
-                'IDUSUARIO_MODULO', 'IDMODULO_id', 'IDMODULO__NOMBRE',
-                'IDMODULO__ICONO', 'PERMISOS'
-            ).order_by('IDMODULO__NOMBRE')
+            asignados = listar_modulos_efectivos_usuario(idusuario)
+            return JsonResponse({'success': True, 'asignados': asignados})
+        except Exception as exc:
+            try:
+                permisos_map = get_effective_modulos(idusuario)
+                modulos = Modulo.objects.filter(
+                    IDMODULO__in=permisos_map.keys(), ACTIVO=True,
+                ).order_by('ORDEN')
+                asignados = [
+                    {
+                        'IDMODULO': m.IDMODULO,
+                        'NOMBRE': m.NOMBRE,
+                        'DESCRIPCION': m.DESCRIPCION,
+                        'ICONO': m.ICONO,
+                        'ORDEN': m.ORDEN,
+                        'PERMISOS': permisos_map.get(m.IDMODULO, []),
+                    }
+                    for m in modulos
+                ]
+                return JsonResponse({'success': True, 'asignados': asignados})
+            except Exception as inner:
+                return JsonResponse({'error': str(inner)}, status=500)
 
-            return JsonResponse({
-                'success': True,
-                'asignados': list(asignados)
-            })
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    elif request.method == 'POST':
+    if request.method == 'POST':
         try:
             payload = json.loads(request.body.decode('utf-8'))
         except Exception:
@@ -170,43 +180,90 @@ def modulos_asignados_usuario(request):
 
         idusuario = payload.get('idusuario')
         idmodulo = payload.get('idmodulo')
-        accion = payload.get('accion')  # 'asignar' o 'desasignar'
-        permisos = payload.get('permisos', ['read'])
+        accion = payload.get('accion')
 
         if not idusuario or not idmodulo or not accion:
             return JsonResponse({'error': 'Faltan parámetros requeridos'}, status=400)
 
         try:
             if accion == 'asignar':
-                # Verificar que el módulo existe
-                modulo = Modulo.objects.get(IDMODULO=idmodulo, ACTIVO=True)
-                
-                # Generar ID único
-                import uuid
-                idusuario_modulo = f"USR_MOD_{uuid.uuid4().hex[:12].upper()}"
-                
-                # Crear asignación
-                UsuarioModulo.objects.create(
-                    IDUSUARIO_MODULO=idusuario_modulo,
-                    IDUSUARIO=idusuario,
-                    IDMODULO=modulo,
-                    PERMISOS=permisos,
-                    ASIGNADO_POR=request.user.username if request.user.is_authenticated else 'SISTEMA'
-                )
+                try:
+                    asignar_modulo_usuario(idusuario, idmodulo)
+                except Exception:
+                    asignar_modulo_usuario_orm(idusuario, idmodulo)
                 return JsonResponse({'success': True, 'message': 'Módulo asignado'})
 
-            elif accion == 'desasignar':
-                # Desactivar asignación (soft delete)
-                UsuarioModulo.objects.filter(
-                    IDUSUARIO=idusuario,
-                    IDMODULO_id=idmodulo
-                ).update(ACTIVO=False)
+            if accion == 'desasignar':
+                try:
+                    desasignar_modulo_usuario(idusuario, idmodulo)
+                except ValueError as exc:
+                    return JsonResponse({'error': str(exc)}, status=400)
+                except Exception:
+                    try:
+                        desasignar_modulo_usuario_orm(idusuario, idmodulo)
+                    except ValueError as exc:
+                        return JsonResponse({'error': str(exc)}, status=400)
                 return JsonResponse({'success': True, 'message': 'Módulo desasignado'})
 
-        except Modulo.DoesNotExist:
-            return JsonResponse({'error': 'Módulo no encontrado'}, status=404)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'error': 'accion inválida'}, status=400)
+        except Exception as exc:
+            return JsonResponse({'error': str(exc)}, status=500)
 
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
+
+@csrf_exempt
+def submodulos_modulo_usuario(request):
+    if request.method == 'GET':
+        idusuario = request.GET.get('idusuario')
+        idmodulo = request.GET.get('idmodulo')
+        if not idusuario or not idmodulo:
+            return JsonResponse({'error': 'idusuario e idmodulo son requeridos'}, status=400)
+        try:
+            submodulos = listar_submodulos_modulo_usuario(idusuario, idmodulo)
+            asignados = [s for s in submodulos if s.get('asignado')]
+            disponibles = [s for s in submodulos if not s.get('asignado')]
+            return JsonResponse({
+                'success': True,
+                'submodulos': submodulos,
+                'asignados': asignados,
+                'disponibles': disponibles,
+            })
+        except Exception as exc:
+            return JsonResponse({'error': str(exc)}, status=500)
+
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+        idusuario = payload.get('idusuario')
+        idsubmodulo = payload.get('idsubmodulo')
+        accion = payload.get('accion')
+
+        if not idusuario or not idsubmodulo or not accion:
+            return JsonResponse({'error': 'Faltan parámetros requeridos'}, status=400)
+
+        try:
+            if accion == 'asignar':
+                try:
+                    asignar_submodulo_usuario(idusuario, idsubmodulo)
+                except Exception:
+                    asignar_submodulo_usuario_orm(idusuario, idsubmodulo)
+                return JsonResponse({'success': True, 'message': 'Submódulo asignado'})
+
+            if accion == 'desasignar':
+                try:
+                    desasignar_submodulo_usuario(idusuario, idsubmodulo)
+                except Exception:
+                    desasignar_submodulo_usuario_orm(idusuario, idsubmodulo)
+                return JsonResponse({'success': True, 'message': 'Submódulo desasignado'})
+
+            return JsonResponse({'error': 'accion inválida'}, status=400)
+        except ValueError as exc:
+            return JsonResponse({'error': str(exc)}, status=400)
+        except Exception as exc:
+            return JsonResponse({'error': str(exc)}, status=500)
+
+    return JsonResponse({'error': 'Método no permitido'}, status=405)

@@ -18,9 +18,9 @@ const Header = ({ onToggleSidebar, role, onChangeRole, onLogout }) => {
             value={role}
             onChange={(event) => onChangeRole(event.target.value)}
           >
-            <option value="admin">Administrador</option>
-            <option value="secretario">Secretario</option>
-            <option value="usuario">Usuario</option>
+            <option value="administrador">Administrador</option>
+            <option value="docente">Docente</option>
+            <option value="estudiante">Estudiante</option>
           </select>
         </label>
         <button className="logout-button" onClick={onLogout}>
