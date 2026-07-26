@@ -2,13 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import FieldRenderer from "./fields/FieldRenderer";
-import EstudianteSearchField from "../../modules/membresia/EstudianteSearchField";
+import DiasSemanaField from "./fields/DiasSemanaField";
+import EstudianteSearchField from "../../modules/mensualidad/EstudianteSearchField";
+import { DEFAULT_DIAS_ASISTENCIA } from "../../utils/diasPlan";
 import { dbToInput, inputToDb, hoyInput } from "../../utils/fecha";
 
 const emptyValues = (campos) =>
   campos.reduce((acc, c) => {
-    if (c.defaultHoy && c.control === "date") {
+      if (c.defaultHoy && c.control === "date") {
       acc[c.campo] = hoyInput();
+    } else if (c.control === "diasSemana") {
+      acc[c.campo] = c.defaultValue ?? DEFAULT_DIAS_ASISTENCIA;
     } else {
       acc[c.campo] = c.defaultValue ?? "";
     }
@@ -61,6 +65,9 @@ export default function FormModal({
         if (c.campo === "ESTADOMIEMBRO" && next[c.campo] != null) {
           next[c.campo] = String(next[c.campo]);
         }
+        if (c.control === "diasSemana") {
+          next[c.campo] = Number(next[c.campo]) || DEFAULT_DIAS_ASISTENCIA;
+        }
       });
       setValues(next);
     }
@@ -91,6 +98,10 @@ export default function FormModal({
       if (c.validacion === "email" && values[c.campo]) {
         const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values[c.campo]);
         if (!ok) next[c.campo] = "Ingresa un email válido.";
+      }
+      if (c.control === "diasSemana" && modo !== "ver") {
+        const mask = Number(values[c.campo]) || 0;
+        if (!mask) next[c.campo] = "Selecciona al menos un día de asistencia.";
       }
       if (c.validacion === "dni" && values[c.campo]) {
         const ok = /^\d{8}$/.test(String(values[c.campo]).trim());
@@ -157,13 +168,28 @@ export default function FormModal({
       );
     }
 
+    if (campo.control === "diasSemana") {
+      return (
+        <div key={campo.campo} className={`form-field full ${errors[campo.campo] ? "has-error" : ""}`}>
+          <label htmlFor={campo.campo}>{campo.etiqueta}</label>
+          <DiasSemanaField
+            value={values[campo.campo] ?? DEFAULT_DIAS_ASISTENCIA}
+            disabled={soloLectura}
+            error={errors[campo.campo]}
+            onChange={(val) => setValues((prev) => ({ ...prev, [campo.campo]: val }))}
+          />
+          {campo.ayuda && <span className="field-hint">{campo.ayuda}</span>}
+        </div>
+      );
+    }
+
     return (
       <FieldRenderer
         key={campo.campo}
         campo={campo}
         value={values[campo.campo] ?? ""}
         error={errors[campo.campo]}
-        disabled={soloLectura || (campo.soloCrear && modo === "editar")}
+        disabled={soloLectura || (campo.soloCrear && modo === "editar") || campo.bloqueado}
         catalogo={catalogos[campo.catalogo]}
         onChange={(val) => {
           setValues((prev) => ({ ...prev, [campo.campo]: val }));

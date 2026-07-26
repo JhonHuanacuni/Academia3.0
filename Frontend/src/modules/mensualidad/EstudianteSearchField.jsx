@@ -35,7 +35,7 @@ export default function EstudianteSearchField({
       setBuscando(true);
       try {
         const params = new URLSearchParams({ buscar: query.trim() });
-        const res = await fetch(`/api/membresias/estudiantes/?${params}`);
+        const res = await fetch(`/api/mensualidades/estudiantes/?${params}`);
         const data = await parseJsonResponse(res);
         if (res.ok) {
           setResultados(data.data || []);

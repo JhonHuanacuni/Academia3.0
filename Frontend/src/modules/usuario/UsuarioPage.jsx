@@ -6,7 +6,7 @@ import PageHeader from "../../components/mantenedor/PageHeader";
 import Toolbar from "../../components/mantenedor/Toolbar";
 import DataTable from "../../components/mantenedor/DataTable";
 import Pagination from "../../components/mantenedor/Pagination";
-import FormModal from "../../components/mantenedor/FormModal";
+import FormPage from "../../components/mantenedor/FormPage";
 import ConfirmDialog from "../../components/mantenedor/ConfirmDialog";
 import Toast from "../../components/mantenedor/feedback/Toast";
 import "../../styles/mantenedor.css";
@@ -15,11 +15,11 @@ export default function UsuarioPage() {
   const cfg = usuarioConfig;
   const crud = useCrud({ entidad: cfg.entidad, pk: cfg.pk });
 
-  const [modalAbierto, setModalAbierto] = useState(false);
+  const [vista, setVista] = useState("lista");
   const [modo, setModo] = useState("crear");
   const [confirm, setConfirm] = useState(null);
   const [toast, setToast] = useState(null);
-  const [catalogos, setCatalogos] = useState({ tiposUsuario: [] });
+  const [catalogos, setCatalogos] = useState({ tiposUsuario: [], mediosEntero: [] });
   const [confirmando, setConfirmando] = useState(false);
 
   useEffect(() => {
@@ -33,6 +33,16 @@ export default function UsuarioPage() {
               value: t.IDTIPOUSUARIO,
               label: t.DESCRIPCION,
             })),
+            mediosEntero: [
+              { value: "Facebook", label: "Facebook" },
+              { value: "Instagram", label: "Instagram" },
+              { value: "TikTok", label: "TikTok" },
+              { value: "WhatsApp", label: "WhatsApp" },
+              { value: "Recomendación", label: "Recomendación de amigo/familiar" },
+              { value: "Google", label: "Google / Internet" },
+              { value: "Volante", label: "Volante / publicidad" },
+              { value: "Otro", label: "Otro" },
+            ],
           });
         }
       } catch {
@@ -41,10 +51,15 @@ export default function UsuarioPage() {
     })();
   }, []);
 
+  const volverLista = () => {
+    setVista("lista");
+    crud.setRegistro(null);
+  };
+
   const abrirCrear = () => {
     crud.setRegistro(null);
     setModo("crear");
-    setModalAbierto(true);
+    setVista("form");
   };
 
   const abrirVer = async (row) => {
@@ -52,7 +67,7 @@ export default function UsuarioPage() {
       const data = await crud.obtener(row[cfg.pk]);
       crud.setRegistro(data);
       setModo("ver");
-      setModalAbierto(true);
+      setVista("form");
     } catch (err) {
       setToast({ mensaje: err.message, tipo: "error" });
     }
@@ -63,7 +78,7 @@ export default function UsuarioPage() {
       const data = await crud.obtener(row[cfg.pk]);
       crud.setRegistro(data);
       setModo("editar");
-      setModalAbierto(true);
+      setVista("form");
     } catch (err) {
       setToast({ mensaje: err.message, tipo: "error" });
     }
@@ -89,6 +104,7 @@ export default function UsuarioPage() {
       mensaje = await crud.actualizar(crud.registro[cfg.pk], payload);
     }
     setToast({ mensaje, tipo: "success" });
+    volverLista();
     await crud.listar();
   };
 
@@ -107,12 +123,39 @@ export default function UsuarioPage() {
     }
   };
 
-  const tituloModal =
+  const tituloForm =
     modo === "crear" ? "Nuevo usuario" : modo === "editar" ? "Editar usuario" : "Ver usuario";
+
+  if (vista === "form") {
+    return (
+      <>
+        <FormPage
+          modo={modo}
+          modulo={cfg.modulo}
+          listado={cfg.titulo}
+          vista={tituloForm}
+          titulo={tituloForm}
+          campos={cfg.campos}
+          secciones={cfg.secciones}
+          registro={crud.registro}
+          catalogos={catalogos}
+          onCancel={volverLista}
+          onSubmit={handleGuardar}
+        />
+        {toast && (
+          <Toast
+            mensaje={toast.mensaje}
+            tipo={toast.tipo}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="mantenedor-page">
-      <PageHeader titulo={cfg.titulo} onNuevo={abrirCrear} />
+      <PageHeader modulo={cfg.modulo} vista={cfg.titulo} onNuevo={abrirCrear} />
 
       <div className="mantenedor-card">
         <Toolbar
@@ -151,18 +194,6 @@ export default function UsuarioPage() {
           onChange={crud.setPagina}
         />
       </div>
-
-      <FormModal
-        abierto={modalAbierto}
-        modo={modo}
-        titulo={tituloModal}
-        campos={cfg.campos}
-        secciones={cfg.secciones}
-        registro={crud.registro}
-        catalogos={catalogos}
-        onClose={() => setModalAbierto(false)}
-        onSubmit={handleGuardar}
-      />
 
       <ConfirmDialog
         abierto={Boolean(confirm)}

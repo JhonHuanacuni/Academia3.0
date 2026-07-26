@@ -28,7 +28,7 @@ def _decimal_or_none(value):
     return float(value)
 
 
-def listar_membresias(
+def listar_mensualidades(
     buscar=None,
     estado=None,
     ordenar_por='FECHAREGISTRO',
@@ -41,7 +41,7 @@ def listar_membresias(
         cursor.execute(
             """
             DECLARE @Total INT;
-            EXEC dbo.usp_membresia_listar
+            EXEC dbo.usp_mensualidad_listar
                 @Buscar=%s, @Estado=%s, @OrdenarPor=%s, @Direccion=%s,
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
@@ -57,40 +57,39 @@ def listar_membresias(
     return data, total
 
 
-def obtener_membresia(id_membresia: str):
+def obtener_mensualidad(id_mensualidad: str):
     with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_membresia_obtener @Id=%s', [id_membresia])
+        cursor.execute('EXEC dbo.usp_mensualidad_obtener @Id=%s', [id_mensualidad])
         rows = _cursor_rows(cursor)
     return rows[0] if rows else None
 
 
-def insertar_membresia(payload: dict):
+def insertar_mensualidad(payload: dict):
     with connection.cursor() as cursor:
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_membresia_insertar
+            EXEC dbo.usp_mensualidad_insertar
                 @Id=%s, @IdUsuario=%s, @IdPlan=%s, @IdTurno=%s, @EstadoMiembro=%s,
                 @FechaInicio=%s, @FechaFin=%s, @MontoTotal=%s, @PagoInicial=%s,
-                @TipoMembresia=%s, @IdMetodoPago=%s, @IdAula=%s, @Asesor=%s,
+                @IdMetodoPago=%s, @IdAula=%s, @IdTutor=%s,
                 @Observaciones=%s, @FechaCancelacion=%s, @RegistradoPor=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
             [
-                payload.get('IDMEMBRESIA') or None,
+                payload.get('IDMENSUALIDAD') or None,
                 payload['IDUSUARIO'],
                 payload['IDPLAN'],
                 payload.get('IDTURNO') or None,
-                int(payload.get('ESTADOMIEMBRO') or 1),
+                int(payload.get('ESTADOMIEMBRO') or 2),
                 payload['FECHAINICIO'],
                 payload['FECHAFIN'],
                 _decimal_or_none(payload.get('MONTOTOTAL')),
                 _decimal_or_none(payload.get('PAGOINICIAL')),
-                payload.get('TIPOMEMBRESIA') or None,
                 payload.get('IDMETODOPAGO') or None,
                 payload.get('IDAULA') or None,
-                payload.get('ASESOR') or None,
+                payload.get('IDTUTOR') or None,
                 payload.get('OBSERVACIONES') or None,
                 payload.get('FECHACANCELACION') or None,
                 payload.get('REGISTRADOPOR') or None,
@@ -99,30 +98,29 @@ def insertar_membresia(payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def actualizar_membresia(id_membresia: str, payload: dict):
+def actualizar_mensualidad(id_mensualidad: str, payload: dict):
     with connection.cursor() as cursor:
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_membresia_actualizar
+            EXEC dbo.usp_mensualidad_actualizar
                 @Id=%s, @IdUsuario=%s, @IdPlan=%s, @IdTurno=%s, @EstadoMiembro=%s,
-                @FechaInicio=%s, @FechaFin=%s, @MontoTotal=%s, @TipoMembresia=%s,
-                @IdAula=%s, @Asesor=%s, @Observaciones=%s, @FechaCancelacion=%s,
+                @FechaInicio=%s, @FechaFin=%s, @MontoTotal=%s,
+                @IdAula=%s, @IdTutor=%s, @Observaciones=%s, @FechaCancelacion=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
             [
-                id_membresia,
+                id_mensualidad,
                 payload['IDUSUARIO'],
                 payload['IDPLAN'],
                 payload.get('IDTURNO') or None,
-                int(payload.get('ESTADOMIEMBRO') or 1),
+                int(payload.get('ESTADOMIEMBRO') or 2),
                 payload['FECHAINICIO'],
                 payload['FECHAFIN'],
                 _decimal_or_none(payload.get('MONTOTOTAL')),
-                payload.get('TIPOMEMBRESIA') or None,
                 payload.get('IDAULA') or None,
-                payload.get('ASESOR') or None,
+                payload.get('IDTUTOR') or None,
                 payload.get('OBSERVACIONES') or None,
                 payload.get('FECHACANCELACION') or None,
             ],
@@ -130,7 +128,7 @@ def actualizar_membresia(id_membresia: str, payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def eliminar_membresia(id_membresia: str, id_usuario: str | None = None):
+def eliminar_mensualidad(id_mensualidad: str, id_usuario: str | None = None):
     from .modulos_services import get_usuario_tipo
 
     es_admin = get_usuario_tipo((id_usuario or '').strip()) == '3'
@@ -140,12 +138,12 @@ def eliminar_membresia(id_membresia: str, id_usuario: str | None = None):
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_membresia_eliminar
+            EXEC dbo.usp_mensualidad_eliminar
                 @Id=%s, @EliminacionFisica=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [id_membresia, eliminacion_fisica],
+            [id_mensualidad, eliminacion_fisica],
         )
         return _read_sp_write_result(cursor)
 
@@ -153,7 +151,7 @@ def eliminar_membresia(id_membresia: str, id_usuario: str | None = None):
 def buscar_estudiantes(buscar=None):
     with connection.cursor() as cursor:
         cursor.execute(
-            'EXEC dbo.usp_membresia_buscar_estudiantes @Buscar=%s',
+            'EXEC dbo.usp_mensualidad_buscar_estudiantes @Buscar=%s',
             [buscar or None],
         )
         return _cursor_rows(cursor)
@@ -165,22 +163,16 @@ def listar_catalogos():
         'turnos': [],
         'aulas': [],
         'metodosPago': [],
-        'estadosMiembro': [
-            {'value': 1, 'label': 'Nuevo'},
+        'tutores': [],
+        'estadosMensualidad': [
             {'value': 2, 'label': 'Activo'},
             {'value': 3, 'label': 'Vencido'},
-            {'value': 4, 'label': 'Cancelado'},
-        ],
-        'tiposMembresia': [
-            {'value': 'Individual', 'label': 'Individual'},
-            {'value': 'Grupal', 'label': 'Grupal'},
-            {'value': 'Familiar', 'label': 'Familiar'},
         ],
     }
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT IDPLAN, NOMBRE, PRECIO, DURACIONDIAS
+            SELECT IDPLAN, NOMBRE
             FROM [PLAN] WHERE ACTIVO = 1 ORDER BY NOMBRE
             """
         )
@@ -196,6 +188,17 @@ def listar_catalogos():
             """
         )
         catalogos['metodosPago'] = _cursor_rows(cursor)
+
+        try:
+            cursor.execute(
+                """
+                SELECT IDTUTOR, NOMBRE
+                FROM TUTOR WHERE ACTIVO = 1 ORDER BY NOMBRE
+                """
+            )
+            catalogos['tutores'] = _cursor_rows(cursor)
+        except Exception:
+            catalogos['tutores'] = []
 
     aulas = Aula.objects.filter(ACTIVO=True).order_by('NOMBRE').values('IDAULA', 'NOMBRE')
     catalogos['aulas'] = list(aulas)

@@ -1,5 +1,6 @@
 export const aulaConfig = {
-  titulo: "Mantenedor de Aulas",
+  modulo: "Mantenedores",
+  titulo: "Aulas",
   entidad: "aulas",
   pk: "IDAULA",
   columnas: [

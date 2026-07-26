@@ -1,0 +1,185 @@
+.pago-nuevo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.pago-nuevo-form,
+.pago-mensualidades-panel {
+  padding: 1.15rem 1.25rem;
+}
+
+.pago-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text, #1c2333);
+}
+
+.pago-hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: var(--color-muted, #6b7280);
+  line-height: 1.4;
+}
+
+.pago-abono-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.85rem;
+  border-radius: 10px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+}
+
+.pago-abono-info > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.pago-abono-info span {
+  color: var(--color-muted, #6b7280);
+  font-size: 0.8rem;
+}
+
+.pago-abono-deuda {
+  font-size: 0.85rem;
+  white-space: nowrap;
+  color: #991b1b;
+}
+
+.pago-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.15rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border, #e3e6ef);
+}
+
+.pago-mensualidades-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.pago-mensualidad-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.85rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-border, #e3e6ef);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pago-mensualidad-card:hover {
+  border-color: #a78bfa;
+  box-shadow: 0 4px 14px rgba(106, 66, 229, 0.08);
+}
+
+.pago-mensualidad-card.is-selected {
+  border-color: var(--color-primary, #6a42e5);
+  background: #f8f6ff;
+  box-shadow: 0 0 0 1px var(--color-primary, #6a42e5);
+}
+
+.pago-mensualidad-card.has-deuda {
+  border-left: 3px solid #dc2626;
+}
+
+.pago-mensualidad-card.sin-deuda {
+  border-left: 3px solid #16a34a;
+  cursor: default;
+  opacity: 0.92;
+}
+
+.pago-mensualidad-card.sin-deuda:hover {
+  border-color: var(--color-border, #e3e6ef);
+  box-shadow: none;
+}
+
+.pago-mensualidad-top {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.pago-mensualidad-resumen {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.pago-mensualidad-resumen-izq,
+.pago-mensualidad-resumen-der {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+}
+
+.pago-mensualidad-resumen-der {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.pago-mensualidad-plan-tipo {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text, #1c2333);
+  line-height: 1.25;
+}
+
+.pago-mensualidad-mensual {
+  font-size: 0.75rem;
+  color: var(--color-muted, #6b7280);
+  line-height: 1.25;
+}
+
+.pago-mensualidad-fechas {
+  font-size: 0.78rem;
+  color: var(--color-muted, #6b7280);
+}
+
+.pago-mensualidad-montos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+}
+
+.pago-mensualidad-montos .deuda {
+  color: #991b1b;
+  font-weight: 700;
+}
+
+.pago-mensualidad-montos .ok {
+  color: #166534;
+  font-weight: 600;
+}
+
+.pago-mensualidad-cta {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary, #6a42e5);
+}
+
+@media (max-width: 960px) {
+  .pago-nuevo-layout {
+    grid-template-columns: 1fr;
+  }
+}

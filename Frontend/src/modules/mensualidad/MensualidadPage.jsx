@@ -1,47 +1,42 @@
 import { useEffect, useState } from "react";
 import { parseJsonResponse } from "../../utils/api";
-import { sumarDiasInput } from "../../utils/fecha";
 import { useCrud } from "../../hooks/useCrud";
-import { membresiaConfig } from "./membresia.config";
+import { mensualidadConfig } from "./mensualidad.config";
 import PageHeader from "../../components/mantenedor/PageHeader";
 import Toolbar from "../../components/mantenedor/Toolbar";
 import DataTable from "../../components/mantenedor/DataTable";
 import Pagination from "../../components/mantenedor/Pagination";
-import FormModal from "../../components/mantenedor/FormModal";
+import FormPage from "../../components/mantenedor/FormPage";
 import ConfirmDialog from "../../components/mantenedor/ConfirmDialog";
 import Toast from "../../components/mantenedor/feedback/Toast";
 import "../../styles/mantenedor.css";
 
+function normalizarEstadoMensualidad(val) {
+  return Number(val) === 3 ? "3" : "2";
+}
+
 function mapCatalogos(data) {
   return {
-    planes: [{ value: "", label: "Seleccione un plan" }].concat(
-      (data.planes || []).map((p) => ({
-        value: p.IDPLAN,
-        label: p.NOMBRE,
-        precio: p.PRECIO,
-        duracionDias: p.DURACIONDIAS,
-      })),
-    ),
-    turnos: [{ value: "", label: "Seleccione turno" }].concat(
-      (data.turnos || []).map((t) => ({
-        value: t.IDTURNO,
-        label: t.DESCRIPCION,
-      })),
-    ),
-    aulas: [{ value: "", label: "Seleccione un salón" }].concat(
-      (data.aulas || []).map((a) => ({ value: a.IDAULA, label: a.NOMBRE })),
-    ),
+    planes: (data.planes || []).map((p) => ({
+      value: p.IDPLAN,
+      label: p.NOMBRE,
+    })),
+    turnos: (data.turnos || []).map((t) => ({
+      value: t.IDTURNO,
+      label: t.DESCRIPCION,
+    })),
+    aulas: (data.aulas || []).map((a) => ({ value: a.IDAULA, label: a.NOMBRE })),
+    tutores: (data.tutores || []).map((a) => ({ value: a.IDTUTOR, label: a.NOMBRE })),
     metodosPago: (data.metodosPago || []).map((m) => ({
       value: m.IDMETODOPAGO,
       label: m.TITULO,
     })),
-    estadosMiembro: data.estadosMiembro || [],
-    tiposMembresia: data.tiposMembresia || [],
+    estadosMensualidad: data.estadosMensualidad || [],
   };
 }
 
-export default function MembresiaPage() {
-  const cfg = membresiaConfig;
+export default function MensualidadPage() {
+  const cfg = mensualidadConfig;
   const crud = useCrud({
     entidad: cfg.entidad,
     pk: cfg.pk,
@@ -49,7 +44,7 @@ export default function MembresiaPage() {
     filtrosIniciales: { estado: "Activo" },
   });
 
-  const [modalAbierto, setModalAbierto] = useState(false);
+  const [vista, setVista] = useState("lista");
   const [modo, setModo] = useState("crear");
   const [confirm, setConfirm] = useState(null);
   const [toast, setToast] = useState(null);
@@ -57,9 +52,9 @@ export default function MembresiaPage() {
     planes: [],
     turnos: [],
     aulas: [],
+    tutores: [],
     metodosPago: [],
-    estadosMiembro: [],
-    tiposMembresia: [],
+    estadosMensualidad: [],
   });
   const [estudianteSel, setEstudianteSel] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
@@ -68,7 +63,7 @@ export default function MembresiaPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/membresias/catalogos/");
+        const res = await fetch("/api/mensualidades/catalogos/");
         const data = await parseJsonResponse(res);
         if (res.ok) setCatalogos(mapCatalogos(data.data || {}));
       } catch {
@@ -77,24 +72,33 @@ export default function MembresiaPage() {
     })();
   }, []);
 
+  const volverLista = () => {
+    setVista("lista");
+    crud.setRegistro(null);
+    setEstudianteSel(null);
+  };
+
   const abrirCrear = () => {
     crud.setRegistro(null);
     setEstudianteSel(null);
     setModo("crear");
-    setModalAbierto(true);
+    setVista("form");
   };
 
   const abrirVer = async (row) => {
     try {
       const data = await crud.obtener(row[cfg.pk]);
-      crud.setRegistro(data);
+      crud.setRegistro({
+        ...data,
+        ESTADOMIEMBRO: normalizarEstadoMensualidad(data.ESTADOMIEMBRO),
+      });
       setEstudianteSel({
         IDUSUARIO: data.IDUSUARIO,
         NOMBRE_COMPLETO: data.ESTUDIANTE_NOMBRE,
         DNI: data.ESTUDIANTE_DNI,
       });
       setModo("ver");
-      setModalAbierto(true);
+      setVista("form");
     } catch (err) {
       setToast({ mensaje: err.message, tipo: "error" });
     }
@@ -105,7 +109,7 @@ export default function MembresiaPage() {
       const data = await crud.obtener(row[cfg.pk]);
       crud.setRegistro({
         ...data,
-        ESTADOMIEMBRO: String(data.ESTADOMIEMBRO ?? "1"),
+        ESTADOMIEMBRO: normalizarEstadoMensualidad(data.ESTADOMIEMBRO),
       });
       setEstudianteSel({
         IDUSUARIO: data.IDUSUARIO,
@@ -113,7 +117,7 @@ export default function MembresiaPage() {
         DNI: data.ESTUDIANTE_DNI,
       });
       setModo("editar");
-      setModalAbierto(true);
+      setVista("form");
     } catch (err) {
       setToast({ mensaje: err.message, tipo: "error" });
     }
@@ -124,8 +128,8 @@ export default function MembresiaPage() {
     setConfirm({
       id: row[cfg.pk],
       mensaje: esAdmin
-        ? `¿Eliminar permanentemente la membresía de «${nombre}»? Esta acción no se puede deshacer.`
-        : `¿Desactivar la membresía de «${nombre}»? Desaparecerá del listado; un administrador puede eliminarla después.`,
+        ? `¿Eliminar permanentemente la mensualidad de «${nombre}»? Esta acción no se puede deshacer.`
+        : `¿Desactivar la mensualidad de «${nombre}»? Desaparecerá del listado; un administrador puede eliminarla después.`,
       confirmLabel: esAdmin ? "Eliminar" : "Desactivar",
     });
   };
@@ -135,13 +139,12 @@ export default function MembresiaPage() {
       IDUSUARIO: payload.IDUSUARIO,
       IDPLAN: payload.IDPLAN,
       IDTURNO: payload.IDTURNO || null,
-      ESTADOMIEMBRO: Number(payload.ESTADOMIEMBRO || 1),
+      ESTADOMIEMBRO: Number(payload.ESTADOMIEMBRO || 2),
       FECHAINICIO: payload.FECHAINICIO,
       FECHAFIN: payload.FECHAFIN,
       MONTOTOTAL: payload.MONTOTOTAL === "" ? null : Number(payload.MONTOTOTAL),
-      TIPOMEMBRESIA: payload.TIPOMEMBRESIA || null,
       IDAULA: payload.IDAULA || null,
-      ASESOR: payload.ASESOR || null,
+      IDTUTOR: payload.IDTUTOR || null,
       OBSERVACIONES: payload.OBSERVACIONES || null,
     };
     if (modo === "crear") {
@@ -158,6 +161,7 @@ export default function MembresiaPage() {
       mensaje = await crud.actualizar(crud.registro[cfg.pk], body);
     }
     setToast({ mensaje, tipo: "success" });
+    volverLista();
     await crud.listar();
   };
 
@@ -178,40 +182,41 @@ export default function MembresiaPage() {
     }
   };
 
-  const handleFieldChange = (campo, val, setValues) => {
-    if (campo === "IDPLAN" && modo === "crear") {
-      const plan = catalogos.planes.find((p) => p.value === val);
-      if (plan?.precio != null) {
-        setValues((prev) => {
-          const next = { ...prev, MONTOTOTAL: String(plan.precio) };
-          if (plan.duracionDias && prev.FECHAINICIO) {
-            next.FECHAFIN = sumarDiasInput(prev.FECHAINICIO, plan.duracionDias);
-          }
-          return next;
-        });
-      }
-    }
-    if (campo === "FECHAINICIO" && modo === "crear") {
-      setValues((prev) => {
-        const plan = catalogos.planes.find((p) => p.value === prev.IDPLAN);
-        if (plan?.duracionDias && val) {
-          return { ...prev, FECHAFIN: sumarDiasInput(val, plan.duracionDias) };
-        }
-        return prev;
-      });
-    }
-  };
-
-  const tituloModal =
+  const tituloForm =
     modo === "crear"
-      ? "Registrar membresía"
+      ? "Nueva mensualidad"
       : modo === "editar"
-        ? "Editar membresía"
-        : "Ver membresía";
+        ? "Editar mensualidad"
+        : "Ver mensualidad";
+
+  if (vista === "form") {
+    return (
+      <>
+        <FormPage
+          modo={modo}
+          modulo={cfg.modulo}
+          listado={cfg.titulo}
+          vista={tituloForm}
+          titulo={tituloForm}
+          campos={cfg.campos}
+          secciones={cfg.secciones}
+          registro={crud.registro}
+          catalogos={catalogos}
+          estudianteSeleccionado={estudianteSel}
+          onEstudianteChange={setEstudianteSel}
+          onCancel={volverLista}
+          onSubmit={handleGuardar}
+        />
+        {toast && (
+          <Toast mensaje={toast.mensaje} tipo={toast.tipo} onClose={() => setToast(null)} />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="mantenedor-page">
-      <PageHeader titulo={cfg.titulo} onNuevo={abrirCrear} />
+      <PageHeader modulo={cfg.modulo} vista={cfg.titulo} onNuevo={abrirCrear} />
 
       <div className="mantenedor-card">
         <Toolbar
@@ -241,6 +246,8 @@ export default function MembresiaPage() {
           onEditar={abrirEditar}
           onEliminar={abrirEliminar}
           onReintentar={crud.listar}
+          pagina={crud.pagina}
+          tamanio={crud.tamanio}
         />
 
         <Pagination
@@ -250,21 +257,6 @@ export default function MembresiaPage() {
           onChange={crud.setPagina}
         />
       </div>
-
-      <FormModal
-        abierto={modalAbierto}
-        modo={modo}
-        titulo={tituloModal}
-        campos={cfg.campos}
-        secciones={cfg.secciones}
-        registro={crud.registro}
-        catalogos={catalogos}
-        estudianteSeleccionado={estudianteSel}
-        onEstudianteChange={setEstudianteSel}
-        onFieldChange={handleFieldChange}
-        onClose={() => setModalAbierto(false)}
-        onSubmit={handleGuardar}
-      />
 
       <ConfirmDialog
         abierto={Boolean(confirm)}

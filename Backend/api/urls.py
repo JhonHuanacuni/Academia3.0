@@ -4,8 +4,19 @@ from . import views
 from . import usuario_views
 from . import asistencia_views
 from . import aula_views
+from . import tutor_views
+from . import plan_views
 from . import informes_views
-from . import membresia_views
+from . import mensualidad_views
+from . import pago_views
+from . import libro_views
+from . import horario_views
+from . import concepto_views
+from . import pago_extra_views
+from . import categoria_views
+from . import materia_views
+from . import examen_views
+from . import examen_estudiante_views
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -28,11 +39,74 @@ urlpatterns = [
     path('asistencias/', asistencia_views.asistencias_api, name='asistencias_api'),
     path('aulas/', aula_views.aulas_mantenedor, name='aulas_mantenedor'),
     path('aulas/<str:id_aula>/', aula_views.aulas_mantenedor, name='aulas_mantenedor_detail'),
+    path('tutores/', tutor_views.tutores_mantenedor, name='tutores_mantenedor'),
+    path('tutores/<str:id_tutor>/', tutor_views.tutores_mantenedor, name='tutores_mantenedor_detail'),
+    path('planes/', plan_views.planes_mantenedor, name='planes_mantenedor'),
+    path('planes/<str:id_plan>/', plan_views.planes_mantenedor, name='planes_mantenedor_detail'),
     path('informes/asistencias/', informes_views.informe_asistencias_api, name='informe_asistencias_api'),
-    path('membresias/catalogos/', membresia_views.membresias_catalogos, name='membresias_catalogos'),
-    path('membresias/estudiantes/', membresia_views.membresias_estudiantes, name='membresias_estudiantes'),
-    path('membresias/', membresia_views.membresias_mantenedor, name='membresias_mantenedor'),
-    path('membresias/<str:id_membresia>/', membresia_views.membresias_mantenedor, name='membresias_mantenedor_detail'),
+    path('mensualidades/catalogos/', mensualidad_views.mensualidades_catalogos, name='mensualidades_catalogos'),
+    path('mensualidades/estudiantes/', mensualidad_views.mensualidades_estudiantes, name='mensualidades_estudiantes'),
+    path('mensualidades/', mensualidad_views.mensualidades_mantenedor, name='mensualidades_mantenedor'),
+    path('mensualidades/<str:id_mensualidad>/', mensualidad_views.mensualidades_mantenedor, name='mensualidades_mantenedor_detail'),
+    path('pagos/catalogos/', pago_views.pagos_catalogos, name='pagos_catalogos'),
+    path('pagos/estudiante/<str:id_usuario>/mensualidades/', pago_views.pagos_mensualidades_estudiante, name='pagos_mensualidades_estudiante'),
+    path('pagos/', pago_views.pagos_mantenedor, name='pagos_mantenedor'),
+    path('pagos/<str:id_pago>/', pago_views.pagos_mantenedor, name='pagos_mantenedor_detail'),
+    path('libros/catalogos/', libro_views.libros_catalogos, name='libros_catalogos'),
+    path('libros/', libro_views.libros_mantenedor, name='libros_mantenedor'),
+    path('libros/<str:id_libro>/', libro_views.libros_mantenedor, name='libros_mantenedor_detail'),
+    path('horarios/catalogos/', horario_views.horarios_catalogos, name='horarios_catalogos'),
+    path('horarios/', horario_views.horarios_mantenedor, name='horarios_mantenedor'),
+    path('horarios/<str:id_horario>/', horario_views.horarios_mantenedor, name='horarios_mantenedor_detail'),
+    path('conceptos/', concepto_views.conceptos_mantenedor, name='conceptos_mantenedor'),
+    path('conceptos/<str:id_concepto>/', concepto_views.conceptos_mantenedor, name='conceptos_mantenedor_detail'),
+    path('pagos-extraordinarios/catalogos/', pago_extra_views.pagos_extra_catalogos, name='pagos_extra_catalogos'),
+    path(
+        'pagos-extraordinarios/estudiante/<str:id_usuario>/conceptos/',
+        pago_extra_views.pagos_extra_conceptos_estudiante,
+        name='pagos_extra_conceptos_estudiante',
+    ),
+    path('pagos-extraordinarios/', pago_extra_views.pagos_extra_mantenedor, name='pagos_extra_mantenedor'),
+    path('pagos-extraordinarios/<str:id_pago>/', pago_extra_views.pagos_extra_mantenedor, name='pagos_extra_mantenedor_detail'),
+    path('categorias/', categoria_views.categorias_mantenedor, name='categorias_mantenedor'),
+    path('categorias/<str:id_categoria>/', categoria_views.categorias_mantenedor, name='categorias_mantenedor_detail'),
+    path('materias/catalogos/', materia_views.materias_catalogos, name='materias_catalogos'),
+    path('materias/', materia_views.materias_mantenedor, name='materias_mantenedor'),
+    path('materias/<str:id_materia>/', materia_views.materias_mantenedor, name='materias_mantenedor_detail'),
+    path('examenes/catalogos/', examen_views.examenes_catalogos, name='examenes_catalogos'),
+    path('examenes/distribucion/', examen_views.examenes_distribucion, name='examenes_distribucion'),
+    path(
+        'examenes/estudiante/',
+        examen_estudiante_views.examenes_estudiante_listar,
+        name='examenes_estudiante_listar',
+    ),
+    path(
+        'examenes/estudiante/<str:id_examen>/iniciar/',
+        examen_estudiante_views.examenes_estudiante_iniciar,
+        name='examenes_estudiante_iniciar',
+    ),
+    path(
+        'examenes/estudiante/intento/<str:id_intento>/',
+        examen_estudiante_views.examenes_estudiante_intento,
+        name='examenes_estudiante_intento',
+    ),
+    path(
+        'examenes/estudiante/intento/<str:id_intento>/responder/',
+        examen_estudiante_views.examenes_estudiante_responder,
+        name='examenes_estudiante_responder',
+    ),
+    path(
+        'examenes/estudiante/intento/<str:id_intento>/finalizar/',
+        examen_estudiante_views.examenes_estudiante_finalizar,
+        name='examenes_estudiante_finalizar',
+    ),
+    path('examenes/', examen_views.examenes_mantenedor, name='examenes_mantenedor'),
+    path('examenes/<str:id_examen>/', examen_views.examenes_mantenedor, name='examenes_mantenedor_detail'),
+    path(
+        'examenes/<str:id_examen>/preguntas/<str:id_pregunta>/',
+        examen_views.examenes_pregunta,
+        name='examenes_pregunta',
+    ),
     path('menu-usuario/', views.menu_usuario, name='menu_usuario'),
     
     # URLs de módulos - Admin

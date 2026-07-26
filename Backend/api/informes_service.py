@@ -4,6 +4,7 @@ from django.db import connection
 from django.utils import timezone
 
 DIAS_ES = ('lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom')
+DEFAULT_DIAS_ASISTENCIA = 63  # lun–sáb (bits 0–5)
 
 
 def _hoy_db():
@@ -63,8 +64,8 @@ def _formatear_fecha_db(fecha_db):
     return f'{norm[0:2]}/{norm[2:4]}/{norm[4:]}'
 
 
-def _estado_vencimiento_membresia(fecha_fin_db):
-    """Retorna 'vencida', 'proxima' o '' según la fecha fin de membresía."""
+def _estado_vencimiento_mensualidad(fecha_fin_db):
+    """Retorna 'vencida', 'proxima' o '' según la fecha fin de mensualidad."""
     fin = _fecha_db_a_date(fecha_fin_db)
     if not fin:
         return ''
@@ -112,6 +113,23 @@ def _estado_a_codigo(estado, justificado=False):
     return ''
 
 
+def _parse_dias_asistencia(val):
+    if val is None:
+        return DEFAULT_DIAS_ASISTENCIA
+    try:
+        mask = int(val) & 0x7F
+        return mask if mask else DEFAULT_DIAS_ASISTENCIA
+    except (TypeError, ValueError):
+        return DEFAULT_DIAS_ASISTENCIA
+
+
+def _dia_permitido_plan(fecha_db, dias_asistencia):
+    d = _fecha_db_a_date(fecha_db)
+    if not d:
+        return False
+    return bool(dias_asistencia & (1 << d.weekday()))
+
+
 def _dia_cuenta_para_falta(fecha_db, fecha_inicio_db, fecha_fin_db):
     """True si el día está dentro del período de membresía para evaluar faltas."""
     inicio = _normalizar_fecha_db(fecha_inicio_db)
@@ -145,12 +163,22 @@ def _construir_filas(estudiantes, asistencias, dias):
 
         fecha_inicio_mem = est.get('FECHA_INICIO_MEM')
         fecha_fin_mem = est.get('FECHA_VENCE') or est.get('FECHA_FIN_MEM')
+        dias_asistencia = _parse_dias_asistencia(est.get('DIASASISTENCIA'))
+        dias_no_lectivos = set()
 
         for dia in dias:
             fecha = dia['fecha']
+            permitido = _dia_permitido_plan(fecha, dias_asistencia)
             codigo = marcas_usuario.get(fecha, '')
-            # Falta solo en días lectivos transcurridos y dentro del período de membresía
-            if not codigo and not dia['esDomingo'] and not dia.get('esFuturo'):
+
+            if not permitido:
+                dias_no_lectivos.add(fecha)
+                # Muestra marca real (A/T/R) si vino un día fuera de su plan; no cuenta ni genera falta
+                marcas[fecha] = codigo
+                continue
+
+            # Falta solo en días lectivos del plan, ya transcurridos y dentro del período de membresía
+            if not codigo and not dia.get('esFuturo'):
                 if _dia_cuenta_para_falta(fecha, fecha_inicio_mem, fecha_fin_mem):
                     codigo = 'F'
             marcas[fecha] = codigo
@@ -162,7 +190,7 @@ def _construir_filas(estudiantes, asistencias, dias):
                 total_faltas += 1
 
         fecha_vence = est.get('FECHA_VENCE')
-        estado_vence = _estado_vencimiento_membresia(fecha_vence)
+        estado_vence = _estado_vencimiento_mensualidad(fecha_vence)
         filas.append({
             'numero': idx,
             'idusuario': uid,
@@ -175,6 +203,8 @@ def _construir_filas(estudiantes, asistencias, dias):
             'venceEn3Dias': estado_vence == 'proxima',
             'venceVencida': estado_vence == 'vencida',
             'marcas': marcas,
+            'diasNoLectivos': list(dias_no_lectivos),
+            'diasAsistencia': dias_asistencia,
             'totalAsist': total_asist,
             'totalTard': total_tard,
             'totalFaltas': total_faltas,
@@ -304,6 +334,7 @@ def informe_asistencias_orm(fecha_desde, fecha_hasta, buscar=None, id_plan=None,
             'CICLO': meta.get('CICLO', ''),
             'FECHA_INICIO_MEM': meta.get('FECHA_INICIO_MEM', ''),
             'FECHA_VENCE': meta.get('FECHA_VENCE', ''),
+            'DIASASISTENCIA': meta.get('DIASASISTENCIA', DEFAULT_DIAS_ASISTENCIA),
         })
 
     user_ids = [e['IDUSUARIO'] for e in estudiantes]
@@ -344,6 +375,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                 SELECT
                     u.IDUSUARIO,
                     mem.IDPLAN,
+                    ISNULL(pl.DIASASISTENCIA, 63) AS DIASASISTENCIA,
                     UPPER(ISNULL(tut.NOMBRE, '')) AS TUTORA,
                     ISNULL(au.NOMBRE, '') AS AULA,
                     UPPER(LTRIM(RTRIM(
@@ -357,7 +389,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                 OUTER APPLY (
                     SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO,
                            m.FECHAINICIO, m.FECHAFIN AS FECHA_VENCE
-                    FROM MEMBRESIA m
+                    FROM MENSUALIDAD m
                     WHERE m.IDUSUARIO = u.IDUSUARIO
                       AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
                     ORDER BY

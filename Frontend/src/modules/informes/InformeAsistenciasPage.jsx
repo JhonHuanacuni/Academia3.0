@@ -146,7 +146,7 @@ export default function InformeAsistenciasPage() {
 
       try {
 
-        const res = await fetch("/api/membresias/catalogos/");
+        const res = await fetch("/api/mensualidades/catalogos/");
 
         const data = await parseJsonResponse(res);
 
@@ -384,15 +384,15 @@ export default function InformeAsistenciasPage() {
         <div className="mantenedor-state">No hay estudiantes para el rango seleccionado.</div>
 
       ) : hayDatos ? (
-        <div className="informes-panel">
-          <div className="informes-tabs" role="tablist" aria-label="Vista del informe">
+        <div className="ui-tabs-panel">
+          <div className="ui-tabs" role="tablist" aria-label="Vista del informe">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 role="tab"
                 aria-selected={tabActiva === tab.id}
-                className={`informes-tab${tabActiva === tab.id ? " informes-tab--activa" : ""}`}
+                className={`ui-tab${tabActiva === tab.id ? " ui-tab--activa" : ""}`}
                 onClick={() => setTabActiva(tab.id)}
               >
                 <FontAwesomeIcon icon={tab.icon} />
@@ -401,7 +401,7 @@ export default function InformeAsistenciasPage() {
             ))}
           </div>
 
-          <div className="informes-panel-body" role="tabpanel">
+          <div className="ui-tabs-panel-body" role="tabpanel">
             {tabActiva === "indicadores" ? (
               <InformeResumenGraficos resumen={resumen} totalEstudiantes={total} />
             ) : (
@@ -418,10 +418,12 @@ export default function InformeAsistenciasPage() {
 
         <p>
 
-          Las faltas solo se cuentan en días lectivos ya transcurridos (lun–sáb), desde el
-          inicio de la membresía hasta su fecha de fin. Sin membresía o antes de iniciarla no se marca falta.
-
-          Domingos y fechas futuras no se marcan como falta.
+          Las faltas solo se cuentan en los días de asistencia configurados en el plan del estudiante,
+          ya transcurridos, desde el inicio de la mensualidad hasta su fecha de fin.
+          Sin mensualidad o antes de iniciarla no se marca falta.
+          Los días no lectivos del plan y las fechas futuras no se marcan como falta.
+          Si el estudiante asiste un día que no le corresponde, se muestra en gris con su marca (A/T)
+          pero no suma al porcentaje ni a los totales.
 
           La celda <strong>VENCE</strong> se resalta en amarillo (3 días o menos) o rojo (vencida).
 

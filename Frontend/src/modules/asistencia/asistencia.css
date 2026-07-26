@@ -5,6 +5,17 @@
   font-family: var(--font-body, system-ui, sans-serif);
 }
 
+.asistencia-page--marcar {
+  min-height: calc(100vh - 8.5rem);
+  align-items: center;
+  justify-content: center;
+}
+
+.asistencia-page--marcar .asistencia-layout {
+  width: 100%;
+  max-width: 520px;
+}
+
 .asistencia-header h1 {
   margin: 0 0 0.35rem;
   font-size: 1.35rem;

@@ -67,81 +67,10 @@
   white-space: nowrap;
 }
 
-.informes-panel {
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e3e6ef);
-  border-radius: var(--radius, 12px);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  min-width: 0;
-  max-width: 100%;
-}
+/* Tabs: estilo canónico en mantenedor.css (.ui-tabs / .informes-tabs) */
 
-.informes-tabs {
-  display: flex;
-  gap: 0.35rem;
-  padding: 0.65rem 1rem 0;
-  background: linear-gradient(180deg, #f0f2f8 0%, #e8ebf3 100%);
-  border-bottom: 1px solid var(--color-border, #e3e6ef);
-}
-
-.informes-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.65rem 1.15rem;
-  margin-bottom: -1px;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 10px 10px 0 0;
-  background: transparent;
-  color: var(--color-muted, #6b7280);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-  position: relative;
-  z-index: 0;
-}
-
-.informes-tab:hover {
-  color: var(--color-primary, #6a42e5);
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.informes-tab--activa {
-  background: var(--color-surface, #fff);
-  border-color: var(--color-border, #e3e6ef);
-  border-bottom-color: var(--color-surface, #fff);
-  color: var(--color-primary, #6a42e5);
-  z-index: 1;
-  box-shadow: 0 -1px 0 rgba(106, 66, 229, 0.08);
-}
-
-.informes-tab--activa::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 3px;
-  border-radius: 10px 10px 0 0;
-  background: var(--color-primary, #6a42e5);
-}
-
-.informes-tab--activa:hover {
-  color: var(--color-primary, #6a42e5);
-}
-
-.informes-panel-body {
-  padding: 1rem 1.1rem 1.15rem;
-  background: var(--color-surface, #fff);
-  min-height: 200px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.informes-panel-body .informe-tabla-outer {
+.informes-panel-body .informe-tabla-outer,
+.ui-tabs-panel-body .informe-tabla-outer {
   margin: -0.25rem -0.35rem 0;
   border: 1px solid var(--color-border, #e3e6ef);
   border-radius: 8px;
@@ -157,6 +86,7 @@
 .informe-asistencias-table {
   --col-num-width: 2.75rem;
   --col-nombre-width: 15rem;
+  --col-vence-width: 4.75rem;
   --col-total-width: 3.5rem;
   border-collapse: separate;
   border-spacing: 0;
@@ -216,6 +146,14 @@
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.informe-asistencias-table .col-vence.sticky-izq {
+  left: calc(var(--col-num-width) + var(--col-nombre-width));
+  width: var(--col-vence-width);
+  min-width: var(--col-vence-width);
+  max-width: var(--col-vence-width);
+  text-align: center;
 }
 
 .informe-asistencias-table .sticky-izq--ultimo {
@@ -491,7 +429,6 @@
 }
 
 .informe-asistencias-table .col-vence {
-  min-width: 72px;
   text-align: center;
 }
 
@@ -517,6 +454,31 @@
 .informe-asistencias-table .col-dia-dom-vacio {
   background: #e8eef8 !important;
   color: transparent;
+}
+
+.informe-asistencias-table .col-dia-no-lectivo {
+  background: #e8eaef !important;
+  color: #9ca3af;
+}
+
+.informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo {
+  background: #dfe3eb !important;
+}
+
+.informe-asistencias-table .col-dia-no-lectivo.marca-a,
+.informe-asistencias-table .col-dia-no-lectivo.marca-t,
+.informe-asistencias-table .col-dia-no-lectivo.marca-f,
+.informe-asistencias-table .col-dia-no-lectivo.marca-r {
+  background: #dfe3eb !important;
+  color: #6b7280 !important;
+  font-weight: 700;
+}
+
+.informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo.marca-a,
+.informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo.marca-t,
+.informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo.marca-f,
+.informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo.marca-r {
+  background: #d5dae3 !important;
 }
 
 .informe-asistencias-table .col-total {
@@ -600,22 +562,6 @@
 @media (max-width: 900px) {
   .informes-filtros-grid {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .informes-tabs {
-    padding: 0.5rem 0.65rem 0;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-  }
-
-  .informes-tab {
-    flex-shrink: 0;
-    padding: 0.55rem 0.9rem;
-    font-size: 0.8rem;
-  }
-
-  .informes-panel-body {
-    padding: 0.85rem;
   }
 
   .informes-filtro-buscar,

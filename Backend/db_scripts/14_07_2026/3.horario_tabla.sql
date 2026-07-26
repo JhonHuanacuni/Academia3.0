@@ -1,0 +1,34 @@
+/* ============================================================================
+   HORARIO — tabla principal + relación con salones
+   Fecha: 14/07/2026
+   ============================================================================ */
+
+IF OBJECT_ID('dbo.HORARIO', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HORARIO (
+        IDHORARIO    NVARCHAR(50)  NOT NULL PRIMARY KEY,
+        TITULO       NVARCHAR(200) NOT NULL,
+        DESCRIPCION  NVARCHAR(MAX) NULL,
+        URLIMAGEN    NVARCHAR(255) NULL,
+        FECHASUBIDA  CHAR(8)       NULL
+            CHECK (FECHASUBIDA LIKE '[0-3][0-9][0-1][0-9][0-9][0-9][0-9][0-9]'),
+        ESTADO       NVARCHAR(50)  NULL DEFAULT 'Activo'
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.HORARIO_AULA', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HORARIO_AULA (
+        IDHORARIOAULA NVARCHAR(50) NOT NULL PRIMARY KEY,
+        IDHORARIO     NVARCHAR(50) NOT NULL FOREIGN KEY REFERENCES dbo.HORARIO(IDHORARIO),
+        IDAULA        NVARCHAR(50) NOT NULL FOREIGN KEY REFERENCES dbo.AULA(IDAULA),
+        CONSTRAINT UQ_HORARIO_AULA UNIQUE (IDHORARIO, IDAULA)
+    );
+    CREATE INDEX IX_HORARIO_AULA_HORARIO ON dbo.HORARIO_AULA(IDHORARIO);
+    CREATE INDEX IX_HORARIO_AULA_AULA    ON dbo.HORARIO_AULA(IDAULA);
+END
+GO
+
+PRINT 'HORARIO y HORARIO_AULA listos.';
+GO

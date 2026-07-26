@@ -1,0 +1,83 @@
+ORDEN DE EJECUCIÓN — 12/07/2026
+================================
+
+Prerequisito: ejecutar primero los scripts de 11_07_2026
+(especialmente 6.asesor_tabla.sql).
+
+--- Académico / Mantenedor de asesores ---
+
+1. 1.usp_asesor_crud.sql
+   - CRUD completo de asesores (listar, obtener, insertar, actualizar, eliminar)
+
+2. 2.sub012_mantenedor_asesores.sql
+   - Submódulo SUB012 bajo MOD009 (Académico)
+
+--- Académico / Mantenedor de planes ---
+
+3. 3.usp_plan_crud.sql
+   - CRUD de planes (código, nombre, descripción, estado)
+   - Sin duración ni precio (van en la membresía)
+
+4. 4.sub013_mantenedor_planes.sql
+   - Submódulo SUB013 bajo MOD009 (Académico)
+
+5. 5.plan_quitar_duracion_precio.sql
+   - Elimina columnas PLAN.DURACIONDIAS y PLAN.PRECIO
+   - Ejecutar después de 3 (SPs ya no las usan)
+
+--- Membresías / estado y fecha de registro ---
+
+6. 6.usp_membresia_estado_registro.sql
+   - Estado membresía: solo Activo (2) y Vencido (3), default Activo
+   - Migra Nuevo(1)->Activo y Cancelado(4)->Vencido
+   - Desactivar ya no cambia ESTADOMIEMBRO
+   - FECHAREGISTRO sigue asignándose automáticamente al insertar
+
+--- Usuarios / orden por tipo ---
+
+7. 7.usp_usuario_listar_orden_tipo.sql
+   - Permite ordenar el listado por TIPOUSUARIO_DESCRIPCION (columna Tipo)
+
+--- Pagos ---
+
+8. 8.usp_pago_crud.sql
+   - usp_pago_listar: listado de pagos con estudiante/plan/método
+   - usp_pago_membresias_estudiante: últimas 3 membresías con deuda
+   - usp_pago_insertar_abono: abono a membresía con deuda
+
+9. 9.usp_pago_membresias_prefills.sql
+   - Amplía membresías del estudiante (turno, salón, asesor)
+   - Para prellenar nueva membresía al registrar pago
+
+10. 10.comoentero_a_usuario.sql
+   - Mueve COMOENTERO de MEMBRESIA a USUARIO
+   - Migra datos existentes y elimina la columna de membresía
+
+11. 11.usp_pago_obtener_actualizar_eliminar.sql
+   - Ver / editar / eliminar pagos individuales
+
+--- Académico / submódulos adicionales ---
+
+12. 12.sub_academico_biblioteca_examenes_horario_clases.sql
+   - SUB014 Biblioteca, SUB015 Exámenes, SUB016 Horario, SUB017 Clases bajo MOD009
+   - Desactiva MOD005 y MOD006 como módulos sueltos del menú
+
+--- Mantenedores ---
+
+13. 13.modulo_mantenedores.sql
+   - MOD011 Mantenedores
+   - Mueve SUB010 Aulas, SUB012 Asesores, SUB013 Planes (nombres cortos)
+   - Académico queda con Biblioteca, Exámenes, Horario, Clases
+
+API:
+  GET/POST/PUT/DELETE /api/asesores/
+  GET/POST/PUT/DELETE /api/planes/
+  GET/POST /api/pagos/
+  GET /api/pagos/catalogos/
+  GET /api/pagos/estudiante/<id>/membresias/
+
+Frontend:
+  Académico → Mantenedor de asesores
+  Académico → Mantenedor de planes
+  Membresías → fechas y monto se ingresan manualmente
+  Membresías → Pagos (listado + nuevo pago / abono)

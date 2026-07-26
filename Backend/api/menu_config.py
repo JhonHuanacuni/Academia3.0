@@ -2,8 +2,6 @@
 MODULOS_MENU_DIRECTO = frozenset({
     'MOD001',  # Dashboard
     'MOD002',  # Usuarios (solo listado; alta vía + Nuevo)
-    'MOD005',  # Biblioteca
-    'MOD006',  # Exámenes
     'MOD008',  # Administración de módulos
 })
 
@@ -17,26 +15,37 @@ MODULO_PAGE_MAP = {
     'MOD001': 'dashboard',
     'MOD002': 'usuarios',
     'MOD003': 'asistencias',
-    'MOD004': 'membresias',
+    'MOD004': 'mensualidades',
     'MOD005': 'biblioteca',
     'MOD006': 'examenes',
     'MOD007': 'notas',
     'MOD008': 'admin-modulos',
     'MOD009': 'academico',
     'MOD010': 'informes',
+    'MOD011': 'mantenedores',
 }
 
 SUBMODULO_PAGE_MAP = {
     'SUB002': 'usuarios',
     'SUB003': 'asistencias-marcar',
     'SUB004': 'asistencias-listado',
-    'SUB005': 'membresias',
-    'SUB006': 'membresias',
+    'SUB005': 'mensualidades',
+    # SUB006 (Ver mensualidades) desactivado — listado vía SUB005 + Nuevo
     'SUB007': 'pagos',
     'SUB008': 'notas',
     'SUB009': 'admin-modulos',
-    'SUB010': 'academico-aulas',
+    'SUB010': 'mantenedores-aulas',
     'SUB011': 'informes-asistencias',
+    'SUB012': 'mantenedores-tutores',
+    'SUB013': 'mantenedores-planes',
+    'SUB014': 'academico-biblioteca',
+    'SUB015': 'academico-examenes',
+    'SUB016': 'academico-horario',
+    'SUB017': 'academico-clases',
+    'SUB018': 'pagos-extraordinarios',
+    'SUB019': 'mantenedores-conceptos',
+    'SUB022': 'mantenedores-categorias',
+    'SUB023': 'mantenedores-materias',
 }
 
 ROLE_TO_TIPOUSUARIO = {

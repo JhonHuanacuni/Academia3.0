@@ -7,11 +7,38 @@ import {
   faSort,
   faSortUp,
   faSortDown,
+  faImage,
 } from "@fortawesome/free-solid-svg-icons";
-import { dbToView } from "../../utils/fecha";
+import { dbToView, diasRestantesDesdeDb, textoDiasRestantes, claseDiasRestantes } from "../../utils/fecha";
+import { resumenDiasAsistencia } from "../../utils/diasPlan";
 
-function renderCell(col, row) {
+function renderCell(col, row, index = 0, offset = 0) {
+  if (col.tipo === "numero") {
+    return offset + index + 1;
+  }
+
   const value = row[col.campo];
+
+  if (col.tipo === "diasRestantes") {
+    const dias = diasRestantesDesdeDb(row[col.origen || "FECHAFIN"]);
+    return (
+      <span className={`dias-vence ${claseDiasRestantes(dias)}`}>
+        {textoDiasRestantes(dias)}
+      </span>
+    );
+  }
+
+  if (col.tipo === "estadoMensualidad") {
+    if (value == null || value === "") return "—";
+    const v = String(value).toLowerCase();
+    const clase = v === "activo" ? "activo" : v === "vencido" ? "vencido" : "inactivo";
+    return <span className={`badge-estado ${clase}`}>{value}</span>;
+  }
+
+  if (col.tipo === "diasAsistencia") {
+    return <span className="dias-asistencia-resumen">{resumenDiasAsistencia(value)}</span>;
+  }
+
   if (value == null || value === "") return "—";
 
   if (col.tipo === "estado") {
@@ -22,11 +49,41 @@ function renderCell(col, row) {
       </span>
     );
   }
+  if (col.tipo === "visibleExamen") {
+    const on = value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";
+    return (
+      <span className={`badge-estado ${on ? "activo" : "inactivo"}`}>
+        {on ? "Visible" : "Oculto"}
+      </span>
+    );
+  }
+  if (col.tipo === "tipoExamen") {
+    const n = Number(value);
+    if (Number.isNaN(n)) return String(value ?? "—");
+    return `${n} preguntas`;
+  }
   if (col.tipo === "fecha") return dbToView(String(value));
+  if (col.tipo === "deuda") {
+    const n = Number(value);
+    if (value == null || value === "" || Number.isNaN(n) || n <= 0) {
+      return <span className="badge-estado activo">Sin deuda</span>;
+    }
+    return (
+      <span className="badge-estado vencido">
+        Con deuda (S/{" "}
+        {n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+      </span>
+    );
+  }
   if (col.tipo === "decimal") {
     const n = Number(value);
     if (Number.isNaN(n)) return String(value);
     return `S/ ${n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  if (col.tipo === "porcentaje") {
+    const n = Number(value);
+    if (Number.isNaN(n)) return String(value);
+    return `${n.toLocaleString("es-PE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
   }
   return String(value);
 }
@@ -52,7 +109,12 @@ export default function DataTable({
   onEliminar,
   onCarnet,
   onReintentar,
+  pagina = 1,
+  tamanio = 10,
+  verIcono = "eye",
 }) {
+  const mostrarAcciones = Boolean(onVer || onEditar || onEliminar || onCarnet);
+  const offset = Math.max(0, (pagina - 1) * tamanio);
   if (loading) {
     return (
       <div className="data-table-wrap">
@@ -62,7 +124,7 @@ export default function DataTable({
               {columnas.map((c) => (
                 <th key={c.campo}>{c.etiqueta}</th>
               ))}
-              <th className="col-actions">Acciones</th>
+              {mostrarAcciones && <th className="col-actions">Acciones</th>}
             </tr>
           </thead>
           <tbody>
@@ -73,9 +135,11 @@ export default function DataTable({
                     <div className="skeleton-bar" />
                   </td>
                 ))}
-                <td>
-                  <div className="skeleton-bar" />
-                </td>
+                {mostrarAcciones && (
+                  <td>
+                    <div className="skeleton-bar" />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -117,51 +181,59 @@ export default function DataTable({
                 {col.etiqueta} <SortIcon col={col} orden={orden} />
               </th>
             ))}
-            <th className="col-actions">Acciones</th>
+            {mostrarAcciones && <th className="col-actions">Acciones</th>}
           </tr>
         </thead>
         <tbody>
-          {items.map((row) => (
+          {items.map((row, index) => (
             <tr key={row[pk]}>
               {columnas.map((col) => (
-                <td key={col.campo}>{renderCell(col, row)}</td>
+                <td key={col.campo}>{renderCell(col, row, index, offset)}</td>
               ))}
-              <td className="col-actions">
-                <button
-                  type="button"
-                  className="btn-icon"
-                  title="Ver"
-                  onClick={() => onVer(row)}
-                >
-                  <FontAwesomeIcon icon={faEye} />
-                </button>
-                <button
-                  type="button"
-                  className="btn-icon"
-                  title="Editar"
-                  onClick={() => onEditar(row)}
-                >
-                  <FontAwesomeIcon icon={faPencil} />
-                </button>
-                {onCarnet && (
-                  <button
-                    type="button"
-                    className="btn-icon"
-                    title="Descargar carnet"
-                    onClick={() => onCarnet(row)}
-                  >
-                    <FontAwesomeIcon icon={faDownload} />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="btn-icon danger"
-                  title="Eliminar"
-                  onClick={() => onEliminar(row)}
-                >
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
-              </td>
+              {mostrarAcciones && (
+                <td className="col-actions">
+                  {onVer && (
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Ver"
+                      onClick={() => onVer(row)}
+                    >
+                      <FontAwesomeIcon icon={verIcono === "image" ? faImage : faEye} />
+                    </button>
+                  )}
+                  {onEditar && (
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Editar"
+                      onClick={() => onEditar(row)}
+                    >
+                      <FontAwesomeIcon icon={faPencil} />
+                    </button>
+                  )}
+                  {onCarnet && (
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Descargar carnet"
+                      onClick={() => onCarnet(row)}
+                    >
+                      <FontAwesomeIcon icon={faDownload} />
+                    </button>
+                  )}
+                  {onEliminar && (
+                    <button
+                      type="button"
+                      className="btn-icon danger"
+                      title="Eliminar"
+                      onClick={() => onEliminar(row)}
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

@@ -5,6 +5,7 @@ import {
   faUserPlus,
   faClipboardList,
   faMoneyBill,
+  faMoneyBillWave,
   faBook,
   faFileLines,
   faFilePen,
@@ -16,6 +17,9 @@ import {
   faChalkboard,
   faChartColumn,
   faCalendarDays,
+  faTags,
+  faLayerGroup,
+  faBookOpen,
 } from "@fortawesome/free-solid-svg-icons";
 
 const ICON_MAP = {
@@ -25,6 +29,7 @@ const ICON_MAP = {
   faUserPlus: faUserPlus,
   faClipboardList: faClipboardList,
   faMoneyBill: faMoneyBill,
+  faMoneyBillWave: faMoneyBillWave,
   faBook: faBook,
   faFileLines: faFileLines,
   faFilePen: faFilePen,
@@ -36,6 +41,9 @@ const ICON_MAP = {
   faChalkboard: faChalkboard,
   faChartColumn: faChartColumn,
   faCalendarDays: faCalendarDays,
+  faTags: faTags,
+  faLayerGroup: faLayerGroup,
+  faBookOpen: faBookOpen,
 };
 
 export function resolveSidebarIcon(iconName) {

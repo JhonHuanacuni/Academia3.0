@@ -1,0 +1,54 @@
+export const pagoConfig = {
+  modulo: "Pagos",
+  titulo: "Listado de Pagos",
+  entidad: "pagos",
+  pk: "IDPAGOMENSUALIDAD",
+  columnas: [
+    { campo: "ESTUDIANTE_NOMBRE", etiqueta: "Estudiante", ordenable: true },
+    { campo: "ESTUDIANTE_DNI", etiqueta: "DNI", ordenable: false },
+    { campo: "PLAN_NOMBRE", etiqueta: "Plan", ordenable: false },
+    { campo: "MONTO", etiqueta: "Monto", tipo: "decimal", ordenable: true },
+    { campo: "METODOPAGO_TITULO", etiqueta: "Método", ordenable: false },
+    { campo: "FECHAPAGO", etiqueta: "Fecha", tipo: "fecha", ordenable: true },
+    { campo: "OBSERVACIONES", etiqueta: "Detalle", ordenable: false },
+  ],
+  camposEdicion: [
+    {
+      campo: "ESTUDIANTE_NOMBRE",
+      etiqueta: "Estudiante",
+      control: "text",
+      bloqueado: true,
+    },
+    {
+      campo: "PLAN_NOMBRE",
+      etiqueta: "Plan",
+      control: "text",
+      bloqueado: true,
+    },
+    {
+      campo: "MONTO",
+      etiqueta: "Monto",
+      control: "number",
+      obligatorio: true,
+    },
+    {
+      campo: "IDMETODOPAGO",
+      etiqueta: "Método de pago",
+      control: "select",
+      catalogo: "metodosPago",
+      obligatorio: true,
+    },
+    {
+      campo: "FECHAPAGO",
+      etiqueta: "Fecha de pago",
+      control: "date",
+      obligatorio: true,
+    },
+    {
+      campo: "OBSERVACIONES",
+      etiqueta: "Detalle / observaciones",
+      control: "textarea",
+      full: true,
+    },
+  ],
+};

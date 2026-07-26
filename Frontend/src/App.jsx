@@ -5,9 +5,24 @@ import UsuarioPage from "./modules/usuario/UsuarioPage";
 import AsistenciaMarcarPage from "./modules/asistencia/AsistenciaMarcarPage";
 import AsistenciaListadoPage from "./modules/asistencia/AsistenciaListadoPage";
 import AulaPage from "./modules/aula/AulaPage";
-import MembresiaPage from "./modules/membresia/MembresiaPage";
+import TutorPage from "./modules/tutor/TutorPage";
+import PlanPage from "./modules/plan/PlanPage";
+import MensualidadPage from "./modules/mensualidad/MensualidadPage";
+import PagoPage from "./modules/pago/PagoPage";
+import PagoExtraPage from "./modules/pagoExtra/PagoExtraPage";
+import ConceptoPage from "./modules/concepto/ConceptoPage";
+import CategoriaPage from "./modules/categoria/CategoriaPage";
+import MateriaPage from "./modules/materia/MateriaPage";
+import BibliotecaPage from "./modules/biblioteca/BibliotecaPage";
+import HorarioPage from "./modules/horario/HorarioPage";
+import ExamenPage from "./modules/examen/ExamenPage";
+import ExamenEstudiantePage from "./modules/examenEstudiante/ExamenEstudiantePage";
 import InformeAsistenciasPage from "./modules/informes/InformeAsistenciasPage";
 import "./App.css";
+
+function ExamenesPorRol({ role }) {
+  return role === "estudiante" ? <ExamenEstudiantePage /> : <ExamenPage />;
+}
 
 const pageContent = {
   dashboard: {
@@ -19,14 +34,20 @@ const pageContent = {
     description: "Administración de usuarios del sistema.",
     component: UsuarioPage,
   },
-  membresias: {
-    title: "Membresías",
-    description: "Gestión de membresías y cobros.",
-    component: MembresiaPage,
+  mensualidades: {
+    title: "Mensualidades",
+    description: "Gestión de mensualidades y cobros.",
+    component: MensualidadPage,
   },
   pagos: {
     title: "Pagos",
     description: "Lista de pagos, estado y registro de transacciones.",
+    component: PagoPage,
+  },
+  "pagos-extraordinarios": {
+    title: "Pagos extraordinarios",
+    description: "Pagos no ligados a mensualidad.",
+    component: PagoExtraPage,
   },
   asistencias: {
     title: "Asistencias",
@@ -45,14 +66,17 @@ const pageContent = {
   horario: {
     title: "Horario",
     description: "Agenda y horarios de clases, salones y eventos.",
+    component: HorarioPage,
   },
   biblioteca: {
     title: "Biblioteca",
     description: "Acceso a recursos educativos y archivos de la biblioteca.",
+    component: BibliotecaPage,
   },
   examenes: {
     title: "Exámenes",
     description: "Gestión de exámenes, resultados y evaluaciones.",
+    component: ExamenesPorRol,
   },
   notas: {
     title: "Notas",
@@ -67,10 +91,58 @@ const pageContent = {
     title: "Académico",
     description: "Gestión académica del instituto.",
   },
-  "academico-aulas": {
-    title: "Mantenedor de Aulas",
+  mantenedores: {
+    title: "Mantenedores",
+    description: "Catálogos y mantenedores del sistema.",
+  },
+  "mantenedores-aulas": {
+    title: "Aulas",
     description: "Registro y administración de aulas / salones.",
     component: AulaPage,
+  },
+  "mantenedores-tutores": {
+    title: "Tutores",
+    description: "Registro y administración de tutores.",
+    component: TutorPage,
+  },
+  "mantenedores-planes": {
+    title: "Planes",
+    description: "Registro y administración de tipos de plan.",
+    component: PlanPage,
+  },
+  "mantenedores-conceptos": {
+    title: "Conceptos",
+    description: "Conceptos de pago extraordinario (nombre y costo).",
+    component: ConceptoPage,
+  },
+  "mantenedores-categorias": {
+    title: "Categorías",
+    description: "Categorías de materias para exámenes.",
+    component: CategoriaPage,
+  },
+  "mantenedores-materias": {
+    title: "Materias",
+    description: "Materias / cursos vinculados a categoría.",
+    component: MateriaPage,
+  },
+  "academico-biblioteca": {
+    title: "Biblioteca",
+    description: "Recursos educativos y archivos de la biblioteca.",
+    component: BibliotecaPage,
+  },
+  "academico-examenes": {
+    title: "Exámenes",
+    description: "Gestión de exámenes, resultados y evaluaciones.",
+    component: ExamenesPorRol,
+  },
+  "academico-horario": {
+    title: "Horario",
+    description: "Agenda y horarios de clases, salones y eventos.",
+    component: HorarioPage,
+  },
+  "academico-clases": {
+    title: "Clases",
+    description: "Registro y administración de clases.",
   },
   informes: {
     title: "Informes",
@@ -215,7 +287,11 @@ function App() {
       onLogout={handleLogout}
     >
       {page.component ? (
-        <page.component />
+        page.component === ExamenesPorRol ? (
+          <ExamenesPorRol role={role} />
+        ) : (
+          <page.component />
+        )
       ) : (
         <>
           <div className="page-header">

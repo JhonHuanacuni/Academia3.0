@@ -158,6 +158,53 @@ class Aula(models.Model):
         managed = False
 
 
+class Tutor(models.Model):
+    IDTUTOR = models.CharField(max_length=50, primary_key=True)
+    NOMBRE = models.CharField(max_length=150)
+    ACTIVO = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'TUTOR'
+        managed = False
+
+
+class Plan(models.Model):
+    IDPLAN = models.CharField(max_length=50, primary_key=True)
+    NOMBRE = models.CharField(max_length=100)
+    DESCRIPCION = models.CharField(max_length=255, blank=True, null=True)
+    COSTOMENSUAL = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    DIASASISTENCIA = models.PositiveSmallIntegerField(default=63)
+    ACTIVO = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'PLAN'
+        managed = False
+
+
+class Categoria(models.Model):
+    IDCATEGORIA = models.CharField(max_length=50, primary_key=True)
+    NOMBRE = models.CharField(max_length=100)
+    PORCENTAJE = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    ORDEN = models.IntegerField(default=0)
+    ACTIVO = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'CATEGORIA'
+        managed = False
+
+
+class Materia(models.Model):
+    IDMATERIA = models.CharField(max_length=50, primary_key=True)
+    CODIGO = models.CharField(max_length=50, blank=True, null=True)
+    NOMBRE = models.CharField(max_length=150)
+    IDCATEGORIA = models.CharField(max_length=50, blank=True, null=True, db_column='IDCATEGORIA')
+    ACTIVO = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'MATERIA'
+        managed = False
+
+
 class Asistencia(models.Model):
     IDASISTENCIA = models.CharField(max_length=50, primary_key=True)
     FECHAREGISTRO = models.CharField(max_length=8, blank=True, null=True)

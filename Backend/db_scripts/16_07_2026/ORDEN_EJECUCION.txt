@@ -1,0 +1,74 @@
+ORDEN DE EJECUCIÓN — 16/07/2026
+================================
+
+1. 1.concepto_pago_extra_tabla.sql
+   - Tabla CONCEPTOPAGOEXTRA (nombre + costo)
+
+2. 2.usp_concepto_crud.sql
+   - usp_concepto_listar / obtener / insertar / actualizar / eliminar
+
+3. 3.pago_extraordinario_tabla.sql
+   - Tabla PAGOEXTRAORDINARIO
+
+4. 4.usp_pago_extraordinario_crud.sql
+   - usp_pagoextra_*
+
+5. 5.sub_pagos_extraordinarios_conceptos.sql
+   - SUB018 Pagos extraordinarios (MOD004 Membresías)
+   - SUB019 Conceptos (MOD011 Mantenedores)
+
+6. 6.usp_concepto_insertar_auto.sql
+   - Código de concepto autoincremental (CON001...) e invisible en el formulario
+   - Ejecutar si ya corriste el script 2 anterior
+
+7. 7.concepto_fechas_vigencia.sql
+   - Columnas FECHAINICIO / FECHAFIN
+   - Actualiza SPs de concepto
+   - En pagos extraordinarios solo salen conceptos Activo y dentro del rango de fechas
+
+8. 8.pagoextra_sin_fechas_form.sql
+   - Quita fechas del formulario de pago; se copian del concepto al guardar
+
+9. 9.pagoextra_deuda_conceptos_estudiante.sql
+   - Listado pagos extra sin columna deuda
+   - usp_pagoextra_conceptos_estudiante: últimos conceptos del estudiante (abonos)
+
+10. 10.usp_membresia_listar_deuda.sql
+   - Listado de Membresías con columna DEUDA (MONTOTOTAL − suma pagos)
+
+11. 11.plan_costo_mensual.sql
+   - Columna PLAN.COSTOMENSUAL
+   - SPs usp_plan_* con costo mensual
+
+12. 12.pago_membresias_costo_mensual.sql
+   - Últimas membresías en Nuevo pago: PLAN_COSTOMENSUAL
+
+13. 13.categoria_materia_tablas.sql
+   - Tabla CATEGORIA (seed: Habilidades, Matematica, Humanidades, Ciencias)
+   - MATERIA.IDCATEGORIA + ACTIVO + FK
+
+14. 14.usp_categoria_crud.sql
+   - usp_categoria_*
+
+15. 15.usp_materia_crud.sql
+   - usp_materia_*
+
+16. 16.sub_categorias_materias.sql
+   - SUB022 Categorías / SUB023 Materias (MOD011)
+
+17. 17.materia_categoria_auto_seed.sql
+   - Código auto CAT### / MAT###
+   - Seed 17 materias (HM, HV, ARIT, … BIO)
+
+API:
+  /api/conceptos/
+  /api/pagos-extraordinarios/
+  /api/pagos-extraordinarios/catalogos/
+  /api/pagos-extraordinarios/estudiante/<id>/conceptos/
+  /api/categorias/
+  /api/materias/
+  /api/materias/catalogos/
+
+Frontend:
+  Membresías → Pagos extraordinarios
+  Mantenedores → Conceptos, Categorías, Materias

@@ -41,11 +41,90 @@
   flex-wrap: wrap;
 }
 
+.mantenedor-page-header--breadcrumb {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.95rem 1.2rem 1rem 1.15rem;
+  position: relative;
+  overflow: hidden;
+  align-items: center;
+}
+
+.mantenedor-page-header--breadcrumb::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--color-primary) 0%, #8b6ff0 100%);
+}
+
+.mantenedor-page-header-main {
+  min-width: 0;
+  flex: 1;
+}
+
 .mantenedor-page-header h1 {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: 1.35rem;
+  font-size: 1.28rem;
   font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.page-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.page-breadcrumb-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  line-height: 1.2;
+  cursor: default;
+}
+
+button.page-breadcrumb-link {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+button.page-breadcrumb-link:hover {
+  color: var(--color-primary);
+}
+
+.page-breadcrumb-sep {
+  color: #c5cad8;
+  font-size: 0.55rem;
+  flex-shrink: 0;
+}
+
+.page-breadcrumb-vista {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.28rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  text-transform: none;
 }
 
 .btn-primary {
@@ -196,6 +275,35 @@
 .badge-estado.inactivo {
   background: #eef0f4;
   color: var(--color-muted);
+}
+
+.badge-estado.vencido {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.dias-vence {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dias-vence--ok {
+  background: #e6f6ee;
+  color: var(--color-success);
+}
+
+.dias-vence--proxima {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.dias-vence--vencida {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .btn-icon {
@@ -483,6 +591,52 @@
   margin-top: 0.25rem;
 }
 
+.dias-semana-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dias-semana-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.dias-semana-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--color-border, #e3e6ef);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-muted, #6b7280);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dias-semana-chip input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--color-primary, #6a42e5);
+}
+
+.dias-semana-chip.is-active {
+  border-color: var(--color-primary, #6a42e5);
+  background: var(--color-primary-soft, #ede8fc);
+  color: var(--color-primary, #6a42e5);
+}
+
+.dias-asistencia-resumen {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text, #1c2333);
+  white-space: nowrap;
+}
+
 .estudiante-search {
   position: relative;
 }
@@ -547,8 +701,252 @@
   font-size: 0.75rem;
 }
 
-@media (max-width: 700px) {
-  .form-grid {
+.form-page-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.form-page-body {
+  padding: 1.15rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.form-grid--page {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.form-grid--half {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 0.85rem;
+}
+
+.form-page-footer {
+  padding: 0.85rem 1.35rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  background: #fafbfe;
+}
+
+.form-field--action {
+  justify-content: flex-end;
+}
+
+.form-field--action label {
+  visibility: hidden;
+}
+
+.btn-generar-contra {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.form-section-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  align-items: stretch;
+}
+
+.form-page .form-section--card {
+  margin-bottom: 0;
+  padding: 0.9rem 1rem 1rem;
+  background: #f8f9fc;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.form-page .form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.85rem;
+  padding: 0;
+  border-bottom: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.form-page .form-section-title::before {
+  content: "";
+  width: 3px;
+  height: 0.95em;
+  border-radius: 2px;
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.form-page .form-field {
+  gap: 0.25rem;
+}
+
+.form-page .form-field label {
+  font-size: 0.76rem;
+}
+
+@media (max-width: 1000px) {
+  .form-grid--page {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-section-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .form-grid,
+  .form-grid--page,
+  .form-grid--half {
+    grid-template-columns: 1fr;
+  }
+
+  .form-field--action label {
+    display: none;
+  }
+
+  .form-page-body {
+    padding: 0.9rem;
+  }
+
+  .form-page-footer {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .form-page .form-section--card {
+    padding: 0.75rem 0.85rem 0.9rem;
+  }
+}
+
+/* ── Tabs UI estándar (barra gris, activo blanco + línea superior primary) ── */
+.ui-tabs-panel,
+.informes-panel {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e3e6ef);
+  border-radius: var(--radius, 12px);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ui-tabs,
+.informes-tabs,
+.examen-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.65rem 1rem 0;
+  background: linear-gradient(180deg, #f0f2f8 0%, #e8ebf3 100%);
+  border-bottom: 1px solid var(--color-border, #e3e6ef);
+}
+
+.ui-tab,
+.informes-tab,
+.examen-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1.15rem;
+  margin-bottom: -1px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: transparent;
+  color: var(--color-muted, #6b7280);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  position: relative;
+  z-index: 0;
+}
+
+.ui-tab:hover,
+.informes-tab:hover,
+.examen-tab:hover {
+  color: var(--color-primary, #6a42e5);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.ui-tab--activa,
+.informes-tab--activa,
+.examen-tab.is-active,
+.examen-tab--activa {
+  background: var(--color-surface, #fff);
+  border-color: var(--color-border, #e3e6ef);
+  border-bottom-color: var(--color-surface, #fff);
+  color: var(--color-primary, #6a42e5);
+  z-index: 1;
+  box-shadow: 0 -1px 0 rgba(106, 66, 229, 0.08);
+}
+
+.ui-tab--activa::after,
+.informes-tab--activa::after,
+.examen-tab.is-active::after,
+.examen-tab--activa::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  border-radius: 10px 10px 0 0;
+  background: var(--color-primary, #6a42e5);
+}
+
+.ui-tab--activa:hover,
+.informes-tab--activa:hover,
+.examen-tab.is-active:hover,
+.examen-tab--activa:hover {
+  color: var(--color-primary, #6a42e5);
+}
+
+.ui-tabs-panel-body,
+.informes-panel-body {
+  padding: 1rem 1.1rem 1.15rem;
+  background: var(--color-surface, #fff);
+  min-height: 200px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .ui-tabs,
+  .informes-tabs,
+  .examen-tabs {
+    padding: 0.5rem 0.65rem 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .ui-tab,
+  .informes-tab,
+  .examen-tab {
+    flex-shrink: 0;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.8rem;
+  }
+
+  .ui-tabs-panel-body,
+  .informes-panel-body {
+    padding: 0.85rem;
   }
 }

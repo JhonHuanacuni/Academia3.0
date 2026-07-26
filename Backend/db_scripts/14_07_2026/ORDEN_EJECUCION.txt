@@ -1,0 +1,31 @@
+ORDEN DE EJECUCIÓN — 14/07/2026
+================================
+
+--- Biblioteca ---
+
+1. 1.libro_fechassubida_libro_aula.sql
+   - Columna LIBRO.FECHASUBIDA
+   - Tabla LIBRO_AULA
+
+2. 2.usp_libro_crud.sql
+   - usp_libro_* 
+
+--- Horario ---
+
+3. 3.horario_tabla.sql
+   - Tabla HORARIO + HORARIO_AULA
+
+4. 4.usp_horario_crud.sql
+   - usp_horario_*
+
+API:
+  /api/libros/          /api/libros/catalogos/
+  /api/horarios/        /api/horarios/catalogos/
+
+Archivos:
+  Backend/media/biblioteca/<id>/...
+  Backend/media/horarios/<id>/imagen.<ext>
+
+Frontend:
+  Académico → Biblioteca
+  Académico → Horario

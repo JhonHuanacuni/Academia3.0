@@ -1,0 +1,38 @@
+ORDEN DE EJECUCIÓN — 11/07/2026
+================================
+
+Prerequisito: scripts de 06_07_2026 (columna FOTO + SPs usuario).
+
+--- Usuarios / Apoderado ---
+
+1. 1.usuario_columnas_apoderado.sql
+   - Agrega NOMBREAPODERADO y PARENTESCO a USUARIO
+
+2. 2.usp_usuario_apoderado.sql
+   - Actualiza listar, obtener, insertar y actualizar con campos de apoderado
+
+--- Menú Membresías ---
+
+3. 3.remove_sub006_ver_membresias.sql
+   - Desactiva SUB006 (Ver membresías)
+   - Renombra SUB005 a "Membresías"
+
+--- Membresías / Cómo se enteró ---
+
+4. 4.membresia_columna_comoentero.sql
+   - Agrega COMOENTERO a MEMBRESIA
+
+5. 5.usp_membresia_comoentero.sql
+   - listar / obtener / insertar / actualizar con COMOENTERO
+
+--- Membresías / Asesor (tabla) ---
+
+6. 6.asesor_tabla.sql
+   - Crea tabla ASESOR + columna MEMBRESIA.IDASESOR + seed inicial
+
+7. 7.usp_membresia_asesor.sql
+   - SPs de membresía con IDASESOR
+
+API:
+  POST/PUT /api/usuarios/ → NOMBREAPODERADO, TELAPODERADO, PARENTESCO
+  POST/PUT /api/membresias/ → COMOENTERO, IDASESOR

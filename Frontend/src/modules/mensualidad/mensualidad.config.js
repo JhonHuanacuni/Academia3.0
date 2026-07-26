@@ -1,18 +1,29 @@
-export const membresiaConfig = {
-  titulo: "Membresías",
-  entidad: "membresias",
-  pk: "IDMEMBRESIA",
+export const mensualidadConfig = {
+  modulo: "Mensualidades",
+  titulo: "Listado de Mensualidades",
+  entidad: "mensualidades",
+  pk: "IDMENSUALIDAD",
   columnas: [
+    { campo: "_NUMERO", etiqueta: "N°", tipo: "numero", ordenable: false },
     { campo: "ESTUDIANTE_NOMBRE", etiqueta: "Estudiante", ordenable: true },
-    { campo: "ESTUDIANTE_DNI", etiqueta: "DNI", ordenable: false },
     { campo: "PLAN_NOMBRE", etiqueta: "Plan", ordenable: false },
     { campo: "TURNO_DESCRIPCION", etiqueta: "Turno", ordenable: false },
-    { campo: "ESTADOMIEMBRO_DESCRIPCION", etiqueta: "Estado miembro", ordenable: false },
+    {
+      campo: "ESTADOMIEMBRO_DESCRIPCION",
+      etiqueta: "Estado",
+      tipo: "estadoMensualidad",
+      ordenable: false,
+    },
     { campo: "FECHAINICIO", etiqueta: "Inicio", tipo: "fecha", ordenable: true },
     { campo: "FECHAFIN", etiqueta: "Fin", tipo: "fecha", ordenable: true },
-    { campo: "MONTOTOTAL", etiqueta: "Monto", tipo: "decimal", ordenable: true },
-    { campo: "AULA_NOMBRE", etiqueta: "Salón", ordenable: false },
-    { campo: "ESTADO", etiqueta: "Estado", tipo: "estado", ordenable: false },
+    {
+      campo: "DIAS_RESTANTES",
+      etiqueta: "Días restantes",
+      tipo: "diasRestantes",
+      origen: "FECHAFIN",
+      ordenable: false,
+    },
+    { campo: "DEUDA", etiqueta: "Deuda", tipo: "deuda", ordenable: true },
   ],
   secciones: [
     {
@@ -24,12 +35,13 @@ export const membresiaConfig = {
           control: "estudiante",
           obligatorio: true,
           full: true,
-          ayuda: "Busca y selecciona un estudiante para asignar la membresía.",
+          ayuda: "Busca y selecciona un estudiante para asignar la mensualidad.",
         },
       ],
     },
     {
-      titulo: "Plan y membresía",
+      titulo: "Plan y mensualidad",
+      grupo: "plan-fechas",
       campos: [
         {
           campo: "IDPLAN",
@@ -46,23 +58,25 @@ export const membresiaConfig = {
         },
         {
           campo: "ESTADOMIEMBRO",
-          etiqueta: "Estado del miembro",
+          etiqueta: "Estado mensualidad",
           control: "select",
-          catalogo: "estadosMiembro",
+          catalogo: "estadosMensualidad",
           obligatorio: true,
-          defaultValue: "1",
+          defaultValue: "2",
         },
         {
-          campo: "TIPOMEMBRESIA",
-          etiqueta: "Tipo de membresía",
-          control: "select",
-          catalogo: "tiposMembresia",
-          defaultValue: "Individual",
+          campo: "FECHAREGISTRO",
+          etiqueta: "Fecha de registro",
+          control: "date",
+          defaultHoy: true,
+          bloqueado: true,
+          ayuda: "Se asigna automáticamente al crear la mensualidad.",
         },
       ],
     },
     {
       titulo: "Fechas y montos",
+      grupo: "plan-fechas",
       campos: [
         { campo: "FECHAINICIO", etiqueta: "Fecha inicio", control: "date", obligatorio: true, defaultHoy: true },
         { campo: "FECHAFIN", etiqueta: "Fecha fin", control: "date", obligatorio: true },
@@ -71,14 +85,15 @@ export const membresiaConfig = {
           etiqueta: "Monto total",
           control: "number",
           obligatorio: true,
-          ayuda: "Valor total de la membresía",
+          ayuda: "Valor total de la mensualidad",
+          full: true,
         },
         {
           campo: "PAGOINICIAL",
           etiqueta: "Pago inicial",
           control: "number",
           soloCrear: true,
-          ayuda: "Primer pago de la membresía",
+          ayuda: "Primer pago de la mensualidad",
         },
         {
           campo: "IDMETODOPAGO",
@@ -92,6 +107,7 @@ export const membresiaConfig = {
     },
     {
       titulo: "Asignación",
+      grupo: "asignacion-obs",
       campos: [
         {
           campo: "IDAULA",
@@ -99,11 +115,17 @@ export const membresiaConfig = {
           control: "select",
           catalogo: "aulas",
         },
-        { campo: "ASESOR", etiqueta: "Asesor", control: "text", ayuda: "Nombre del asesor" },
+        {
+          campo: "IDTUTOR",
+          etiqueta: "Tutor",
+          control: "select",
+          catalogo: "tutores",
+        },
       ],
     },
     {
       titulo: "Observaciones",
+      grupo: "asignacion-obs",
       campos: [
         {
           campo: "OBSERVACIONES",
@@ -116,4 +138,4 @@ export const membresiaConfig = {
   ],
 };
 
-membresiaConfig.campos = membresiaConfig.secciones.flatMap((s) => s.campos);
+mensualidadConfig.campos = mensualidadConfig.secciones.flatMap((s) => s.campos);

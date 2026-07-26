@@ -1,0 +1,65 @@
+/* ============================================================================
+   EXAMEN: TODASLASULA + EXAMEN_AULA + plantilla distribución
+   Fecha: 17/07/2026
+   ============================================================================ */
+
+IF COL_LENGTH('EXAMEN', 'TODASLASULA') IS NULL
+BEGIN
+    ALTER TABLE dbo.EXAMEN ADD TODASLASULA BIT NOT NULL
+        CONSTRAINT DF_EXAMEN_TODASLASULA DEFAULT (1);
+    PRINT 'Columna EXAMEN.TODASLASULA agregada.';
+END
+ELSE
+    PRINT 'Columna EXAMEN.TODASLASULA ya existe.';
+GO
+
+IF OBJECT_ID('dbo.EXAMEN_AULA', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.EXAMEN_AULA (
+        IDEXAMENAULA NVARCHAR(50) NOT NULL PRIMARY KEY,
+        IDEXAMEN     NVARCHAR(50) NOT NULL FOREIGN KEY REFERENCES dbo.EXAMEN(IDEXAMEN),
+        IDAULA       NVARCHAR(50) NOT NULL FOREIGN KEY REFERENCES dbo.AULA(IDAULA),
+        CONSTRAINT UQ_EXAMEN_AULA UNIQUE (IDEXAMEN, IDAULA)
+    );
+    CREATE INDEX IX_EXAMEN_AULA_EXAMEN ON dbo.EXAMEN_AULA(IDEXAMEN);
+    CREATE INDEX IX_EXAMEN_AULA_AULA   ON dbo.EXAMEN_AULA(IDAULA);
+    PRINT 'Tabla EXAMEN_AULA creada.';
+END
+ELSE
+    PRINT 'Tabla EXAMEN_AULA ya existe.';
+GO
+
+IF OBJECT_ID('dbo.EXAMEN_PLANTILLA', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.EXAMEN_PLANTILLA (
+        IDPLANTILLA INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        TIPO        INT NOT NULL,           -- 40 o 100
+        CODIGOMATERIA NVARCHAR(50) NOT NULL,
+        CANTIDAD    INT NOT NULL
+    );
+    PRINT 'Tabla EXAMEN_PLANTILLA creada.';
+END
+GO
+
+DELETE FROM dbo.EXAMEN_PLANTILLA;
+GO
+
+-- Plantilla 40 preguntas (Academia 2.0)
+INSERT INTO dbo.EXAMEN_PLANTILLA (TIPO, CODIGOMATERIA, CANTIDAD) VALUES
+(40, 'HM', 4), (40, 'HV', 4),
+(40, 'ARIT', 2), (40, 'GEO', 2), (40, 'ALGE', 2), (40, 'TRIGO', 2),
+(40, 'LENGUA', 2), (40, 'PSI', 2), (40, 'CIV', 2), (40, 'HP', 2),
+(40, 'HU', 2), (40, 'GEO_L', 2), (40, 'ECO', 2), (40, 'FILO', 2),
+(40, 'FIS', 2), (40, 'QUI', 2), (40, 'BIO', 4);
+
+-- Plantilla 100 (= ×2.5)
+INSERT INTO dbo.EXAMEN_PLANTILLA (TIPO, CODIGOMATERIA, CANTIDAD) VALUES
+(100, 'HM', 10), (100, 'HV', 10),
+(100, 'ARIT', 5), (100, 'GEO', 5), (100, 'ALGE', 5), (100, 'TRIGO', 5),
+(100, 'LENGUA', 5), (100, 'PSI', 5), (100, 'CIV', 5), (100, 'HP', 5),
+(100, 'HU', 5), (100, 'GEO_L', 5), (100, 'ECO', 5), (100, 'FILO', 5),
+(100, 'FIS', 5), (100, 'QUI', 5), (100, 'BIO', 10);
+GO
+
+PRINT 'EXAMEN tablas y plantilla listos.';
+GO

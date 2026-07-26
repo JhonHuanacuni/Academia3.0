@@ -181,12 +181,7 @@ export default function AsistenciaMarcarPage() {
   };
 
   return (
-    <div className="asistencia-page">
-      <div className="asistencia-header">
-        <h1>Marcar asistencia</h1>
-        <p>Ingresa el DNI o activa la cámara para escanear el QR del carnet.</p>
-      </div>
-
+    <div className="asistencia-page asistencia-page--marcar">
       <div className="asistencia-layout">
         <div className="asistencia-panel mantenedor-card asistencia-marcar-card">
           <form className="dni-form" onSubmit={handleManual}>

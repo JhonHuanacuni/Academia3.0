@@ -67,7 +67,8 @@ def insertar_usuario(payload: dict):
                 @Id=%s, @Contra=%s, @Nombre=%s, @Apellido=%s, @Dni=%s, @Email=%s,
                 @IdTipoUsuario=%s, @Estado=%s, @FechaNacimiento=%s, @Direccion=%s,
                 @Distrito=%s, @Colegio=%s, @Grado=%s, @TelPersonal=%s,
-                @TelApoderado=%s, @SituacionAcademica=%s, @Foto=%s,
+                @TelApoderado=%s, @NombreApoderado=%s, @Parentesco=%s,
+                @SituacionAcademica=%s, @ComoEntero=%s, @Foto=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
@@ -78,7 +79,9 @@ def insertar_usuario(payload: dict):
                 payload.get('FECHANACIMIENTO'), payload.get('DIRECCION'),
                 payload.get('DISTRITO'), payload.get('COLEGIO'), payload.get('GRADO'),
                 payload.get('TELPERSONAL'), payload.get('TELAPODERADO'),
+                payload.get('NOMBREAPODERADO'), payload.get('PARENTESCO'),
                 payload.get('SITUACIONACADEMICA'),
+                payload.get('COMOENTERO') or None,
                 payload.get('FOTO'),
             ],
         )
@@ -95,7 +98,8 @@ def actualizar_usuario(id_usuario: str, payload: dict):
                 @Id=%s, @Contra=%s, @Nombre=%s, @Apellido=%s, @Dni=%s, @Email=%s,
                 @IdTipoUsuario=%s, @Estado=%s, @FechaNacimiento=%s, @Direccion=%s,
                 @Distrito=%s, @Colegio=%s, @Grado=%s, @TelPersonal=%s,
-                @TelApoderado=%s, @SituacionAcademica=%s, @Foto=%s, @ActualizarFoto=%s,
+                @TelApoderado=%s, @NombreApoderado=%s, @Parentesco=%s,
+                @SituacionAcademica=%s, @ComoEntero=%s, @Foto=%s, @ActualizarFoto=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
@@ -107,7 +111,9 @@ def actualizar_usuario(id_usuario: str, payload: dict):
                 payload.get('FECHANACIMIENTO'), payload.get('DIRECCION'),
                 payload.get('DISTRITO'), payload.get('COLEGIO'), payload.get('GRADO'),
                 payload.get('TELPERSONAL'), payload.get('TELAPODERADO'),
+                payload.get('NOMBREAPODERADO'), payload.get('PARENTESCO'),
                 payload.get('SITUACIONACADEMICA'),
+                payload.get('COMOENTERO') or None,
                 payload.get('FOTO'),
                 actualizar_foto,
             ],

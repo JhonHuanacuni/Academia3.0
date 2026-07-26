@@ -1,0 +1,32 @@
+ORDEN DE EJECUCIÓN — 17/07/2026 (Exámenes)
+===========================================
+
+1. 1.examen_tablas_plantilla.sql
+   - EXAMEN.TODASLASULA
+   - EXAMEN_AULA
+   - EXAMEN_PLANTILLA (40 y 100 preguntas)
+
+2. 2.usp_examen_crud.sql
+   - usp_examen_listar / obtener / insertar / actualizar / eliminar
+   - usp_examen_pregunta_detalle / guardar
+   - usp_examen_distribucion
+
+3. 3.usp_examen_pregunta_img_alts.sql
+   - Imágenes por alternativa A–E al guardar pregunta
+
+4. 4.usp_examen_estudiante.sql
+   - usp_examen_estudiante_listar
+   - usp_examen_intento_iniciar / estado / responder / finalizar
+
+5. 5.menu_estudiante_examenes.sql
+   - MOD009 lectura para tipo usuario estudiante (1)
+
+API estudiante:
+  GET  /api/examenes/estudiante/?idusuario=
+  POST /api/examenes/estudiante/<idExamen>/iniciar/
+  GET  /api/examenes/estudiante/intento/<idIntento>/?idusuario=
+  POST /api/examenes/estudiante/intento/<idIntento>/responder/
+  POST /api/examenes/estudiante/intento/<idIntento>/finalizar/
+
+Frontend:
+  role estudiante → ExamenEstudiantePage (listado + rendir + nota)

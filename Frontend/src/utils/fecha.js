@@ -50,3 +50,30 @@ export const sumarDiasInput = (fechaInput, dias) => {
   const d = String(base.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 };
+
+/** Días hasta FECHAFIN (formato DB ddmmyyyy). Negativo si ya venció. */
+export const diasRestantesDesdeDb = (fechaDb) => {
+  if (!fechaDb || String(fechaDb).length !== 8) return null;
+  const s = String(fechaDb);
+  const fin = new Date(Number(s.slice(4)), Number(s.slice(2, 4)) - 1, Number(s.slice(0, 2)));
+  if (Number.isNaN(fin.getTime())) return null;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  fin.setHours(0, 0, 0, 0);
+  return Math.round((fin - hoy) / 86400000);
+};
+
+export const textoDiasRestantes = (dias) => {
+  if (dias == null) return "—";
+  if (dias < 0) return `Vencida (${Math.abs(dias)} d.)`;
+  if (dias === 0) return "Vence hoy";
+  if (dias === 1) return "1 día";
+  return `${dias} días`;
+};
+
+export const claseDiasRestantes = (dias) => {
+  if (dias == null) return "";
+  if (dias < 0) return "dias-vence--vencida";
+  if (dias <= 3) return "dias-vence--proxima";
+  return "dias-vence--ok";
+};

@@ -1,0 +1,41 @@
+---
+description: Estándar visual de tabs en Academia 3.0 (barra gris, activo blanco + línea primary)
+alwaysApply: true
+---
+
+# Tabs UI (Academia 3.0)
+
+Cuando el usuario pida **tabs**, o al implementar navegación por pestañas en cualquier módulo, usa **siempre** este diseño (el de Informes / Exámenes).
+
+## Aspecto
+
+- Barra de fondo gris claro (`linear-gradient #f0f2f8 → #e8ebf3`)
+- Tab **activo**: fondo blanco, texto e icono `var(--color-primary)` (`#6a42e5`), **línea superior de 3px** en primary
+- Tab **inactivo**: texto/icono gris muted, sin línea superior
+- Esquinas superiores redondeadas en cada tab
+- Preferir **icono + etiqueta** en cada tab (Font Awesome)
+
+## Clases canónicas (`Frontend/src/styles/mantenedor.css`)
+
+```jsx
+<div className="ui-tabs-panel">
+  <div className="ui-tabs" role="tablist" aria-label="...">
+    <button type="button" role="tab" className={`ui-tab${activa ? " ui-tab--activa" : ""}`}>
+      <FontAwesomeIcon icon={...} />
+      Etiqueta
+    </button>
+  </div>
+  <div className="ui-tabs-panel-body" role="tabpanel">
+    {/* contenido */}
+  </div>
+</div>
+```
+
+Aliases legacy (mismo estilo): `informes-tabs` / `informes-tab--activa`, `examen-tabs` / `examen-tab.is-active`.
+
+## No usar
+
+- Pills / chips como tabs
+- Underline solo abajo sin barra gris
+- Tabs sin el indicador superior primary en el activo
+- Inventar otro estilo de tabs por módulo

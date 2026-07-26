@@ -1,0 +1,30 @@
+/* ============================================================================
+   PAGOEXTRAORDINARIO — pagos no ligados a membresía
+   Prerequisito: 1.concepto_pago_extra_tabla.sql
+   Fecha: 16/07/2026
+   ============================================================================ */
+
+IF OBJECT_ID('dbo.PAGOEXTRAORDINARIO', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PAGOEXTRAORDINARIO (
+        IDPAGOEXTRA    NVARCHAR(50)  NOT NULL PRIMARY KEY,
+        IDUSUARIO      NVARCHAR(50)  NOT NULL FOREIGN KEY REFERENCES dbo.USUARIO(IDUSUARIO),
+        IDCONCEPTO     NVARCHAR(50)  NOT NULL FOREIGN KEY REFERENCES dbo.CONCEPTOPAGOEXTRA(IDCONCEPTO),
+        MONTO          DECIMAL(10,2) NOT NULL,
+        FECHAPAGO      CHAR(8)       NULL
+            CHECK (FECHAPAGO LIKE '[0-3][0-9][0-1][0-9][0-9][0-9][0-9][0-9]'),
+        FECHAINICIO    CHAR(8)       NULL
+            CHECK (FECHAINICIO LIKE '[0-3][0-9][0-1][0-9][0-9][0-9][0-9][0-9]'),
+        FECHAFIN       CHAR(8)       NULL
+            CHECK (FECHAFIN LIKE '[0-3][0-9][0-1][0-9][0-9][0-9][0-9][0-9]'),
+        OBSERVACIONES  NVARCHAR(MAX) NULL,
+        IDREGISTRADOR  NVARCHAR(50)  NULL FOREIGN KEY REFERENCES dbo.USUARIO(IDUSUARIO)
+    );
+    CREATE INDEX IX_PAGOEXTRA_USUARIO ON dbo.PAGOEXTRAORDINARIO(IDUSUARIO);
+    CREATE INDEX IX_PAGOEXTRA_CONCEPTO ON dbo.PAGOEXTRAORDINARIO(IDCONCEPTO);
+    CREATE INDEX IX_PAGOEXTRA_FECHA ON dbo.PAGOEXTRAORDINARIO(FECHAPAGO);
+    PRINT 'Tabla PAGOEXTRAORDINARIO creada.';
+END
+ELSE
+    PRINT 'Tabla PAGOEXTRAORDINARIO ya existe.';
+GO

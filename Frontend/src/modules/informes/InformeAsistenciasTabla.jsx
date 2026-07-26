@@ -1,4 +1,4 @@
-import { claseMarca, claseVence } from "./informeAsistenciasUtils";
+import { claseMarca, claseVence, esDiaNoLectivo } from "./informeAsistenciasUtils";
 
 export default function InformeAsistenciasTabla({ filas, dias }) {
   if (!filas?.length || !dias?.length) {
@@ -11,12 +11,12 @@ export default function InformeAsistenciasTabla({ filas, dias }) {
         <thead>
           <tr>
             <th className="col-num sticky-izq">N°</th>
-            <th className="col-nombre sticky-izq sticky-izq--ultimo">NOMBRES Y APELLIDOS</th>
+            <th className="col-nombre sticky-izq">NOMBRES Y APELLIDOS</th>
+            <th className="col-vence sticky-izq sticky-izq--ultimo">VENCE</th>
             <th className="col-tutora">TUTORA</th>
             <th className="col-aula">AULA</th>
             <th className="col-ciclo">CICLO</th>
             <th className="col-estado">ESTADO</th>
-            <th className="col-vence">VENCE</th>
             {dias.map((dia) => (
               <th
                 key={dia.fecha}
@@ -47,21 +47,26 @@ export default function InformeAsistenciasTabla({ filas, dias }) {
           {filas.map((fila) => (
             <tr key={fila.idusuario || fila.numero}>
               <td className="col-num sticky-izq">{fila.numero}</td>
-              <td className="col-nombre sticky-izq sticky-izq--ultimo" title={fila.nombres}>
+              <td className="col-nombre sticky-izq" title={fila.nombres}>
                 {fila.nombres}
+              </td>
+              <td className={`col-vence sticky-izq sticky-izq--ultimo ${claseVence(fila)}`}>
+                {fila.vence || ""}
               </td>
               <td className="col-tutora">{fila.tutora}</td>
               <td className="col-aula">{fila.aula}</td>
               <td className="col-ciclo">{fila.ciclo}</td>
               <td className="col-estado">{fila.estado}</td>
-              <td className={`col-vence ${claseVence(fila)}`}>{fila.vence || ""}</td>
               {dias.map((dia) => {
                 const codigo = fila.marcas?.[dia.fecha] || "";
+                const noLectivo = esDiaNoLectivo(fila, dia.fecha);
                 const esDomingoVacio = dia.esDomingo && !codigo;
                 return (
                   <td
                     key={dia.fecha}
-                    className={`col-dia ${claseMarca(codigo)}${esDomingoVacio ? " col-dia-dom-vacio" : ""}`}
+                    className={`col-dia ${claseMarca(codigo)}${
+                      noLectivo ? " col-dia-no-lectivo" : ""
+                    }${esDomingoVacio ? " col-dia-dom-vacio" : ""}`}
                   >
                     {codigo}
                   </td>

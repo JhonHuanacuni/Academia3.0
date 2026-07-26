@@ -4,6 +4,7 @@ import { faChevronLeft, faChevronRight, faSpinner } from "@fortawesome/free-soli
 import SidebarSection from "./SidebarSection";
 import SidebarSubLink from "./SidebarSubLink";
 import { resolveSidebarIcon } from "./sidebarIcons";
+import { etiquetaMenu } from "../../utils/etiquetasVista";
 import logoImg from "../../images/logo.jpg";
 
 const MENU_REFRESH_EVENT = "academia:menu-refresh";
@@ -153,7 +154,7 @@ const Sidebar = ({ idusuario, activePage, onChangePage, onMenuLoaded, isOpen, on
                   <span className="sidebar-icon">
                     <FontAwesomeIcon icon={resolveSidebarIcon(item.icono)} />
                   </span>
-                  {!collapsed && <span className="sidebar-label">{item.nombre}</span>}
+                  {!collapsed && <span className="sidebar-label">{etiquetaMenu(item.nombre, item.page)}</span>}
                 </button>
               );
             }
@@ -162,7 +163,7 @@ const Sidebar = ({ idusuario, activePage, onChangePage, onMenuLoaded, isOpen, on
               <SidebarSection
                 key={item.idmodulo}
                 icon={resolveSidebarIcon(item.icono)}
-                label={item.nombre}
+                label={etiquetaMenu(item.nombre, item.page)}
                 isOpen={activeSection === item.section}
                 onToggle={() => toggleSection(item.section)}
                 collapsed={collapsed && !isMobile}
@@ -172,7 +173,7 @@ const Sidebar = ({ idusuario, activePage, onChangePage, onMenuLoaded, isOpen, on
                   <SidebarSubLink
                     key={child.idsubmodulo}
                     icon={resolveSidebarIcon(child.icono)}
-                    label={child.nombre}
+                    label={etiquetaMenu(child.nombre, child.page)}
                     collapsed={collapsed && !isMobile}
                     onClick={() => handleLink(child.page)}
                     active={activePage === child.page}

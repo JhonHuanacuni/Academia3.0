@@ -21,11 +21,15 @@ export default function Toolbar({ buscar, onBuscarChange, filtros = [], placehol
           aria-label={f.etiqueta}
         >
           <option value="">{f.etiqueta}: Todos</option>
-          {f.opciones.map((op) => (
-            <option key={op} value={op}>
-              {op}
-            </option>
-          ))}
+          {f.opciones.map((op) => {
+            const value = typeof op === "object" ? op.value : op;
+            const label = typeof op === "object" ? op.label : op;
+            return (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            );
+          })}
         </select>
       ))}
     </div>

@@ -30,3 +30,9 @@ export function claseVence(fila) {
   if (estado === "vencida") return "col-vence--vencida";
   return "";
 }
+
+export function esDiaNoLectivo(fila, fecha) {
+  if (!fecha) return false;
+  const set = new Set(fila?.diasNoLectivos || []);
+  return set.has(fecha);
+}
