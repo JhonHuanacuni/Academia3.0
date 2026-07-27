@@ -174,6 +174,8 @@ class Plan(models.Model):
     DESCRIPCION = models.CharField(max_length=255, blank=True, null=True)
     COSTOMENSUAL = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     DIASASISTENCIA = models.PositiveSmallIntegerField(default=63)
+    HORAENTRADA = models.TimeField(default='08:00:00')
+    TIEMPOEXTRA = models.IntegerField(default=0)
     ACTIVO = models.BooleanField(default=True)
 
     class Meta:

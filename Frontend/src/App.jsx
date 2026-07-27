@@ -4,6 +4,7 @@ import AdminModulos from "./components/admin/AdminModulos";
 import UsuarioPage from "./modules/usuario/UsuarioPage";
 import AsistenciaMarcarPage from "./modules/asistencia/AsistenciaMarcarPage";
 import AsistenciaListadoPage from "./modules/asistencia/AsistenciaListadoPage";
+import JustificacionPage from "./modules/asistencia/JustificacionPage";
 import AulaPage from "./modules/aula/AulaPage";
 import TutorPage from "./modules/tutor/TutorPage";
 import PlanPage from "./modules/plan/PlanPage";
@@ -62,6 +63,11 @@ const pageContent = {
     title: "Ver asistencias",
     description: "Listado del día.",
     component: AsistenciaListadoPage,
+  },
+  "asistencias-justificacion": {
+    title: "Justificación",
+    description: "Justificar inasistencias o tardanzas.",
+    component: JustificacionPage,
   },
   horario: {
     title: "Horario",

@@ -29,6 +29,7 @@ SUBMODULO_PAGE_MAP = {
     'SUB002': 'usuarios',
     'SUB003': 'asistencias-marcar',
     'SUB004': 'asistencias-listado',
+    'SUB025': 'asistencias-justificacion',
     'SUB005': 'mensualidades',
     # SUB006 (Ver mensualidades) desactivado — listado vía SUB005 + Nuevo
     'SUB007': 'pagos',

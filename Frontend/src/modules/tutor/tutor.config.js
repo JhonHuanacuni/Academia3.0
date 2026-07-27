@@ -12,7 +12,6 @@ export const tutorConfig = {
     {
       titulo: "Datos del tutor",
       campos: [
-        { campo: "IDTUTOR", etiqueta: "Código", control: "text", obligatorio: true, soloCrear: true },
         { campo: "NOMBRE", etiqueta: "Nombre", control: "text", obligatorio: true },
         {
           campo: "ESTADO",

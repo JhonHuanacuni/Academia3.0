@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars, faBell, faUser } from "@fortawesome/free-solid-svg-icons";
+import PerfilModal from "../perfil/PerfilModal";
 
 const ROLE_LABELS = {
   estudiante: "Estudiante",
@@ -11,9 +12,10 @@ const ROLE_LABELS = {
   admin: "Administrador",
 };
 
-const Navbar = ({ role, onToggleSidebar, onLogout }) => {
+const Navbar = ({ role, idusuario, onToggleSidebar, onLogout }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showPerfil, setShowPerfil] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const userMenuRef = useRef(null);
   const notificationsRef = useRef(null);
@@ -40,6 +42,7 @@ const Navbar = ({ role, onToggleSidebar, onLogout }) => {
   }, []);
 
   return (
+    <>
     <header className="app-navbar">
       <div className="navbar-left">
         <button
@@ -85,7 +88,14 @@ const Navbar = ({ role, onToggleSidebar, onLogout }) => {
           </button>
           {showUserMenu && (
             <div className="navbar-dropdown">
-              <button className="navbar-dropdown-item" type="button">
+              <button
+                className="navbar-dropdown-item"
+                type="button"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  setShowPerfil(true);
+                }}
+              >
                 Perfil
               </button>
               <button className="navbar-dropdown-item" type="button" onClick={onLogout}>
@@ -96,6 +106,14 @@ const Navbar = ({ role, onToggleSidebar, onLogout }) => {
         </div>
       </div>
     </header>
+
+    <PerfilModal
+      abierto={showPerfil}
+      idusuario={idusuario}
+      role={role}
+      onClose={() => setShowPerfil(false)}
+    />
+    </>
   );
 };
 

@@ -1,13 +1,12 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .plan_crud_service import (
-    listar_planes,
-    obtener_plan,
-    insertar_plan,
-    actualizar_plan,
-    eliminar_plan,
-    listar_catalogos_plan,
+from .justificacion_crud_service import (
+    listar_justificaciones,
+    obtener_justificacion,
+    insertar_justificacion,
+    actualizar_justificacion,
+    eliminar_justificacion,
 )
 
 
@@ -19,28 +18,13 @@ def _parse_body(request):
 
 
 @csrf_exempt
-def planes_catalogos(request):
-    if request.method != 'GET':
-        return JsonResponse({'error': 'Método no permitido'}, status=405)
-    try:
-        return JsonResponse({'data': listar_catalogos_plan()})
-    except Exception as exc:
-        return JsonResponse({'error': str(exc)}, status=500)
-
-
-@csrf_exempt
-def planes_mantenedor(request, id_plan=None):
-    if request.method == 'GET' and not id_plan:
+def justificaciones_mantenedor(request, id_justificacion=None):
+    if request.method == 'GET' and not id_justificacion:
         try:
             buscar = request.GET.get('buscar') or None
-            estado = request.GET.get('estado') or None
-            ordenar_por = request.GET.get('ordenarPor', 'NOMBRE')
-            direccion = request.GET.get('direccion', 'ASC')
             pagina = int(request.GET.get('pagina', 1))
             tamanio = int(request.GET.get('tamanio', 10))
-            data, total = listar_planes(
-                buscar, estado, ordenar_por, direccion, pagina, tamanio,
-            )
+            data, total = listar_justificaciones(buscar, pagina, tamanio)
             return JsonResponse({
                 'data': data,
                 'total': total,
@@ -50,40 +34,40 @@ def planes_mantenedor(request, id_plan=None):
         except Exception as exc:
             return JsonResponse({'error': str(exc)}, status=500)
 
-    if request.method == 'GET' and id_plan:
+    if request.method == 'GET' and id_justificacion:
         try:
-            row = obtener_plan(id_plan)
+            row = obtener_justificacion(id_justificacion)
             if not row:
-                return JsonResponse({'error': 'Plan no encontrado'}, status=404)
+                return JsonResponse({'error': 'Justificación no encontrada'}, status=404)
             return JsonResponse({'data': row})
         except Exception as exc:
             return JsonResponse({'error': str(exc)}, status=500)
 
-    if request.method == 'POST' and not id_plan:
+    if request.method == 'POST' and not id_justificacion:
         payload = _parse_body(request)
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = insertar_plan(payload)
+            ok, mensaje = insertar_justificacion(payload)
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
             return JsonResponse({'error': str(exc)}, status=500)
 
-    if request.method == 'PUT' and id_plan:
+    if request.method == 'PUT' and id_justificacion:
         payload = _parse_body(request)
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = actualizar_plan(id_plan, payload)
+            ok, mensaje = actualizar_justificacion(id_justificacion, payload)
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
             return JsonResponse({'error': str(exc)}, status=500)
 
-    if request.method == 'DELETE' and id_plan:
+    if request.method == 'DELETE' and id_justificacion:
         try:
-            ok, mensaje = eliminar_plan(id_plan)
+            ok, mensaje = eliminar_justificacion(id_justificacion)
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:

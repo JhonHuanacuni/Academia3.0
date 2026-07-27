@@ -14,7 +14,6 @@ export const aulaConfig = {
     {
       titulo: "Datos del aula",
       campos: [
-        { campo: "IDAULA", etiqueta: "Código", control: "text", obligatorio: true, soloCrear: true },
         { campo: "NOMBRE", etiqueta: "Nombre", control: "text", obligatorio: true },
         {
           campo: "CAPACIDAD",

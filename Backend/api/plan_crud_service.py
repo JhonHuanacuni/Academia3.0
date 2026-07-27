@@ -56,6 +56,17 @@ def obtener_plan(id_plan: str):
     return rows[0] if rows else None
 
 
+def _normalizar_hora_entrada(val):
+    if val is None:
+        return '08:00:00'
+    s = str(val).strip()
+    if not s:
+        return '08:00:00'
+    if len(s) == 5 and s[2] == ':':
+        return f'{s}:00'
+    return s
+
+
 def insertar_plan(payload: dict):
     with connection.cursor() as cursor:
         cursor.execute(
@@ -63,16 +74,19 @@ def insertar_plan(payload: dict):
             DECLARE @R INT, @M NVARCHAR(200);
             EXEC dbo.usp_plan_insertar
                 @Id=%s, @Nombre=%s, @Descripcion=%s, @CostoMensual=%s,
-                @DiasAsistencia=%s, @Estado=%s,
+                @DiasAsistencia=%s, @IdTurno=%s, @HoraEntrada=%s, @TiempoExtra=%s, @Estado=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
             [
-                payload['IDPLAN'],
+                payload.get('IDPLAN') or None,
                 payload['NOMBRE'],
                 payload.get('DESCRIPCION'),
                 payload.get('COSTOMENSUAL'),
                 payload.get('DIASASISTENCIA', 63),
+                payload.get('IDTURNO') or None,
+                _normalizar_hora_entrada(payload.get('HORAENTRADA')),
+                int(payload.get('TIEMPOEXTRA') or 0),
                 payload.get('ESTADO', 'Activo'),
             ],
         )
@@ -86,7 +100,7 @@ def actualizar_plan(id_plan: str, payload: dict):
             DECLARE @R INT, @M NVARCHAR(200);
             EXEC dbo.usp_plan_actualizar
                 @Id=%s, @Nombre=%s, @Descripcion=%s, @CostoMensual=%s,
-                @DiasAsistencia=%s, @Estado=%s,
+                @DiasAsistencia=%s, @IdTurno=%s, @HoraEntrada=%s, @TiempoExtra=%s, @Estado=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
@@ -96,10 +110,19 @@ def actualizar_plan(id_plan: str, payload: dict):
                 payload.get('DESCRIPCION'),
                 payload.get('COSTOMENSUAL'),
                 payload.get('DIASASISTENCIA', 63),
+                payload.get('IDTURNO') or None,
+                _normalizar_hora_entrada(payload.get('HORAENTRADA')),
+                int(payload.get('TIEMPOEXTRA') or 0),
                 payload.get('ESTADO', 'Activo'),
             ],
         )
         return _read_sp_write_result(cursor)
+
+
+def listar_catalogos_plan():
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT IDTURNO, DESCRIPCION FROM TURNO ORDER BY DESCRIPCION')
+        return {'turnos': _cursor_rows(cursor)}
 
 
 def eliminar_plan(id_plan: str):

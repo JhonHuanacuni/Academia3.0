@@ -1,113 +1,81 @@
-import { useCallback, useEffect, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faDownload, faSpinner } from "@fortawesome/free-solid-svg-icons";
-import { parseJsonResponse } from "../../utils/api";
+import { useMemo } from "react";
+import { useCrud } from "../../hooks/useCrud";
+import { asistenciaListadoConfig } from "./asistenciaListado.config";
+import PageHeader from "../../components/mantenedor/PageHeader";
+import Toolbar from "../../components/mantenedor/Toolbar";
+import DataTable from "../../components/mantenedor/DataTable";
+import Pagination from "../../components/mantenedor/Pagination";
+import { dbToInput, hoyInput, inputToDb } from "../../utils/fecha";
 import "../../styles/mantenedor.css";
-import "./asistencia.css";
 
 export default function AsistenciaListadoPage() {
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [buscar, setBuscar] = useState("");
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState("");
+  const cfg = asistenciaListadoConfig;
+  const crud = useCrud({
+    entidad: cfg.entidad,
+    pk: cfg.pk,
+    ordenInicial: { campo: "HORAINICIO", direccion: "DESC" },
+    filtrosIniciales: { fecha: inputToDb(hoyInput()) },
+  });
 
-  const cargar = useCallback(async () => {
-    try {
-      setCargando(true);
-      setError("");
-      const params = new URLSearchParams({ tamanio: "100" });
-      if (buscar) params.set("buscar", buscar);
-      const res = await fetch(`/api/asistencias/?${params}`);
-      const data = await parseJsonResponse(res);
-      if (!res.ok) throw new Error(data.error || "Error al cargar");
-      setItems(data.data || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError(err.message);
-      setItems([]);
-    } finally {
-      setCargando(false);
-    }
-  }, [buscar]);
+  const fechaInput = useMemo(() => {
+    const f = crud.filtros.fecha;
+    return f ? dbToInput(String(f)) : hoyInput();
+  }, [crud.filtros.fecha]);
 
-  useEffect(() => {
-    cargar();
-  }, [cargar]);
+  const items = useMemo(
+    () =>
+      (crud.items || []).map((row) => ({
+        ...row,
+        ESTUDIANTE_NOMBRE: `${row.NOMBRE || ""} ${row.APELLIDO || ""}`.trim(),
+      })),
+    [crud.items],
+  );
 
-  const descargarCarnet = (idusuario, dni) => {
-    window.open(`/api/usuarios/${encodeURIComponent(idusuario)}/carnet/`, "_blank");
-  };
+  const columnas = cfg.columnas.map((col) =>
+    col.campo === "ESTUDIANTE_NOMBRE"
+      ? { ...col, campo: "ESTUDIANTE_NOMBRE" }
+      : col,
+  );
 
   return (
-    <div className="asistencia-page">
-      <div className="asistencia-header">
-        <h1>Asistencias de hoy</h1>
-        <p>{total} registro{total !== 1 ? "s" : ""}</p>
-      </div>
+    <div className="mantenedor-page">
+      <PageHeader modulo={cfg.modulo} vista={cfg.titulo} mostrarNuevo={false} />
 
       <div className="mantenedor-card">
         <div className="mantenedor-toolbar">
-          <div className="mantenedor-search">
+          <Toolbar
+            buscar={crud.buscar}
+            onBuscarChange={crud.onBuscarChange}
+            placeholder="Buscar por DNI o nombre..."
+          />
+          <label className="toolbar-date">
+            <span>Fecha</span>
             <input
-              type="text"
-              placeholder="Buscar por DNI o nombre..."
-              value={buscar}
-              onChange={(e) => setBuscar(e.target.value)}
+              type="date"
+              value={fechaInput}
+              onChange={(e) => crud.setFiltro("fecha", inputToDb(e.target.value))}
             />
-          </div>
-          <button type="button" className="btn-secondary" onClick={cargar}>
-            Actualizar
-          </button>
+          </label>
         </div>
 
-        {cargando ? (
-          <div className="mantenedor-state">
-            <FontAwesomeIcon icon={faSpinner} spin /> Cargando...
-          </div>
-        ) : error ? (
-          <div className="mantenedor-state error">{error}</div>
-        ) : items.length === 0 ? (
-          <div className="mantenedor-state">Sin asistencias registradas hoy.</div>
-        ) : (
-          <div className="data-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Hora</th>
-                  <th>DNI</th>
-                  <th>Nombre</th>
-                  <th>Estado</th>
-                  <th className="col-actions">Carnet</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => (
-                  <tr key={row.IDASISTENCIA}>
-                    <td>{(row.HORAINICIO || "").slice(0, 5)}</td>
-                    <td>{row.DNI}</td>
-                    <td>{row.NOMBRE} {row.APELLIDO}</td>
-                    <td>
-                      <span className={`badge-estado ${row.ESTADO === "Tarde" ? "inactivo" : "activo"}`}>
-                        {row.ESTADO}
-                      </span>
-                    </td>
-                    <td className="col-actions">
-                      <button
-                        type="button"
-                        className="btn-icon"
-                        title="Descargar carnet"
-                        onClick={() => descargarCarnet(row.IDUSUARIO, row.DNI)}
-                      >
-                        <FontAwesomeIcon icon={faDownload} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable
+          columnas={columnas}
+          items={items}
+          pk={cfg.pk}
+          orden={crud.orden}
+          loading={crud.loading}
+          error={crud.error}
+          onReintentar={crud.listar}
+          pagina={crud.pagina}
+          tamanio={crud.tamanio}
+        />
+
+        <Pagination
+          pagina={crud.pagina}
+          tamanio={crud.tamanio}
+          total={crud.total}
+          onChange={crud.setPagina}
+        />
       </div>
     </div>
   );

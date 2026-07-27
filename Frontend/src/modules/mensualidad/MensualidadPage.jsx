@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { parseJsonResponse } from "../../utils/api";
 import { useCrud } from "../../hooks/useCrud";
 import { mensualidadConfig } from "./mensualidad.config";
@@ -20,10 +20,6 @@ function mapCatalogos(data) {
     planes: (data.planes || []).map((p) => ({
       value: p.IDPLAN,
       label: p.NOMBRE,
-    })),
-    turnos: (data.turnos || []).map((t) => ({
-      value: t.IDTURNO,
-      label: t.DESCRIPCION,
     })),
     aulas: (data.aulas || []).map((a) => ({ value: a.IDAULA, label: a.NOMBRE })),
     tutores: (data.tutores || []).map((a) => ({ value: a.IDTUTOR, label: a.NOMBRE })),
@@ -50,7 +46,6 @@ export default function MensualidadPage() {
   const [toast, setToast] = useState(null);
   const [catalogos, setCatalogos] = useState({
     planes: [],
-    turnos: [],
     aulas: [],
     tutores: [],
     metodosPago: [],
@@ -58,14 +53,21 @@ export default function MensualidadPage() {
   });
   const [estudianteSel, setEstudianteSel] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
+  const [registradorNombre, setRegistradorNombre] = useState("");
   const esAdmin = (localStorage.getItem("role") || "") === "administrador";
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/mensualidades/catalogos/");
+        const idusuario = localStorage.getItem("idusuario") || "";
+        const res = await fetch(
+          `/api/mensualidades/catalogos/${idusuario ? `?idusuario=${encodeURIComponent(idusuario)}` : ""}`,
+        );
         const data = await parseJsonResponse(res);
-        if (res.ok) setCatalogos(mapCatalogos(data.data || {}));
+        if (res.ok) {
+          setCatalogos(mapCatalogos(data.data || {}));
+          setRegistradorNombre(data.data?.registradorNombre || "");
+        }
       } catch {
         /* catálogo opcional */
       }
@@ -138,7 +140,6 @@ export default function MensualidadPage() {
     const body = {
       IDUSUARIO: payload.IDUSUARIO,
       IDPLAN: payload.IDPLAN,
-      IDTURNO: payload.IDTURNO || null,
       ESTADOMIEMBRO: Number(payload.ESTADOMIEMBRO || 2),
       FECHAINICIO: payload.FECHAINICIO,
       FECHAFIN: payload.FECHAFIN,
@@ -153,6 +154,7 @@ export default function MensualidadPage() {
           ? null
           : Number(payload.PAGOINICIAL);
       body.IDMETODOPAGO = payload.IDMETODOPAGO || null;
+      body.REGISTRADOPOR = localStorage.getItem("idusuario") || null;
     }
     let mensaje;
     if (modo === "crear") {
@@ -189,6 +191,11 @@ export default function MensualidadPage() {
         ? "Editar mensualidad"
         : "Ver mensualidad";
 
+  const createDefaults = useMemo(
+    () => (modo === "crear" ? { ASESOR_NOMBRE: registradorNombre } : undefined),
+    [modo, registradorNombre],
+  );
+
   if (vista === "form") {
     return (
       <>
@@ -204,6 +211,7 @@ export default function MensualidadPage() {
           catalogos={catalogos}
           estudianteSeleccionado={estudianteSel}
           onEstudianteChange={setEstudianteSel}
+          createDefaults={createDefaults}
           onCancel={volverLista}
           onSubmit={handleGuardar}
         />

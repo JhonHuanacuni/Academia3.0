@@ -70,7 +70,7 @@ def insertar_mensualidad(payload: dict):
             """
             DECLARE @R INT, @M NVARCHAR(200);
             EXEC dbo.usp_mensualidad_insertar
-                @Id=%s, @IdUsuario=%s, @IdPlan=%s, @IdTurno=%s, @EstadoMiembro=%s,
+                @Id=%s, @IdUsuario=%s, @IdPlan=%s, @EstadoMiembro=%s,
                 @FechaInicio=%s, @FechaFin=%s, @MontoTotal=%s, @PagoInicial=%s,
                 @IdMetodoPago=%s, @IdAula=%s, @IdTutor=%s,
                 @Observaciones=%s, @FechaCancelacion=%s, @RegistradoPor=%s,
@@ -81,7 +81,6 @@ def insertar_mensualidad(payload: dict):
                 payload.get('IDMENSUALIDAD') or None,
                 payload['IDUSUARIO'],
                 payload['IDPLAN'],
-                payload.get('IDTURNO') or None,
                 int(payload.get('ESTADOMIEMBRO') or 2),
                 payload['FECHAINICIO'],
                 payload['FECHAFIN'],
@@ -104,7 +103,7 @@ def actualizar_mensualidad(id_mensualidad: str, payload: dict):
             """
             DECLARE @R INT, @M NVARCHAR(200);
             EXEC dbo.usp_mensualidad_actualizar
-                @Id=%s, @IdUsuario=%s, @IdPlan=%s, @IdTurno=%s, @EstadoMiembro=%s,
+                @Id=%s, @IdUsuario=%s, @IdPlan=%s, @EstadoMiembro=%s,
                 @FechaInicio=%s, @FechaFin=%s, @MontoTotal=%s,
                 @IdAula=%s, @IdTutor=%s, @Observaciones=%s, @FechaCancelacion=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
@@ -114,7 +113,6 @@ def actualizar_mensualidad(id_mensualidad: str, payload: dict):
                 id_mensualidad,
                 payload['IDUSUARIO'],
                 payload['IDPLAN'],
-                payload.get('IDTURNO') or None,
                 int(payload.get('ESTADOMIEMBRO') or 2),
                 payload['FECHAINICIO'],
                 payload['FECHAFIN'],
@@ -157,10 +155,27 @@ def buscar_estudiantes(buscar=None):
         return _cursor_rows(cursor)
 
 
-def listar_catalogos():
+def obtener_nombre_registrador(id_usuario: str | None):
+    if not id_usuario:
+        return ''
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT UPPER(LTRIM(RTRIM(
+                ISNULL(u.APELLIDO, '') + ' ' + ISNULL(u.NOMBRE, '')
+            )))
+            FROM USUARIO u
+            WHERE u.IDUSUARIO = %s
+            """,
+            [id_usuario],
+        )
+        row = cursor.fetchone()
+    return (row[0] or '').strip() if row else ''
+
+
+def listar_catalogos(id_registrador=None):
     catalogos = {
         'planes': [],
-        'turnos': [],
         'aulas': [],
         'metodosPago': [],
         'tutores': [],
@@ -177,9 +192,6 @@ def listar_catalogos():
             """
         )
         catalogos['planes'] = _cursor_rows(cursor)
-
-        cursor.execute('SELECT IDTURNO, DESCRIPCION FROM TURNO ORDER BY DESCRIPCION')
-        catalogos['turnos'] = _cursor_rows(cursor)
 
         cursor.execute(
             """
@@ -202,4 +214,6 @@ def listar_catalogos():
 
     aulas = Aula.objects.filter(ACTIVO=True).order_by('NOMBRE').values('IDAULA', 'NOMBRE')
     catalogos['aulas'] = list(aulas)
+    if id_registrador:
+        catalogos['registradorNombre'] = obtener_nombre_registrador(id_registrador)
     return catalogos

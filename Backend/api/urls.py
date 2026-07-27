@@ -17,6 +17,7 @@ from . import categoria_views
 from . import materia_views
 from . import examen_views
 from . import examen_estudiante_views
+from . import justificacion_views
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -35,12 +36,16 @@ urlpatterns = [
     path('tipos-usuario/', usuario_views.tipos_usuario, name='tipos_usuario'),
     path('usuarios/', usuario_views.usuarios_mantenedor, name='usuarios_mantenedor'),
     path('usuarios/<str:id_usuario>/', usuario_views.usuarios_mantenedor, name='usuarios_mantenedor_detail'),
+    path('usuarios/<str:id_usuario>/qr/', asistencia_views.usuario_qr, name='usuario_qr'),
     path('usuarios/<str:id_usuario>/carnet/', asistencia_views.usuario_carnet, name='usuario_carnet'),
     path('asistencias/', asistencia_views.asistencias_api, name='asistencias_api'),
+    path('justificaciones/', justificacion_views.justificaciones_mantenedor, name='justificaciones_mantenedor'),
+    path('justificaciones/<str:id_justificacion>/', justificacion_views.justificaciones_mantenedor, name='justificaciones_mantenedor_detail'),
     path('aulas/', aula_views.aulas_mantenedor, name='aulas_mantenedor'),
     path('aulas/<str:id_aula>/', aula_views.aulas_mantenedor, name='aulas_mantenedor_detail'),
     path('tutores/', tutor_views.tutores_mantenedor, name='tutores_mantenedor'),
     path('tutores/<str:id_tutor>/', tutor_views.tutores_mantenedor, name='tutores_mantenedor_detail'),
+    path('planes/catalogos/', plan_views.planes_catalogos, name='planes_catalogos'),
     path('planes/', plan_views.planes_mantenedor, name='planes_mantenedor'),
     path('planes/<str:id_plan>/', plan_views.planes_mantenedor, name='planes_mantenedor_detail'),
     path('informes/asistencias/', informes_views.informe_asistencias_api, name='informe_asistencias_api'),

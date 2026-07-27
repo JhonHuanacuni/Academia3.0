@@ -7,14 +7,12 @@ export const mensualidadConfig = {
     { campo: "_NUMERO", etiqueta: "N°", tipo: "numero", ordenable: false },
     { campo: "ESTUDIANTE_NOMBRE", etiqueta: "Estudiante", ordenable: true },
     { campo: "PLAN_NOMBRE", etiqueta: "Plan", ordenable: false },
-    { campo: "TURNO_DESCRIPCION", etiqueta: "Turno", ordenable: false },
     {
       campo: "ESTADOMIEMBRO_DESCRIPCION",
       etiqueta: "Estado",
       tipo: "estadoMensualidad",
       ordenable: false,
     },
-    { campo: "FECHAINICIO", etiqueta: "Inicio", tipo: "fecha", ordenable: true },
     { campo: "FECHAFIN", etiqueta: "Fin", tipo: "fecha", ordenable: true },
     {
       campo: "DIAS_RESTANTES",
@@ -51,12 +49,6 @@ export const mensualidadConfig = {
           obligatorio: true,
         },
         {
-          campo: "IDTURNO",
-          etiqueta: "Turno",
-          control: "select",
-          catalogo: "turnos",
-        },
-        {
           campo: "ESTADOMIEMBRO",
           etiqueta: "Estado mensualidad",
           control: "select",
@@ -70,7 +62,13 @@ export const mensualidadConfig = {
           control: "date",
           defaultHoy: true,
           bloqueado: true,
-          ayuda: "Se asigna automáticamente al crear la mensualidad.",
+        },
+        {
+          campo: "ASESOR_NOMBRE",
+          etiqueta: "Asesor",
+          control: "text",
+          bloqueado: true,
+          soloFrontend: true,
         },
       ],
     },

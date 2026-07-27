@@ -9,7 +9,7 @@ from .asistencia_service import (
     respuesta_marcar,
     obtener_usuario_por_dni,
 )
-from .carnet_service import generate_carnet_pdf
+from .carnet_service import generate_carnet_pdf, generate_qr_png
 from .usuario_crud_service import obtener_usuario
 
 
@@ -66,6 +66,22 @@ def asistencias_api(request):
         return JsonResponse(respuesta_marcar(row), status=201)
 
     return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+def usuario_qr(request, id_usuario):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        user = obtener_usuario(id_usuario)
+        if not user:
+            return JsonResponse({'error': 'Usuario no encontrado'}, status=404)
+        dni = user.get('DNI') or id_usuario
+        qr_path = generate_qr_png(dni)
+        with open(qr_path, 'rb') as qr_file:
+            return HttpResponse(qr_file.read(), content_type='image/png')
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
 
 
 @csrf_exempt

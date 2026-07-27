@@ -21,11 +21,8 @@ def _read_sp_write_result(cursor):
     return int(resultado or 0), str(mensaje or '')
 
 
-def listar_tutores(
+def listar_justificaciones(
     buscar=None,
-    estado=None,
-    ordenar_por='NOMBRE',
-    direccion='ASC',
     pagina=1,
     tamanio=10,
 ):
@@ -33,12 +30,11 @@ def listar_tutores(
         cursor.execute(
             """
             DECLARE @Total INT;
-            EXEC dbo.usp_tutor_listar
-                @Buscar=%s, @Estado=%s, @OrdenarPor=%s, @Direccion=%s,
-                @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
+            EXEC dbo.usp_justificacion_listar
+                @Buscar=%s, @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio],
+            [buscar or None, pagina, tamanio],
         )
         data = _cursor_rows(cursor)
         total = 0
@@ -49,59 +45,61 @@ def listar_tutores(
     return data, total
 
 
-def obtener_tutor(id_tutor: str):
+def obtener_justificacion(id_justificacion: str):
     with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_tutor_obtener @Id=%s', [id_tutor])
+        cursor.execute('EXEC dbo.usp_justificacion_obtener @Id=%s', [id_justificacion])
         rows = _cursor_rows(cursor)
     return rows[0] if rows else None
 
 
-def insertar_tutor(payload: dict):
+def insertar_justificacion(payload: dict):
     with connection.cursor() as cursor:
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_tutor_insertar
-                @Id=%s, @Nombre=%s, @Estado=%s,
+            EXEC dbo.usp_justificacion_insertar
+                @IdUsuario=%s, @Fecha=%s, @IdRegistrador=%s, @Observacion=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
             [
-                payload.get('IDTUTOR') or None,
-                payload['NOMBRE'],
-                payload.get('ESTADO', 'Activo'),
+                payload['IDUSUARIO'],
+                payload['FECHA'],
+                payload.get('IDREGISTRADOR') or None,
+                payload.get('OBSERVACION'),
             ],
         )
         return _read_sp_write_result(cursor)
 
 
-def actualizar_tutor(id_tutor: str, payload: dict):
+def actualizar_justificacion(id_justificacion: str, payload: dict):
     with connection.cursor() as cursor:
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_tutor_actualizar
-                @Id=%s, @Nombre=%s, @Estado=%s,
+            EXEC dbo.usp_justificacion_actualizar
+                @Id=%s, @IdUsuario=%s, @Fecha=%s, @Observacion=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
             [
-                id_tutor,
-                payload['NOMBRE'],
-                payload.get('ESTADO', 'Activo'),
+                id_justificacion,
+                payload['IDUSUARIO'],
+                payload['FECHA'],
+                payload.get('OBSERVACION'),
             ],
         )
         return _read_sp_write_result(cursor)
 
 
-def eliminar_tutor(id_tutor: str):
+def eliminar_justificacion(id_justificacion: str):
     with connection.cursor() as cursor:
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_tutor_eliminar @Id=%s, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
+            EXEC dbo.usp_justificacion_eliminar @Id=%s, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [id_tutor],
+            [id_justificacion],
         )
         return _read_sp_write_result(cursor)

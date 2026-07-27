@@ -20,6 +20,7 @@ const emptyValues = (campos) =>
   }, {});
 
 function filtrarCampo(campo, modo) {
+  if (campo.autoCodigo) return false;
   if (modo === "crear" && campo.soloEditar) return false;
   if (modo !== "crear" && campo.soloCrear) return false;
   if (modo === "ver" && campo.campo === "CONTRA") return false;
@@ -67,6 +68,12 @@ export default function FormModal({
         }
         if (c.control === "diasSemana") {
           next[c.campo] = Number(next[c.campo]) || DEFAULT_DIAS_ASISTENCIA;
+        }
+        if (c.control === "time" && next[c.campo]) {
+          next[c.campo] = String(next[c.campo]).slice(0, 5);
+        }
+        if (c.control === "number" && next[c.campo] != null && next[c.campo] !== "") {
+          next[c.campo] = Number(next[c.campo]);
         }
       });
       setValues(next);

@@ -4,7 +4,6 @@ export const usuarioConfig = {
   entidad: "usuarios",
   pk: "IDUSUARIO",
   columnas: [
-    { campo: "IDUSUARIO", etiqueta: "Usuario", ordenable: true },
     { campo: "NOMBRE", etiqueta: "Nombre", ordenable: true },
     { campo: "APELLIDO", etiqueta: "Apellido", ordenable: true },
     { campo: "DNI", etiqueta: "DNI", ordenable: true },
@@ -37,24 +36,19 @@ export const usuarioConfig = {
     {
       titulo: "Acceso al sistema",
       campos: [
-        { campo: "IDUSUARIO", etiqueta: "Usuario", control: "text", obligatorio: true, soloCrear: true },
-        { campo: "CONTRA", etiqueta: "Contraseña", control: "password", obligatorio: true, soloCrear: false },
+        {
+          campo: "CONTRA",
+          etiqueta: "Contraseña",
+          control: "password",
+          soloCrear: false,
+          ayuda: "Opcional al crear. Si la dejas vacía, se usará el DNI como contraseña.",
+        },
         {
           campo: "CONFIRMAR_CONTRA",
           etiqueta: "Confirmar contraseña",
           control: "password",
-          obligatorio: true,
           soloCrear: true,
           soloFrontend: true,
-        },
-        {
-          campo: "_GENERAR_CONTRA",
-          etiqueta: "Generar contraseña",
-          control: "action",
-          accion: "generarDesdeDni",
-          soloCrear: true,
-          soloFrontend: true,
-          ayuda: "Copia el DNI en usuario y contraseñas.",
         },
         {
           campo: "IDTIPOUSUARIO",

@@ -28,6 +28,7 @@ const Layout = ({
       <div className="main-content">
         <Navbar
           role={role}
+          idusuario={idusuario}
           onToggleSidebar={onToggleSidebar}
           onLogout={onLogout}
         />

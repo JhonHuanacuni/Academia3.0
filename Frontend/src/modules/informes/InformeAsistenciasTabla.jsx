@@ -1,4 +1,4 @@
-import { claseMarca, claseVence, esDiaNoLectivo } from "./informeAsistenciasUtils";
+import { claseMarca, claseVence, esDiaNoLectivo, esDiaFueraMensualidad } from "./informeAsistenciasUtils";
 
 export default function InformeAsistenciasTabla({ filas, dias }) {
   if (!filas?.length || !dias?.length) {
@@ -36,10 +36,15 @@ export default function InformeAsistenciasTabla({ filas, dias }) {
               <br />
               TARD
             </th>
-            <th className="col-total sticky-der sticky-der--faltas sticky-der--primero">
+            <th className="col-total sticky-der sticky-der--faltas">
               TOTAL
               <br />
               FALTAS
+            </th>
+            <th className="col-total sticky-der sticky-der--just sticky-der--primero">
+              TOTAL
+              <br />
+              JUST
             </th>
           </tr>
         </thead>
@@ -58,15 +63,20 @@ export default function InformeAsistenciasTabla({ filas, dias }) {
               <td className="col-ciclo">{fila.ciclo}</td>
               <td className="col-estado">{fila.estado}</td>
               {dias.map((dia) => {
-                const codigo = fila.marcas?.[dia.fecha] || "";
                 const noLectivo = esDiaNoLectivo(fila, dia.fecha);
+                const fueraMensualidad = esDiaFueraMensualidad(fila, dia.fecha);
+                const codigo =
+                  noLectivo || fueraMensualidad ? "" : fila.marcas?.[dia.fecha] || "";
                 const esDomingoVacio = dia.esDomingo && !codigo;
                 return (
                   <td
                     key={dia.fecha}
                     className={`col-dia ${claseMarca(codigo)}${
-                      noLectivo ? " col-dia-no-lectivo" : ""
-                    }${esDomingoVacio ? " col-dia-dom-vacio" : ""}`}
+                      fueraMensualidad ? " col-dia-fuera-mensualidad" : ""
+                    }${noLectivo ? " col-dia-no-lectivo" : ""}${
+                      esDomingoVacio ? " col-dia-dom-vacio" : ""
+                    }`}
+                    title={fueraMensualidad ? "Antes del inicio o después del fin de la mensualidad" : dia.fecha}
                   >
                     {codigo}
                   </td>
@@ -81,11 +91,18 @@ export default function InformeAsistenciasTabla({ filas, dias }) {
                 {fila.totalTard}
               </td>
               <td
-                className={`col-total col-total-faltas sticky-der sticky-der--faltas sticky-der--primero${
+                className={`col-total col-total-faltas sticky-der sticky-der--faltas${
                   fila.totalFaltas > 0 ? " col-total-faltas--destacado" : ""
                 }`}
               >
                 {fila.totalFaltas}
+              </td>
+              <td
+                className={`col-total col-total-just sticky-der sticky-der--just sticky-der--primero${
+                  (fila.totalJust ?? 0) > 0 ? " col-total-just--destacado" : ""
+                }`}
+              >
+                {fila.totalJust ?? 0}
               </td>
             </tr>
           ))}

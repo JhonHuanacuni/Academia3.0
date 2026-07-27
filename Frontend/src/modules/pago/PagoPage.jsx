@@ -19,7 +19,6 @@ import "./pago.css";
 function mapCatalogos(data) {
   return {
     planes: (data.planes || []).map((p) => ({ value: p.IDPLAN, label: p.NOMBRE })),
-    turnos: (data.turnos || []).map((t) => ({ value: t.IDTURNO, label: t.DESCRIPCION })),
     aulas: (data.aulas || []).map((a) => ({ value: a.IDAULA, label: a.NOMBRE })),
     tutores: (data.tutores || []).map((a) => ({ value: a.IDTUTOR, label: a.NOMBRE })),
     metodosPago: (data.metodosPago || []).map((m) => ({
@@ -54,7 +53,6 @@ const emptyAbono = () => ({
 
 const emptyNueva = () => ({
   IDPLAN: "",
-  IDTURNO: "",
   FECHAINICIO: hoyInput(),
   FECHAFIN: "",
   MONTOTOTAL: "",
@@ -74,7 +72,6 @@ function prefillsDesdeMensualidad(m) {
   return {
     ...base,
     IDPLAN: m.IDPLAN || "",
-    IDTURNO: m.IDTURNO || "",
     FECHAINICIO: inicio,
     FECHAFIN: duracion != null ? sumarDiasInput(inicio, duracion) : "",
     MONTOTOTAL: m.MONTOTOTAL != null && m.MONTOTOTAL !== "" ? String(m.MONTOTOTAL) : "",
@@ -101,7 +98,6 @@ export default function PagoPage() {
   const [confirmando, setConfirmando] = useState(false);
   const [catalogos, setCatalogos] = useState({
     planes: [],
-    turnos: [],
     aulas: [],
     tutores: [],
     metodosPago: [],
@@ -307,7 +303,6 @@ export default function PagoPage() {
           TIPO: "nueva_mensualidad",
           IDUSUARIO: estudiante.IDUSUARIO,
           IDPLAN: nueva.IDPLAN,
-          IDTURNO: nueva.IDTURNO || null,
           ESTADOMIEMBRO: 2,
           FECHAINICIO: inputToDb(nueva.FECHAINICIO),
           FECHAFIN: inputToDb(nueva.FECHAFIN),
@@ -441,20 +436,6 @@ export default function PagoPage() {
                         ))}
                       </select>
                       {errors.IDPLAN && <span className="field-error">{errors.IDPLAN}</span>}
-                    </div>
-                    <div className="form-field">
-                      <label>Turno</label>
-                      <select
-                        value={nueva.IDTURNO}
-                        onChange={(e) => setNueva((p) => ({ ...p, IDTURNO: e.target.value }))}
-                      >
-                        <option value="">Selecciona...</option>
-                        {catalogos.turnos.map((m) => (
-                          <option key={m.value} value={m.value}>
-                            {m.label}
-                          </option>
-                        ))}
-                      </select>
                     </div>
                     <div className={`form-field ${errors.FECHAINICIO ? "has-error" : ""}`}>
                       <label>Fecha inicio</label>

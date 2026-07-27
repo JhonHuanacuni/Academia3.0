@@ -71,8 +71,9 @@ function estiloMarca(codigo, fondoFila, fueraPlan = false) {
   } else if (codigo === "F") {
     base.fill = relleno(C.redF);
     base.font.color = { argb: C.white };
-  } else if (codigo === "R") {
-    base.font.color = { argb: C.black };
+  } else if (codigo === "J" || codigo === "R") {
+    base.font.color = { argb: "FF5B3EA8" };
+    base.fill = relleno("FFF0EBFF");
   }
   return base;
 }
@@ -106,7 +107,7 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
     "CICLO",
     "ESTADO",
   ];
-  const encabezadosTotales = ["TOTAL\nASIST", "TOTAL\nTARD", "TOTAL\nFALTAS"];
+  const encabezadosTotales = ["TOTAL\nASIST", "TOTAL\nTARD", "TOTAL\nFALTAS", "TOTAL\nJUST"];
   const encabezados = [...encabezadosFijos, ...dias.map((d) => d.etiqueta), ...encabezadosTotales];
 
   const headerRow = ws.addRow(encabezados);
@@ -139,6 +140,7 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
     const fondoFila = rowIdx % 2 === 1 ? C.rowEven : C.rowOdd;
     const estadoVence = estadoVencimientoDesdeFila(fila);
     const noLectivos = new Set(fila.diasNoLectivos || []);
+    const fueraMensualidadSet = new Set(fila.diasFueraMensualidad || []);
 
     const valores = [
       fila.numero,
@@ -148,10 +150,15 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
       fila.aula,
       fila.ciclo,
       fila.estado,
-      ...dias.map((d) => fila.marcas[d.fecha] || ""),
+      ...dias.map((d) => {
+        const nl = noLectivos.has(d.fecha);
+        const fm = fueraMensualidadSet.has(d.fecha);
+        return nl || fm ? "" : fila.marcas[d.fecha] || "";
+      }),
       fila.totalAsist,
       fila.totalTard,
       fila.totalFaltas,
+      fila.totalJust ?? 0,
     ];
 
     const row = ws.addRow(valores);
@@ -164,10 +171,12 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
       const diaInfo = esDia ? dias[colIdx - FIJAS] : null;
       const esDomingo = diaInfo?.esDomingo || diaInfo?.etiqueta?.startsWith("dom");
       const esNoLectivo = esDia && diaInfo && noLectivos.has(diaInfo.fecha);
+      const esFueraMensualidad = esDia && diaInfo && fueraMensualidadSet.has(diaInfo.fecha);
       const codigo = esDia ? String(valor || "") : "";
 
       let fondo = fondoFila;
-      if (esDia && esNoLectivo) fondo = C.noLectivoBg;
+      if (esDia && esFueraMensualidad) fondo = C.noLectivoBg;
+      else if (esDia && esNoLectivo) fondo = C.noLectivoBg;
       else if (esDia && esDomingo && !codigo) fondo = C.sundayBg;
 
       if (esDia && codigo) {
@@ -191,6 +200,7 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
       } else if (esTotal) {
         const esTard = colIdx === FIJAS + dias.length + 1;
         const esFaltas = colIdx === FIJAS + dias.length + 2;
+        const esJust = colIdx === FIJAS + dias.length + 3;
         let bg = fondoFila;
         let fg = C.black;
         if (esTard && Number(valor) > 0) {
@@ -200,8 +210,17 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
           bg = C.redF;
           fg = C.white;
         }
+        if (esJust && Number(valor) > 0) {
+          bg = "FFF0EBFF";
+          fg = "FF5B3EA8";
+        }
         cell.fill = relleno(bg);
-        cell.font = { name: "Calibri", size: 9, bold: esFaltas && Number(valor) > 0, color: { argb: fg } };
+        cell.font = {
+          name: "Calibri",
+          size: 9,
+          bold: (esFaltas || esJust) && Number(valor) > 0,
+          color: { argb: fg },
+        };
         cell.alignment = { vertical: "middle", horizontal: "center" };
         cell.border = borde();
       } else {
@@ -225,6 +244,7 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
     { width: 8 },
     { width: 8 },
     { width: 9 },
+    { width: 8 },
   ];
 
   const buffer = await wb.xlsx.writeBuffer();

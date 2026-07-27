@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from django.db import connection
 from django.utils import timezone
 
@@ -26,6 +28,56 @@ def _read_marcar_outputs(cursor):
         if not cursor.nextset():
             break
     return resultado, mensaje, id_asistencia
+
+
+def _parse_hora(val):
+    if val is None:
+        return None
+    if hasattr(val, 'hour') and hasattr(val, 'minute'):
+        return val.hour, val.minute
+    s = str(val).strip()
+    if not s:
+        return None
+    parts = s.split(':')
+    if len(parts) >= 2:
+        return int(parts[0]), int(parts[1])
+    return None
+
+
+def _limite_tardanza_desde_plan(hora_entrada, tiempo_extra_min):
+    parsed = _parse_hora(hora_entrada)
+    if not parsed:
+        parsed = (8, 0)
+    h, m = parsed
+    extra = int(tiempo_extra_min or 0)
+    base = datetime(2000, 1, 1, h, m, 0)
+    limite = base + timedelta(minutes=extra)
+    return limite.time()
+
+
+def _obtener_limite_tardanza_usuario(id_usuario):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT TOP 1 p.HORAENTRADA, ISNULL(p.TIEMPOEXTRA, 0)
+            FROM MENSUALIDAD m
+            INNER JOIN [PLAN] p ON p.IDPLAN = m.IDPLAN
+            WHERE m.IDUSUARIO = %s
+              AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+            ORDER BY m.FECHAREGISTRO DESC, m.FECHAINICIO DESC
+            """,
+            [id_usuario],
+        )
+        row = cursor.fetchone()
+    if not row:
+        return _limite_tardanza_desde_plan('08:00:00', 0)
+    return _limite_tardanza_desde_plan(row[0], row[1])
+
+
+def _estado_asistencia_por_hora(id_usuario):
+    limite = _obtener_limite_tardanza_usuario(id_usuario)
+    ahora = timezone.localtime().time()
+    return 'Presente' if ahora <= limite else 'Tarde'
 
 
 def marcar_asistencia_por_dni(dni: str, id_registrador: str = None):
@@ -85,8 +137,7 @@ def marcar_asistencia_orm(dni: str, id_registrador: str = None):
     if Asistencia.objects.filter(IDUSUARIO=usuario.IDUSUARIO, FECHAREGISTRO=hoy).exists():
         return 0, 'Este estudiante ya tiene su asistencia registrada para hoy.', None, None
 
-    limite = timezone.localtime().replace(hour=8, minute=0, second=0, microsecond=0)
-    estado = 'Presente' if timezone.localtime() <= limite else 'Tarde'
+    estado = _estado_asistencia_por_hora(usuario.IDUSUARIO)
     id_asist = f"AS_{uuid.uuid4().hex[:12].upper()}"
 
     Asistencia.objects.create(

@@ -93,12 +93,15 @@ export default function FieldRenderer({
             ? "password"
             : campo.control === "date"
               ? "date"
-              : campo.control === "number"
-                ? "number"
-                : "text"
+              : campo.control === "time"
+                ? "time"
+                : campo.control === "number"
+                  ? "number"
+                  : "text"
         }
-        step={campo.control === "number" ? "0.01" : undefined}
-        min={campo.control === "number" ? "0" : undefined}
+        step={campo.control === "number" ? (campo.step ?? "0.01") : undefined}
+        min={campo.control === "number" ? (campo.min ?? "0") : undefined}
+        max={campo.control === "number" ? campo.max : undefined}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}

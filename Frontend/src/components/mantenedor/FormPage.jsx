@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faKey, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import FieldRenderer from "./fields/FieldRenderer";
 import PageHeader from "./PageHeader";
 import EstudianteSearchField from "../../modules/mensualidad/EstudianteSearchField";
@@ -18,6 +18,7 @@ const emptyValues = (campos) =>
   }, {});
 
 function filtrarCampo(campo, modo) {
+  if (campo.autoCodigo) return false;
   if (campo.control === "action" && modo !== "crear") return false;
   if (modo === "crear" && campo.soloEditar) return false;
   if (modo !== "crear" && campo.soloCrear) return false;
@@ -29,6 +30,16 @@ function filtrarCampo(campo, modo) {
 function esCampoPersistente(campo) {
   return !campo.soloFrontend && campo.control !== "action" && !campo.bloqueado;
 }
+
+function aplicarCredencialesAuto(payload, modo) {
+  if (modo !== "crear") return payload;
+  const dni = String(payload.DNI ?? "").trim();
+  if (dni && !String(payload.IDUSUARIO ?? "").trim()) payload.IDUSUARIO = dni;
+  if (dni && !String(payload.CONTRA ?? "").trim()) payload.CONTRA = dni;
+  return payload;
+}
+
+const EMPTY_CREATE_DEFAULTS = Object.freeze({});
 
 export default function FormPage({
   modo,
@@ -45,7 +56,11 @@ export default function FormPage({
   onFieldChange,
   onCancel,
   onSubmit,
+  createDefaults,
 }) {
+  const mergedCreateDefaults = createDefaults ?? EMPTY_CREATE_DEFAULTS;
+  const createDefaultsKey =
+    modo === "crear" ? JSON.stringify(mergedCreateDefaults) : "";
   const [values, setValues] = useState({});
   const [errors, setErrors] = useState({});
   const [enviando, setEnviando] = useState(false);
@@ -58,7 +73,7 @@ export default function FormPage({
 
   useEffect(() => {
     if (modo === "crear") {
-      setValues(emptyValues(todosLosCampos));
+      setValues({ ...emptyValues(todosLosCampos), ...mergedCreateDefaults });
     } else if (registro) {
       const next = { ...registro };
       todosLosCampos.forEach((c) => {
@@ -68,41 +83,11 @@ export default function FormPage({
         if (c.campo === "ESTADOMIEMBRO" && next[c.campo] != null) {
           next[c.campo] = String(next[c.campo]);
         }
-        if (c.soloFrontend) {
-          next[c.campo] = "";
-        }
       });
       setValues(next);
     }
     setErrors({});
-  }, [modo, registro, todosLosCampos]);
-
-  const generarDesdeDni = () => {
-    const dni = String(values.DNI ?? "").trim();
-    if (!/^\d{8}$/.test(dni)) {
-      setErrors((prev) => ({
-        ...prev,
-        DNI: "Ingresa un DNI válido (8 dígitos) antes de generar.",
-        _form: "Completa el DNI en Datos personales para generar usuario y contraseña.",
-      }));
-      return;
-    }
-    setValues((prev) => ({
-      ...prev,
-      IDUSUARIO: dni,
-      CONTRA: dni,
-      CONFIRMAR_CONTRA: dni,
-    }));
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next.DNI;
-      delete next.IDUSUARIO;
-      delete next.CONTRA;
-      delete next.CONFIRMAR_CONTRA;
-      delete next._form;
-      return next;
-    });
-  };
+  }, [modo, registro, todosLosCampos, createDefaultsKey]);
 
   const validate = () => {
     const next = {};
@@ -134,16 +119,12 @@ export default function FormPage({
       }
     });
 
-    const campoContra = todosLosCampos.find((c) => c.campo === "CONTRA");
-    if (modo === "crear" && campoContra?.obligatorio && !String(values.CONTRA ?? "").trim()) {
-      next.CONTRA = "Ingresa la contraseña.";
-    }
-
-    const campoConfirm = todosLosCampos.find((c) => c.campo === "CONFIRMAR_CONTRA");
-    if (modo === "crear" && campoConfirm) {
-      if (!String(values.CONFIRMAR_CONTRA ?? "").trim()) {
+    const contraIngresada = String(values.CONTRA ?? "").trim();
+    if (modo === "crear" && contraIngresada) {
+      const confirm = String(values.CONFIRMAR_CONTRA ?? "").trim();
+      if (!confirm) {
         next.CONFIRMAR_CONTRA = "Confirma la contraseña.";
-      } else if (String(values.CONTRA ?? "") !== String(values.CONFIRMAR_CONTRA ?? "")) {
+      } else if (contraIngresada !== confirm) {
         next.CONFIRMAR_CONTRA = "Las contraseñas no coinciden.";
       }
     }
@@ -170,6 +151,7 @@ export default function FormPage({
       }
     });
     if (modo === "editar" && !payload.CONTRA) delete payload.CONTRA;
+    aplicarCredencialesAuto(payload, modo);
 
     try {
       setEnviando(true);
@@ -182,24 +164,6 @@ export default function FormPage({
   };
 
   const renderCampo = (campo) => {
-    if (campo.control === "action" && campo.accion === "generarDesdeDni") {
-      return (
-        <div key={campo.campo} className="form-field form-field--action">
-          <label>{campo.etiqueta}</label>
-          <button
-            type="button"
-            className="btn-secondary btn-generar-contra"
-            onClick={generarDesdeDni}
-            disabled={soloLectura}
-          >
-            <FontAwesomeIcon icon={faKey} />
-            Generar desde DNI
-          </button>
-          {campo.ayuda && <span className="field-hint">{campo.ayuda}</span>}
-        </div>
-      );
-    }
-
     if (campo.control === "estudiante") {
       return (
         <div key={campo.campo} className={`form-field full ${errors[campo.campo] ? "has-error" : ""}`}>

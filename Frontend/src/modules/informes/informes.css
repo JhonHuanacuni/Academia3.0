@@ -33,7 +33,7 @@
 
 .informes-filtros-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(120px, 150px)) repeat(2, minmax(130px, 160px)) 1fr auto;
+  grid-template-columns: repeat(2, minmax(120px, 150px)) repeat(3, minmax(130px, 160px)) 1fr auto;
   gap: 0.85rem 1rem;
   align-items: end;
 }
@@ -175,16 +175,20 @@
   background: #eef1f8;
 }
 
-.informe-asistencias-table .sticky-der--faltas {
+.informe-asistencias-table .sticky-der--just {
   right: 0;
 }
 
-.informe-asistencias-table .sticky-der--tard {
+.informe-asistencias-table .sticky-der--faltas {
   right: var(--col-total-width);
 }
 
-.informe-asistencias-table .sticky-der--asist {
+.informe-asistencias-table .sticky-der--tard {
   right: calc(var(--col-total-width) * 2);
+}
+
+.informe-asistencias-table .sticky-der--asist {
+  right: calc(var(--col-total-width) * 3);
 }
 
 .informe-asistencias-table .sticky-der--primero {
@@ -195,7 +199,7 @@
   z-index: 7;
 }
 
-.informe-asistencias-table thead .sticky-der--faltas {
+.informe-asistencias-table thead .sticky-der--just {
   z-index: 7;
 }
 
@@ -456,6 +460,15 @@
   color: transparent;
 }
 
+.informe-asistencias-table .col-dia-fuera-mensualidad {
+  background: #f0f1f5 !important;
+  color: transparent;
+}
+
+.informe-asistencias-table tbody tr:nth-child(even) .col-dia-fuera-mensualidad {
+  background: #e8eaef !important;
+}
+
 .informe-asistencias-table .col-dia-no-lectivo {
   background: #e8eaef !important;
   color: #9ca3af;
@@ -468,6 +481,7 @@
 .informe-asistencias-table .col-dia-no-lectivo.marca-a,
 .informe-asistencias-table .col-dia-no-lectivo.marca-t,
 .informe-asistencias-table .col-dia-no-lectivo.marca-f,
+.informe-asistencias-table .col-dia-no-lectivo.marca-j,
 .informe-asistencias-table .col-dia-no-lectivo.marca-r {
   background: #dfe3eb !important;
   color: #6b7280 !important;
@@ -477,6 +491,7 @@
 .informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo.marca-a,
 .informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo.marca-t,
 .informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo.marca-f,
+.informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo.marca-j,
 .informe-asistencias-table tbody tr:nth-child(even) .col-dia-no-lectivo.marca-r {
   background: #d5dae3 !important;
 }
@@ -518,6 +533,7 @@
   background: #fdecec !important;
 }
 
+.marca-j,
 .marca-r {
   color: #5b3ea8;
   background: #f0ebff !important;
@@ -539,12 +555,21 @@
   color: #9b1c1c;
 }
 
+.col-total-just {
+  color: #5b3ea8;
+}
+
 .col-total-tard--destacado {
   background: #fff8e6 !important;
 }
 
 .col-total-faltas--destacado {
   background: #fdecec !important;
+  font-weight: 700;
+}
+
+.col-total-just--destacado {
+  background: #f0ebff !important;
   font-weight: 700;
 }
 

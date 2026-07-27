@@ -29,7 +29,6 @@ def pagos_catalogos(request):
         return JsonResponse({
             'data': {
                 'planes': cats.get('planes') or [],
-                'turnos': cats.get('turnos') or [],
                 'aulas': cats.get('aulas') or [],
                 'tutores': cats.get('tutores') or [],
                 'metodosPago': listar_metodos_pago() or cats.get('metodosPago') or [],
@@ -89,7 +88,6 @@ def pagos_mantenedor(request, id_pago=None):
                 ok, mensaje = insertar_mensualidad({
                     'IDUSUARIO': payload.get('IDUSUARIO'),
                     'IDPLAN': payload.get('IDPLAN'),
-                    'IDTURNO': payload.get('IDTURNO'),
                     'ESTADOMIEMBRO': payload.get('ESTADOMIEMBRO') or 2,
                     'FECHAINICIO': payload.get('FECHAINICIO'),
                     'FECHAFIN': payload.get('FECHAFIN'),

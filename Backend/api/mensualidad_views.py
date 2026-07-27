@@ -24,7 +24,8 @@ def mensualidades_catalogos(request):
     if request.method != 'GET':
         return JsonResponse({'error': 'Método no permitido'}, status=405)
     try:
-        return JsonResponse({'data': listar_catalogos()})
+        id_registrador = request.GET.get('idusuario') or None
+        return JsonResponse({'data': listar_catalogos(id_registrador)})
     except Exception as exc:
         return JsonResponse({'error': str(exc)}, status=500)
 

@@ -73,7 +73,9 @@ def insertar_usuario(payload: dict):
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
             [
-                payload['IDUSUARIO'], payload['CONTRA'], payload['NOMBRE'],
+                payload.get('IDUSUARIO') or payload.get('DNI'),
+                payload.get('CONTRA') or payload.get('DNI') or payload.get('IDUSUARIO'),
+                payload['NOMBRE'],
                 payload['APELLIDO'], payload['DNI'], payload['EMAIL'],
                 payload['IDTIPOUSUARIO'], payload.get('ESTADO', 'Activo'),
                 payload.get('FECHANACIMIENTO'), payload.get('DIRECCION'),

@@ -43,10 +43,12 @@ def _fecha_db_a_date(s):
     norm = _normalizar_fecha_db(s)
     if not norm:
         return None
-    return datetime(int(norm[4:8]), int(norm[2:4]), int(norm[0:2]))
+    return datetime(int(norm[4:8]), int(norm[2:4]), int(norm[0:2])).date()
 
 
 def _date_a_fecha_db(d):
+    if isinstance(d, datetime):
+        d = d.date()
     return d.strftime('%d%m%Y')
 
 
@@ -70,7 +72,7 @@ def _estado_vencimiento_mensualidad(fecha_fin_db):
     if not fin:
         return ''
     hoy = timezone.localdate()
-    dias = (fin.date() - hoy).days
+    dias = (fin - hoy).days
     if dias < 0:
         return 'vencida'
     if dias <= 3:
@@ -83,7 +85,7 @@ def _generar_rango_dias(fecha_desde, fecha_hasta):
     fin = _fecha_db_a_date(fecha_hasta)
     if not inicio or not fin or inicio > fin:
         return []
-    hoy_db = _hoy_db()
+    hoy = timezone.localdate()
     dias = []
     actual = inicio
     while actual <= fin:
@@ -92,25 +94,58 @@ def _generar_rango_dias(fecha_desde, fecha_hasta):
             'fecha': fecha_db,
             'etiqueta': _etiqueta_dia(fecha_db),
             'esDomingo': actual.weekday() == 6,
-            'esFuturo': fecha_db > hoy_db,
+            'esFuturo': actual > hoy,
+            'esHoy': actual == hoy,
         })
         actual += timedelta(days=1)
     return dias
 
 
+def _dia_imputable_falta(dia):
+    """True si el día ya pasó o es hoy: sin marca debe contarse como falta automática."""
+    return not dia.get('esFuturo')
+
+
 def _estado_a_codigo(estado, justificado=False):
+    if justificado:
+        return 'J'
     e = (estado or '').strip().lower()
     if 'tarde' in e or e == 't':
         return 'T'
+    if 'justific' in e or e == 'j':
+        return 'J'
     if 'retiro' in e or e == 'r':
-        return 'R'
+        return 'J'
     if 'falta' in e or 'ausente' in e or e == 'f':
         return 'F'
-    if justificado:
-        return 'R'
     if 'presente' in e or e == 'a' or e:
         return 'A'
     return ''
+
+
+def _cargar_justificaciones_rango(fecha_desde, fecha_hasta):
+    """Mapa {IDUSUARIO: {FECHA: True}} desde JUSTIFICACION (si existe la tabla)."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT IDUSUARIO, FECHA
+                FROM JUSTIFICACION
+                WHERE FECHA >= %s AND FECHA <= %s
+                """,
+                [fecha_desde, fecha_hasta],
+            )
+            rows = _cursor_rows(cursor)
+    except Exception:
+        return {}
+
+    result = {}
+    for row in rows:
+        uid = row.get('IDUSUARIO')
+        fecha = _normalizar_fecha_db(row.get('FECHA'))
+        if uid and fecha:
+            result.setdefault(uid, {})[fecha] = True
+    return result
 
 
 def _parse_dias_asistencia(val):
@@ -130,64 +165,96 @@ def _dia_permitido_plan(fecha_db, dias_asistencia):
     return bool(dias_asistencia & (1 << d.weekday()))
 
 
-def _dia_cuenta_para_falta(fecha_db, fecha_inicio_db, fecha_fin_db):
-    """True si el día está dentro del período de membresía para evaluar faltas."""
-    inicio = _normalizar_fecha_db(fecha_inicio_db)
-    if not inicio:
+def _dia_cuenta_mensualidad(fecha_db, fecha_inicio_db, fecha_fin_db):
+    """True si el día está dentro del período de mensualidad (inicio inclusive, fin inclusive)."""
+    fecha = _fecha_db_a_date(fecha_db)
+    inicio = _fecha_db_a_date(fecha_inicio_db)
+    if not fecha or not inicio:
         return False
-    fecha = _normalizar_fecha_db(fecha_db)
-    if not fecha or fecha < inicio:
+    if fecha < inicio:
         return False
-    fin = _normalizar_fecha_db(fecha_fin_db)
-    if fin and fecha > fin:
+    fin = _fecha_db_a_date(fecha_fin_db)
+    if fin is not None and fecha > fin:
         return False
     return True
 
 
-def _construir_filas(estudiantes, asistencias, dias):
+def _dia_cuenta_para_falta(fecha_db, fecha_inicio_db, fecha_fin_db):
+    """Alias: faltas solo dentro del período de mensualidad."""
+    return _dia_cuenta_mensualidad(fecha_db, fecha_inicio_db, fecha_fin_db)
+
+
+def _construir_filas(estudiantes, asistencias, dias, justificaciones=None):
     marcas_por_usuario = {}
     for row in asistencias:
         uid = row.get('IDUSUARIO')
-        fecha = row.get('FECHAREGISTRO')
+        fecha = _normalizar_fecha_db(row.get('FECHAREGISTRO'))
         if not uid or not fecha:
             continue
         codigo = _estado_a_codigo(row.get('ESTADO'), row.get('JUSTIFICADO'))
         marcas_por_usuario.setdefault(uid, {})[fecha] = codigo
 
+    justificaciones = justificaciones or {}
+
     filas = []
     for idx, est in enumerate(estudiantes, start=1):
         uid = est['IDUSUARIO']
         marcas_usuario = marcas_por_usuario.get(uid, {})
+        justif_usuario = justificaciones.get(uid, {})
         marcas = {}
-        total_asist = total_tard = total_faltas = 0
+        total_asist = total_tard = total_faltas = total_just = 0
+        dias_imputables = 0
 
         fecha_inicio_mem = est.get('FECHA_INICIO_MEM')
         fecha_fin_mem = est.get('FECHA_VENCE') or est.get('FECHA_FIN_MEM')
         dias_asistencia = _parse_dias_asistencia(est.get('DIASASISTENCIA'))
         dias_no_lectivos = set()
+        dias_fuera_mensualidad = set()
 
         for dia in dias:
             fecha = dia['fecha']
             permitido = _dia_permitido_plan(fecha, dias_asistencia)
+            en_mensualidad = _dia_cuenta_mensualidad(fecha, fecha_inicio_mem, fecha_fin_mem)
             codigo = marcas_usuario.get(fecha, '')
 
             if not permitido:
                 dias_no_lectivos.add(fecha)
-                # Muestra marca real (A/T/R) si vino un día fuera de su plan; no cuenta ni genera falta
-                marcas[fecha] = codigo
+                marcas[fecha] = ''
                 continue
 
-            # Falta solo en días lectivos del plan, ya transcurridos y dentro del período de membresía
-            if not codigo and not dia.get('esFuturo'):
-                if _dia_cuenta_para_falta(fecha, fecha_inicio_mem, fecha_fin_mem):
-                    codigo = 'F'
+            if not en_mensualidad:
+                dias_fuera_mensualidad.add(fecha)
+                marcas[fecha] = ''
+                continue
+
+            if justif_usuario.get(fecha):
+                codigo = 'J'
+            elif not codigo and _dia_imputable_falta(dia):
+                codigo = 'F'
+
             marcas[fecha] = codigo
+
+            if not _dia_imputable_falta(dia):
+                continue
+
+            dias_imputables += 1
+
             if codigo == 'A':
                 total_asist += 1
             elif codigo == 'T':
                 total_tard += 1
             elif codigo == 'F':
                 total_faltas += 1
+            elif codigo == 'J':
+                total_just += 1
+
+        denom_pct = dias_imputables - total_just
+        if denom_pct > 0:
+            asist_pct = round(total_asist / denom_pct * 100)
+        elif total_asist > 0:
+            asist_pct = 100
+        else:
+            asist_pct = 0
 
         fecha_vence = est.get('FECHA_VENCE')
         estado_vence = _estado_vencimiento_mensualidad(fecha_vence)
@@ -204,10 +271,15 @@ def _construir_filas(estudiantes, asistencias, dias):
             'venceVencida': estado_vence == 'vencida',
             'marcas': marcas,
             'diasNoLectivos': list(dias_no_lectivos),
+            'diasFueraMensualidad': list(dias_fuera_mensualidad),
             'diasAsistencia': dias_asistencia,
+            'fechaInicioMensualidad': _formatear_fecha_db(fecha_inicio_mem),
             'totalAsist': total_asist,
             'totalTard': total_tard,
             'totalFaltas': total_faltas,
+            'totalJust': total_just,
+            'diasImputables': dias_imputables,
+            'asistPct': asist_pct,
         })
     return filas
 
@@ -289,7 +361,8 @@ def informe_asistencias(fecha_desde, fecha_hasta, buscar=None, id_plan=None, est
         if cursor.nextset() and cursor.description:
             asistencias = _cursor_rows(cursor)
 
-    filas = _construir_filas(estudiantes, asistencias, dias)
+    justificaciones = _cargar_justificaciones_rango(fecha_desde, fecha_hasta)
+    filas = _construir_filas(estudiantes, asistencias, dias, justificaciones)
     return _respuesta_informe(fecha_desde, fecha_hasta, dias, filas)
 
 
@@ -353,7 +426,8 @@ def informe_asistencias_orm(fecha_desde, fecha_hasta, buscar=None, id_plan=None,
         for a in asist_qs
     ]
 
-    filas = _construir_filas(estudiantes, asistencias, dias)
+    justificaciones = _cargar_justificaciones_rango(fecha_desde, fecha_hasta)
+    filas = _construir_filas(estudiantes, asistencias, dias, justificaciones)
     return _respuesta_informe(fecha_desde, fecha_hasta, dias, filas)
 
 

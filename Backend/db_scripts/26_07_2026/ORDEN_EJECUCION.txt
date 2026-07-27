@@ -3,3 +3,12 @@
 3.aula_catalogo_academia_vita.sql
 4.rename_membresia_asesor_a_mensualidad_tutor.sql
 5.menu_mensualidad_tutor.sql
+6.plan_turno.sql
+7.plan_nombres_sin_turno.sql
+8.asesor_registro_mensualidad.sql
+9.menu_tutores_asesores.sql
+10.tutor_codigo_tut.sql
+12.plan_hora_entrada_tardanza.sql
+13.mantenedores_codigo_autogenerado.sql
+14.justificacion.sql
+15.usp_justificacion_actualizar.sql

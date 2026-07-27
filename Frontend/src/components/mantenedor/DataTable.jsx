@@ -39,6 +39,17 @@ function renderCell(col, row, index = 0, offset = 0) {
     return <span className="dias-asistencia-resumen">{resumenDiasAsistencia(value)}</span>;
   }
 
+  if (col.tipo === "hora") {
+    const s = String(value || "");
+    return s.length >= 5 ? s.slice(0, 5) : "—";
+  }
+
+  if (col.tipo === "minutos") {
+    const n = Number(value);
+    if (Number.isNaN(n)) return "—";
+    return `${n} min`;
+  }
+
   if (value == null || value === "") return "—";
 
   if (col.tipo === "estado") {
@@ -48,6 +59,12 @@ function renderCell(col, row, index = 0, offset = 0) {
         {value}
       </span>
     );
+  }
+  if (col.tipo === "asistenciaEstado") {
+    const v = String(value || "").toLowerCase();
+    const clase =
+      v === "presente" ? "activo" : v === "tarde" ? "inactivo" : v === "justificado" ? "activo" : "vencido";
+    return <span className={`badge-estado ${clase}`}>{value || "—"}</span>;
   }
   if (col.tipo === "visibleExamen") {
     const on = value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";

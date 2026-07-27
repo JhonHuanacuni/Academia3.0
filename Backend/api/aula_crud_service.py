@@ -68,7 +68,7 @@ def insertar_aula(payload: dict):
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
             [
-                payload['IDAULA'],
+                payload.get('IDAULA') or None,
                 payload['NOMBRE'],
                 payload.get('DESCRIPCION'),
                 _int_or_none(payload.get('CAPACIDAD')),
