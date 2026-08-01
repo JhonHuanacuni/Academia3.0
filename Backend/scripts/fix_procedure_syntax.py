@@ -15,16 +15,32 @@ BASE = Path(__file__).resolve().parent.parent
 SCRIPTS = BASE / 'db_scripts_mysql'
 
 
-def fix_v_offset_session(text: str) -> str:
-    """Usa @v_offset (variable de sesión) en lugar de DECLARE v_offset.
+def fix_v_offset_local(text: str) -> str:
+    """Paginación en SP: variable local v_offset (DECLARE), no @v_offset de sesión.
 
-    Si split_sql parte mal un procedure, SET v_offset fuera del SP falla con
-    "Unknown system variable 'v_offset'"; @v_offset funciona en cualquier contexto.
+    MySQL rechaza OFFSET @v_offset dentro de CREATE PROCEDURE; la local sí funciona
+    si el procedure se ejecuta como un solo statement (split_sql + DELIMITER $$).
     """
-    text = re.sub(r'^\s*DECLARE v_offset INT DEFAULT 0;\s*\n', '', text, flags=re.M)
-    text = text.replace('SET v_offset =', 'SET @v_offset =')
-    text = text.replace('OFFSET v_offset', 'OFFSET @v_offset')
-    return text
+    text = text.replace('SET @v_offset =', 'SET v_offset =')
+    text = text.replace('OFFSET @v_offset', 'OFFSET v_offset')
+
+    def proc_fix(m):
+        body = m.group(0)
+        if 'SET v_offset' in body and 'DECLARE v_offset' not in body:
+            body = re.sub(
+                r'(main:\s*BEGIN\s*\n)',
+                r'\1    DECLARE v_offset INT DEFAULT 0;\n',
+                body,
+                count=1,
+            )
+        return body
+
+    return re.sub(
+        r'CREATE PROCEDURE[\s\S]*?END\$\$',
+        proc_fix,
+        text,
+        flags=re.I,
+    )
 
 
 def fix_end_semicolon_before_end_dollar(text: str) -> str:
@@ -98,7 +114,7 @@ def fix_missing_trim_paren(text: str) -> str:
 
 
 def fix_file(content: str) -> str:
-    content = fix_v_offset_session(content)
+    content = fix_v_offset_local(content)
     content = fix_end_semicolon_before_end_dollar(content)
     content = fix_leave_main_before_dml(content)
     content = fix_broken_foto_case(content)
@@ -114,7 +130,7 @@ def main():
         if not path.exists():
             continue
         original = path.read_text(encoding='utf-8')
-        fixed = fix_v_offset_session(original)
+        fixed = fix_v_offset_local(original)
         if rel not in SKIP_FIX:
             fixed = fix_file(fixed)
         elif fixed == original:

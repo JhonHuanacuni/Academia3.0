@@ -81,12 +81,13 @@ CREATE PROCEDURE usp_asistencia_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
     IF p_Fecha IS NULL OR p_Fecha = '' THEN
         SET p_Fecha = fn_fecha_ddmmyyyy();
     END IF;
     IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 50; END IF;
-    SET @v_offset = (p_Pagina - 1) * p_TamanioPagina;
+    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
 
     SELECT COUNT(*)
     INTO p_TotalRegistros
@@ -123,7 +124,7 @@ main: BEGIN
         CASE WHEN p_OrdenarPor = 'NOMBRE'    AND p_Direccion = 'ASC'  THEN u.NOMBRE END ASC,
         CASE WHEN p_OrdenarPor = 'NOMBRE'    AND p_Direccion = 'DESC' THEN u.NOMBRE END DESC,
         a.HORAINICIO DESC
-    LIMIT p_TamanioPagina OFFSET @v_offset;
+    LIMIT p_TamanioPagina OFFSET v_offset;
 END$$
 
 DELIMITER ;

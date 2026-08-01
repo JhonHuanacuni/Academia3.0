@@ -25,9 +25,10 @@ CREATE PROCEDURE usp_membresia_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
-    SET @v_offset = (p_Pagina - 1) * p_TamanioPagina;
+    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
     IF p_Estado IS NULL OR p_Estado = '' THEN SET p_Estado = 'Activo'; END IF;
 
     SELECT COUNT(*) INTO p_TotalRegistros
@@ -98,7 +99,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'FECHAREGISTRO' AND p_Direccion = 'ASC'  THEN m.FECHAREGISTRO END ASC,
         CASE WHEN p_OrdenarPor = 'FECHAREGISTRO' AND p_Direccion = 'DESC' THEN m.FECHAREGISTRO END DESC,
         m.IDMEMBRESIA DESC
-    LIMIT p_TamanioPagina OFFSET @v_offset;
+    LIMIT p_TamanioPagina OFFSET v_offset;
 END$$
 
 DELIMITER ;

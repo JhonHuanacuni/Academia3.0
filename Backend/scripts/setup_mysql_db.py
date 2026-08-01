@@ -156,20 +156,7 @@ def _split_on_semicolon(sql: str) -> list[str]:
     return parts
 
 
-def _sanitize_pagination_vars(sql: str) -> str:
-    """Convierte v_offset local a @v_offset (sesión) antes de ejecutar."""
-    sql = re.sub(r'^\s*DECLARE v_offset INT DEFAULT 0;\s*\n', '', sql, flags=re.M)
-    sql = sql.replace('SET v_offset =', 'SET @v_offset =')
-    sql = sql.replace('OFFSET v_offset', 'OFFSET @v_offset')
-    sql = sql.replace(
-        'LIMIT p_TamanioPagina OFFSET ((p_Pagina - 1) * p_TamanioPagina)',
-        'LIMIT p_TamanioPagina OFFSET @v_offset',
-    )
-    return sql
-
-
 def split_sql(content: str):
-    content = _sanitize_pagination_vars(content)
     content = content.replace('\r\n', '\n').replace('\r', '\n')
     content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
     lines = content.splitlines()

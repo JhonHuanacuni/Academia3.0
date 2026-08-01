@@ -25,10 +25,11 @@ CREATE PROCEDURE usp_mensualidad_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
-    SET @v_offset = (p_Pagina - 1) * p_TamanioPagina;
+    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
     ;WITH Base AS (
         SELECT
             m.IDMENSUALIDAD,
@@ -146,7 +147,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'FECHAFIN' AND p_Direccion = 'DESC' THEN FECHAFIN END DESC,
         CASE WHEN p_OrdenarPor = 'FECHAFIN' AND p_Direccion = 'ASC' THEN FECHAFIN END ASC,
         IDMENSUALIDAD DESC
-    LIMIT p_TamanioPagina OFFSET @v_offset;
+    LIMIT p_TamanioPagina OFFSET v_offset;
 
     DROP TABLE #Filtrada;
 END$$
