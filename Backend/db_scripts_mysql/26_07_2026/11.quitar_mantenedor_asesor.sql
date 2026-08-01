@@ -1,17 +1,12 @@
--- Convertido automáticamente desde db_scripts/26_07_2026/11.quitar_mantenedor_asesor.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- Quitar mantenedor Asesores; ASESOR_NOMBRE = usuario logueado (REGISTRADOPOR)
+-- Ejecutar después de 10.tutor_codigo_tut.sql — MySQL 8
+-- Fecha: 26/07/2026
+-- ============================================================================
 
 USE `AcademiaDB`;
 
-/* ============================================================================
-   Quitar mantenedor Asesores; ASESOR_NOMBRE = usuario logueado (REGISTRADOPOR)
-   Ejecutar después de 10.tutor_codigo_tut.sql
-   Fecha: 26/07/2026
-   ============================================================================ */
-
 UPDATE SUBMODULO SET ACTIVO = 0 WHERE IDSUBMODULO = 'SUB024';
-
-DROP PROCEDURE IF EXISTS usp_mensualidad_listar;
 
 DROP PROCEDURE IF EXISTS usp_mensualidad_listar;
 
@@ -28,10 +23,11 @@ CREATE PROCEDURE usp_mensualidad_listar(
 )
 main: BEGIN
     DECLARE v_offset INT DEFAULT 0;
-IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
+
+    IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
-    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
     IF p_Estado IS NULL OR p_Estado = '' THEN SET p_Estado = 'Activo'; END IF;
+    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
 
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM MENSUALIDAD m
@@ -69,9 +65,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         m.IDTUTOR,
         IFNULL(tut.NOMBRE, IFNULL(m.TUTORLEGACY, '')) AS TUTOR_NOMBRE,
         m.REGISTRADOPOR,
-        UPPER(TRIM(
-            CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, ''))
-        ))) AS ASESOR_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, '')))) AS ASESOR_NOMBRE,
         m.ESTADO,
         m.FECHAREGISTRO
     FROM MENSUALIDAD m
@@ -82,8 +76,9 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = m.REGISTRADOPOR
     LEFT JOIN LATERAL (
-        SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
-        LIMIT 1
+        SELECT SUM(p.MONTO) AS PAGADO
+        FROM PAGOMENSUALIDAD p
+        WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
     ) pag ON TRUE
     WHERE m.ESTADO = p_Estado
       AND (p_Buscar IS NULL OR p_Buscar = '' OR
@@ -104,15 +99,11 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_mensualidad_obtener;
 
-DROP PROCEDURE IF EXISTS usp_mensualidad_obtener;
-
 DELIMITER $$
 
-CREATE PROCEDURE usp_mensualidad_obtener(
-    IN p_Id VARCHAR(50)
-)
+CREATE PROCEDURE usp_mensualidad_obtener(IN p_Id VARCHAR(50))
 main: BEGIN
-SELECT
+    SELECT
         m.IDMENSUALIDAD,
         m.IDUSUARIO,
         UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
@@ -133,9 +124,7 @@ SELECT
         m.ESTADO,
         m.FECHAREGISTRO,
         m.REGISTRADOPOR,
-        UPPER(TRIM(
-            CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, ''))
-        ))) AS ASESOR_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, '')))) AS ASESOR_NOMBRE,
         IFNULL(pag.PAGOINICIAL, 0) AS PAGOINICIAL,
         pag.IDMETODOPAGO
     FROM MENSUALIDAD m

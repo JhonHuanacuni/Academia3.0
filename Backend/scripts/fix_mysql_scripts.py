@@ -164,6 +164,7 @@ SKIP_FIX = {
     '26_07_2026/7.plan_nombres_sin_turno.sql',
     '26_07_2026/8.asesor_registro_mensualidad.sql',
     '26_07_2026/10.tutor_codigo_tut.sql',
+    '26_07_2026/11.quitar_mantenedor_asesor.sql',
     '26_07_2026/12.plan_hora_entrada_tardanza.sql',
     '26_07_2026/13.mantenedores_codigo_autogenerado.sql',
     '26_07_2026/14.justificacion.sql',
