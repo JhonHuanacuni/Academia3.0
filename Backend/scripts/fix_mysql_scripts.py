@@ -145,6 +145,7 @@ SKIP_FIX = {
     '11_07_2026/7.usp_membresia_asesor.sql',
     '12_07_2026/2.sub012_mantenedor_asesores.sql',
     '12_07_2026/4.sub013_mantenedor_planes.sql',
+    '12_07_2026/6.usp_membresia_estado_registro.sql',
     '12_07_2026/12.sub_academico_biblioteca_examenes_horario_clases.sql',
     '16_07_2026/5.sub_pagos_extraordinarios_conceptos.sql',
     '29_07_2026/2.sub_academico_importar_notas.sql',
