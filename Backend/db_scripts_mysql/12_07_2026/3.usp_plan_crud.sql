@@ -26,7 +26,6 @@ CREATE PROCEDURE usp_plan_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -104,20 +103,17 @@ CREATE PROCEDURE usp_plan_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del plan.'; LEAVE main; 
-    END IF;
+IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del plan.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main;     END IF;
     INSERT INTO `PLAN` (IDPLAN, NOMBRE, DESCRIPCION, ACTIVO)
     VALUES (
         p_Id,
@@ -146,16 +142,14 @@ CREATE PROCEDURE usp_plan_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main;     END IF;
     UPDATE `PLAN` SET
         NOMBRE      = p_Nombre,
         DESCRIPCION = p_Descripcion,
@@ -180,9 +174,8 @@ CREATE PROCEDURE usp_plan_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main;     END IF;
 
     IF EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDPLAN = p_Id) THEN
         SET p_Resultado = 0;

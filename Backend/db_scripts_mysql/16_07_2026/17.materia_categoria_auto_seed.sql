@@ -27,18 +27,15 @@ CREATE PROCEDURE usp_categoria_insertar(
 main: BEGIN
 SET p_IdGenerado = NULL;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main;     END IF;
 
-    IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main; 
-    END IF;
+    IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main; 
-    DECLARE v_NextNum INT;
-    SELECT IFNULL(MAX(CAST(REPLACE(IDCATEGORIA, 'CAT', '') AS INT)), 0) + 1 INTO v_NextNum
+    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main;     END IF;
+SELECT IFNULL(MAX(CAST(REPLACE(IDCATEGORIA, 'CAT', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM CATEGORIA
     WHERE IDCATEGORIA LIKE 'CAT%';
     SET p_IdGenerado = CONCAT('CAT', RIGHT(CONCAT('000', CAST(v_NextNum AS CHAR(3))), 3);
@@ -75,13 +72,11 @@ CREATE PROCEDURE usp_materia_insertar(
 main: BEGIN
 SET p_IdGenerado = NULL;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la materia.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la materia.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM MATERIA WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese nombre.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM MATERIA WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese nombre.'; LEAVE main;     END IF;
 
     IF p_IdCategoria IS NOT NULL AND TRIM(p_IdCategoria) <> ''
        AND NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_IdCategoria)
@@ -91,8 +86,7 @@ SET p_IdGenerado = NULL;
     IF p_Codigo IS NOT NULL AND TRIM(p_Codigo) <> ''
        AND EXISTS (SELECT 1 FROM MATERIA WHERE CODIGO = p_Codigo)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese código corto.'; LEAVE main; 
-    DECLARE v_NextNum INT;
-    SELECT IFNULL(MAX(CAST(REPLACE(IDMATERIA, 'MAT', '') AS INT)), 0) + 1 INTO v_NextNum
+SELECT IFNULL(MAX(CAST(REPLACE(IDMATERIA, 'MAT', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM MATERIA
     WHERE IDMATERIA LIKE 'MAT%';
     SET p_IdGenerado = CONCAT('MAT', RIGHT(CONCAT('000', CAST(v_NextNum AS CHAR(3))), 3);
@@ -109,7 +103,6 @@ SET p_IdGenerado = NULL;
 END;
 
 -- Seed materias (por CODIGO; no duplica si ya existen)
-DECLARE v_Base INT;
 SELECT IFNULL(MAX(CAST(REPLACE(IDMATERIA, 'MAT', '') AS INT)), 0) INTO v_Base
 FROM MATERIA
 WHERE IDMATERIA LIKE 'MAT%';

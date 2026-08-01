@@ -40,9 +40,8 @@ CREATE PROCEDURE usp_examen_pregunta_guardar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAMEN = p_IdExamen)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La pregunta no existe en este examen.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAMEN = p_IdExamen) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La pregunta no existe en este examen.'; LEAVE main;     END IF;
 
     IF p_CorrectaOrden IS NULL OR p_CorrectaOrden < 1 OR p_CorrectaOrden > 5 THEN SET p_CorrectaOrden = 1; END IF;
 

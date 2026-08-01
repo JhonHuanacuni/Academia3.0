@@ -10,8 +10,7 @@ USE `AcademiaDB`;
    ============================================================================ */
 
 -- TODO MySQL: add column if missing on PLAN.IDTURNO
-    RAISERROR('Ejecute primero 6.plan_turno.sql (columna PLAN.IDTURNO).', 16, 1);
-    RETURN;
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ejecute primero 6.plan_turno.sql (columna PLAN.IDTURNO).';
 
 UPDATE `PLAN` SET NOMBRE = 'Plan Anual 1',                    IDTURNO = 'TUR001' WHERE IDPLAN = 'PLN001';
 UPDATE `PLAN` SET NOMBRE = 'Plan Anual 2',                    IDTURNO = 'TUR002' WHERE IDPLAN = 'PLN002';

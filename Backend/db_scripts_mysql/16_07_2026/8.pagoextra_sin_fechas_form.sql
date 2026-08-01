@@ -78,9 +78,7 @@ SET p_IdGenerado = NULL;
     IF p_FechaPago IS NULL OR LEN(p_FechaPago) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha del pago.';
         LEAVE main;
-    
-    DECLARE v_NextNum INT;
-    SELECT IFNULL(MAX(CAST(REPLACE(IDPAGOEXTRA, 'PEX', '') AS INT)), 0) + 1 INTO v_NextNum
+SELECT IFNULL(MAX(CAST(REPLACE(IDPAGOEXTRA, 'PEX', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM PAGOEXTRAORDINARIO;
     SET p_IdGenerado = CONCAT('PEX', RIGHT(CONCAT('00000', CAST(v_NextNum AS CHAR(5))), 5);
 

@@ -40,11 +40,8 @@ CREATE PROCEDURE usp_usuario_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-DECLARE v_EstEx VARCHAR(50);
-
-    IF p_Dni IS NULL OR TRIM(p_Dni) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el DNI.'; LEAVE main; 
-    END IF;
+IF p_Dni IS NULL OR TRIM(p_Dni) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el DNI.'; LEAVE main;     END IF;
 
     IF p_Id IS NULL OR TRIM(p_Id) = '' THEN SET p_Id = TRIM(p_Dni); END IF;
 
@@ -86,8 +83,8 @@ DECLARE v_EstEx VARCHAR(50);
     
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.'; LEAVE main; 
+    IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.'; LEAVE main;     END IF;
     INSERT INTO USUARIO (
         IDUSUARIO, CONTRA, NOMBRE, APELLIDO, DNI, EMAIL, IDTIPOUSUARIO, ESTADO,
         FECHANACIMIENTO, DIRECCION, DISTRITO, COLEGIO, GRADO,

@@ -29,7 +29,6 @@ CREATE PROCEDURE usp_auditoria_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -42,7 +41,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
            a.TABLA LIKE CONCAT('%', p_Buscar, '%') OR
            a.IDREGISTRO LIKE CONCAT('%', p_Buscar, '%') OR
            a.ACCION LIKE CONCAT('%', p_Buscar, '%') OR
-           CONCAT(IFNULL(u.NOMBRE, ''), ' ') + IFNULL(u.APELLIDO, '') LIKE CONCAT('%', p_Buscar, '%') OR
+           CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, '')) LIKE CONCAT('%', p_Buscar, '%') OR
            IFNULL(a.IDUSUARIO, '') LIKE CONCAT('%', p_Buscar, '%'))
       AND (p_Tabla IS NULL OR p_Tabla = '' OR a.TABLA = p_Tabla)
       AND (p_Accion IS NULL OR p_Accion = '' OR a.ACCION = p_Accion)
@@ -56,7 +55,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         a.IDREGISTRO,
         a.ACCION,
         a.IDUSUARIO,
-        TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ') + IFNULL(u.APELLIDO, ''))) AS USUARIO_NOMBRE,
+        TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, ''))) AS USUARIO_NOMBRE,
         a.FECHA,
         a.HORA,
         a.DATOS_ANTES,
@@ -68,7 +67,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
            a.TABLA LIKE CONCAT('%', p_Buscar, '%') OR
            a.IDREGISTRO LIKE CONCAT('%', p_Buscar, '%') OR
            a.ACCION LIKE CONCAT('%', p_Buscar, '%') OR
-           CONCAT(IFNULL(u.NOMBRE, ''), ' ') + IFNULL(u.APELLIDO, '') LIKE CONCAT('%', p_Buscar, '%') OR
+           CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, '')) LIKE CONCAT('%', p_Buscar, '%') OR
            IFNULL(a.IDUSUARIO, '') LIKE CONCAT('%', p_Buscar, '%'))
       AND (p_Tabla IS NULL OR p_Tabla = '' OR a.TABLA = p_Tabla)
       AND (p_Accion IS NULL OR p_Accion = '' OR a.ACCION = p_Accion)
@@ -87,9 +86,9 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'IDREGISTRO' AND p_Direccion = 'DESC' THEN a.IDREGISTRO END DESC,
         CASE WHEN p_OrdenarPor = 'IDREGISTRO' AND p_Direccion = 'ASC'  THEN a.IDREGISTRO END ASC,
         CASE WHEN p_OrdenarPor = 'USUARIO_NOMBRE' AND p_Direccion = 'DESC'
-            THEN TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ') + IFNULL(u.APELLIDO, ''))) END DESC,
+            THEN TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, ''))) END DESC,
         CASE WHEN p_OrdenarPor = 'USUARIO_NOMBRE' AND p_Direccion = 'ASC'
-            THEN TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ') + IFNULL(u.APELLIDO, ''))) END ASC,
+            THEN TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, ''))) END ASC,
         a.FECHA DESC, a.HORA DESC, a.IDAUDITORIA DESC
     LIMIT p_TamanioPagina OFFSET v_offset;
     SELECT p_TotalRegistros AS TotalRegistros
@@ -113,7 +112,7 @@ SELECT
         a.IDREGISTRO,
         a.ACCION,
         a.IDUSUARIO,
-        TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ') + IFNULL(u.APELLIDO, ''))) AS USUARIO_NOMBRE,
+        TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, ''))) AS USUARIO_NOMBRE,
         a.FECHA,
         a.HORA,
         a.DATOS_ANTES,
@@ -136,9 +135,6 @@ main: BEGIN
 SELECT DISTINCT TABLA
     FROM AUDITORIA
     ORDER BY TABLA;
-END;
-
-SELECT 'SPs de auditoría listos.';
 END$$
 
 DELIMITER ;

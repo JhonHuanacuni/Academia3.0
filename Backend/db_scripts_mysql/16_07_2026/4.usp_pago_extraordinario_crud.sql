@@ -24,7 +24,6 @@ CREATE PROCEDURE usp_pagoextra_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -43,7 +42,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT
         p.IDPAGOEXTRA,
         p.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         p.IDCONCEPTO,
         c.NOMBRE AS CONCEPTO_NOMBRE,
@@ -90,7 +89,7 @@ main: BEGIN
 SELECT
         p.IDPAGOEXTRA,
         p.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         p.IDCONCEPTO,
         c.NOMBRE AS CONCEPTO_NOMBRE,
@@ -186,9 +185,7 @@ SET p_IdGenerado = NULL;
     IF p_FechaFin IS NULL OR LEN(p_FechaFin) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha final.';
         LEAVE main;
-    
-    DECLARE v_NextNum INT;
-    SELECT IFNULL(MAX(CAST(REPLACE(IDPAGOEXTRA, 'PEX', '') AS INT)), 0) + 1 INTO v_NextNum
+SELECT IFNULL(MAX(CAST(REPLACE(IDPAGOEXTRA, 'PEX', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM PAGOEXTRAORDINARIO;
     SET p_IdGenerado = CONCAT('PEX', RIGHT(CONCAT('00000', CAST(v_NextNum AS CHAR(5))), 5);
 

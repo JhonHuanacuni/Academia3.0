@@ -19,7 +19,7 @@ CREATE PROCEDURE usp_pago_membresias_estudiante(
     IN p_IdUsuario VARCHAR(50)
 )
 main: BEGIN
-SELECT TOP 3
+SELECT
         m.IDMEMBRESIA,
         m.IDPLAN,
         pl.NOMBRE AS PLAN_NOMBRE,
@@ -46,17 +46,15 @@ SELECT TOP 3
         m.FECHAREGISTRO
     FROM MEMBRESIA m
     INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
-    OUTER APPLY (
+    LEFT JOIN LATERAL (
         SELECT SUM(p.MONTO) AS PAGADO
         FROM PAGOMEMBRESIA p
         WHERE p.IDMEMBRESIA = m.IDMEMBRESIA
-    ) pag
+        LIMIT 1
+    ) pag ON TRUE
     WHERE m.IDUSUARIO = p_IdUsuario
       AND m.ESTADO = 'Activo'
     ORDER BY m.FECHAREGISTRO DESC, m.IDMEMBRESIA DESC;
-END;
-
-SELECT 'usp_pago_membresias_estudiante: campos para prefills.';
 END$$
 
 DELIMITER ;

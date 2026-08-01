@@ -91,6 +91,7 @@ ORDER = [
     '26_07_2026/2.plan_catalogo_academia_vita.sql',
     '26_07_2026/3.aula_catalogo_academia_vita.sql',
     '26_07_2026/4.rename_membresia_asesor_a_mensualidad_tutor.sql',
+    '26_07_2026/20.usp_asistencia_informe.sql',
     '26_07_2026/5.menu_mensualidad_tutor.sql',
     '26_07_2026/6.plan_turno.sql',
     '26_07_2026/7.plan_nombres_sin_turno.sql',

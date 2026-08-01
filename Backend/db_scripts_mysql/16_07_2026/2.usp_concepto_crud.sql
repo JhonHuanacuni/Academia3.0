@@ -25,7 +25,6 @@ CREATE PROCEDURE usp_concepto_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -142,9 +141,7 @@ SET p_IdGenerado = NULL;
     IF EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE NOMBRE = p_Nombre) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un concepto con ese nombre.';
         LEAVE main;
-    
-    DECLARE v_NextNum INT;
-    SELECT IFNULL(MAX(CAST(REPLACE(IDCONCEPTO, 'CON', '') AS INT)), 0) + 1 INTO v_NextNum
+SELECT IFNULL(MAX(CAST(REPLACE(IDCONCEPTO, 'CON', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM CONCEPTOPAGOEXTRA;
     SET p_IdGenerado = CONCAT('CON', RIGHT(CONCAT('000', CAST(v_NextNum AS CHAR(3))), 3);
 
@@ -246,7 +243,7 @@ IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id) THEN
     
     END IF;
 
-    IF OBJECT_ID('PAGOEXTRAORDINARIO', 'U') IS NOT NULL
+    IF (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PAGOEXTRAORDINARIO') > 0
        AND EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDCONCEPTO = p_Id)
     BEGIN
         SET p_Resultado = 0;

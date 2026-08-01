@@ -42,9 +42,7 @@ SET p_IdGenerado = NULL;
     IF EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE NOMBRE = p_Nombre) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un concepto con ese nombre.';
         LEAVE main;
-    
-    DECLARE v_NextNum INT;
-    SELECT IFNULL(MAX(CAST(REPLACE(IDCONCEPTO, 'CON', '') AS INT)), 0) + 1 INTO v_NextNum
+SELECT IFNULL(MAX(CAST(REPLACE(IDCONCEPTO, 'CON', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM CONCEPTOPAGOEXTRA;
     SET p_IdGenerado = CONCAT('CON', RIGHT(CONCAT('000', CAST(v_NextNum AS CHAR(3))), 3);
 

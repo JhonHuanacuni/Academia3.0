@@ -36,7 +36,6 @@ CREATE PROCEDURE usp_justificacion_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -63,7 +62,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         est.NOMBRE AS ESTUDIANTE_NOMBRE,
         est.APELLIDO AS ESTUDIANTE_APELLIDO,
         est.DNI,
-        TRIM(CONCAT(IFNULL(reg.NOMBRE, ''), ' ') + IFNULL(reg.APELLIDO, ''))) AS REGISTRADOR_NOMBRE
+        TRIM(CONCAT(IFNULL(reg.NOMBRE, ''), ' ', IFNULL(reg.APELLIDO, ''))) AS REGISTRADOR_NOMBRE
     FROM JUSTIFICACION j
     INNER JOIN USUARIO est ON est.IDUSUARIO = j.IDUSUARIO
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = j.IDREGISTRADOR
@@ -101,7 +100,7 @@ SELECT
         est.NOMBRE AS ESTUDIANTE_NOMBRE,
         est.APELLIDO AS ESTUDIANTE_APELLIDO,
         est.DNI,
-        TRIM(CONCAT(IFNULL(reg.NOMBRE, ''), ' ') + IFNULL(reg.APELLIDO, ''))) AS REGISTRADOR_NOMBRE
+        TRIM(CONCAT(IFNULL(reg.NOMBRE, ''), ' ', IFNULL(reg.APELLIDO, ''))) AS REGISTRADOR_NOMBRE
     FROM JUSTIFICACION j
     INNER JOIN USUARIO est ON est.IDUSUARIO = j.IDUSUARIO
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = j.IDREGISTRADOR
@@ -125,30 +124,19 @@ CREATE PROCEDURE usp_justificacion_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un estudiante.'; LEAVE main; 
-    END IF;
+IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un estudiante.'; LEAVE main;     END IF;
 
-    IF p_Fecha IS NULL OR TRIM(p_Fecha) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Selecciona la fecha a justificar.'; LEAVE main; 
-    END IF;
+    IF p_Fecha IS NULL OR TRIM(p_Fecha) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Selecciona la fecha a justificar.'; LEAVE main;     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND ESTADO = 'Activo')
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe o está inactivo.'; LEAVE main; 
-    END IF;
+    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND ESTADO = 'Activo') THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe o está inactivo.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM JUSTIFICACION WHERE IDUSUARIO = p_IdUsuario AND FECHA = p_Fecha)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una justificación para ese estudiante en esa fecha.'; LEAVE main; 
-    DECLARE v_Id VARCHAR(50);
-    DECLARE v_Next INT = IFNULL((
-        SELECT MAX(CAST(REPLACE(IDJUSTIFICACION, 'JUS', '') AS INT))
-        FROM JUSTIFICACION WHERE IDJUSTIFICACION LIKE 'JUS%'
-    ), 0) + 1;
-    SET v_Id = CONCAT('JUS', RIGHT(CONCAT('000CONCAT(', CAST(v_Next AS CHAR(10))), 3);
-
-    DECLARE v_Hora CHAR(8) = TIME_FORMAT(CONVERT_TZ(NOW(), ', 00):00', '-05:00'), '%H:%i:%s');
-
-    INSERT INTO JUSTIFICACION (IDJUSTIFICACION, IDUSUARIO, FECHA, HORAREGISTRO, IDREGISTRADOR, OBSERVACION)
+    IF EXISTS (SELECT 1 FROM JUSTIFICACION WHERE IDUSUARIO = p_IdUsuario AND FECHA = p_Fecha) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una justificación para ese estudiante en esa fecha.'; LEAVE main;     END IF;
+SET v_Id = CONCAT('JUS', RIGHT(CONCAT('000CONCAT(', CAST(v_Next AS CHAR(10))), 3);
+INSERT INTO JUSTIFICACION (IDJUSTIFICACION, IDUSUARIO, FECHA, HORAREGISTRO, IDREGISTRADOR, OBSERVACION)
     VALUES (v_Id, p_IdUsuario, p_Fecha, v_Hora, NULLIF(TRIM(p_IdRegistrador), ''), NULLIF(TRIM(p_Observacion), ''));
 
     IF EXISTS (SELECT 1 FROM ASISTENCIA WHERE IDUSUARIO = p_IdUsuario AND FECHAREGISTRO = p_Fecha) THEN
@@ -176,11 +164,9 @@ CREATE PROCEDURE usp_justificacion_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La justificación no existe.'; LEAVE main; 
-    DECLARE v_IdUsuario VARCHAR(50);
-    DECLARE v_Fecha CHAR(8);
-    SELECT IDUSUARIO, v_Fecha = FECHA FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id INTO v_IdUsuario;
+IF NOT EXISTS (SELECT 1 FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La justificación no existe.'; LEAVE main;     END IF;
+SELECT IDUSUARIO, v_Fecha = FECHA FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id INTO v_IdUsuario;
 
     DELETE FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id;
 

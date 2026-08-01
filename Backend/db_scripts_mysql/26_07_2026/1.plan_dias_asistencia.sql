@@ -37,7 +37,6 @@ CREATE PROCEDURE usp_plan_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -123,26 +122,22 @@ CREATE PROCEDURE usp_plan_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del plan.'; LEAVE main; 
-    END IF;
+IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del plan.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main;     END IF;
 
-    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main; 
-    END IF;
+    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0 THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main;     END IF;
 
     IF p_DiasAsistencia IS NULL OR p_DiasAsistencia = 0 THEN SET p_DiasAsistencia = 63; END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main;     END IF;
     INSERT INTO `PLAN` (IDPLAN, NOMBRE, DESCRIPCION, COSTOMENSUAL, DIASASISTENCIA, ACTIVO)
     VALUES (
         p_Id,
@@ -175,22 +170,19 @@ CREATE PROCEDURE usp_plan_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main;     END IF;
 
-    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main; 
-    END IF;
+    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0 THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main;     END IF;
 
     IF p_DiasAsistencia IS NULL OR p_DiasAsistencia = 0 THEN SET p_DiasAsistencia = 63; END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main;     END IF;
     UPDATE `PLAN` SET
         NOMBRE          = p_Nombre,
         DESCRIPCION     = p_Descripcion,
@@ -220,19 +212,19 @@ CREATE PROCEDURE usp_asistencia_informe(
 )
 main: BEGIN
 IF p_FechaDesde IS NULL OR p_FechaDesde = '' OR p_FechaHasta IS NULL OR p_FechaHasta = '' THEN
-        RAISERROR('Debe indicar fecha desde y fecha hasta.', 16, 1);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Debe indicar fecha desde y fecha hasta.';
         LEAVE main;
     
     END IF;
 
     IF p_FechaDesde > p_FechaHasta THEN
-        RAISERROR('La fecha desde no puede ser mayor que la fecha hasta.', 16, 1);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La fecha desde no puede ser mayor que la fecha hasta.';
         LEAVE main;
     
     SELECT
         u.IDUSUARIO,
         UPPER(TRIM(
-            CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')
+            CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))
         ))) AS NOMBRE_COMPLETO,
         UPPER(IFNULL(u.ESTADO, 'Activo')) AS ESTADO,
         UPPER(IFNULL(tut.NOMBRE, '')) AS TUTORA,
@@ -246,8 +238,8 @@ IF p_FechaDesde IS NULL OR p_FechaDesde = '' OR p_FechaHasta IS NULL OR p_FechaH
         mem.IDPLAN,
         IFNULL(pl.DIASASISTENCIA, 63) AS DIASASISTENCIA
     FROM USUARIO u
-    OUTER APPLY (
-        SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO, m.FECHAINICIO, m.FECHAFIN
+    LEFT JOIN LATERAL (
+        SELECT m.IDAULA, m.IDPLAN, m.IDTURNO, m.FECHAINICIO, m.FECHAFIN
         FROM MEMBRESIA m
         WHERE m.IDUSUARIO = u.IDUSUARIO
           AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
@@ -259,7 +251,8 @@ IF p_FechaDesde IS NULL OR p_FechaDesde = '' OR p_FechaHasta IS NULL OR p_FechaH
             END,
             m.FECHAREGISTRO DESC,
             m.FECHAINICIO DESC
-    ) mem
+        LIMIT 1
+    ) mem ON TRUE
     LEFT JOIN AULA au ON au.IDAULA = mem.IDAULA
     LEFT JOIN USUARIO tut ON tut.IDUSUARIO = au.IDTUTORA
     LEFT JOIN `PLAN` pl ON pl.IDPLAN = mem.IDPLAN
@@ -315,9 +308,6 @@ IF p_FechaDesde IS NULL OR p_FechaDesde = '' OR p_FechaHasta IS NULL OR p_FechaH
           u.APELLIDO LIKE CONCAT('%', p_Buscar, '%') OR
           u.IDUSUARIO LIKE CONCAT('%', p_Buscar, '%')
       );
-END;
-
-SELECT 'PLAN.DIASASISTENCIA, usp_plan_* y usp_asistencia_informe actualizados.';
 END$$
 
 DELIMITER ;

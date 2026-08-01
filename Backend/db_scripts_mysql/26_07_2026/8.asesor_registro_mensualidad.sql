@@ -72,7 +72,6 @@ CREATE PROCEDURE usp_asesor_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -151,26 +150,22 @@ CREATE PROCEDURE usp_asesor_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del asesor.'; LEAVE main; 
-    END IF;
+IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del asesor.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del asesor.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del asesor.'; LEAVE main;     END IF;
 
     IF p_IdUsuario IS NOT NULL AND p_IdUsuario <> ''
        AND NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El usuario vinculado no existe.'; LEAVE main; 
     END IF;
 
-    IF EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de asesor ya existe.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El código de asesor ya existe.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.'; LEAVE main;     END IF;
 
     IF p_IdUsuario IS NOT NULL AND p_IdUsuario <> ''
        AND EXISTS (SELECT 1 FROM ASESOR WHERE IDUSUARIO = p_IdUsuario AND ACTIVO = 1)
@@ -199,22 +194,19 @@ CREATE PROCEDURE usp_asesor_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El asesor no existe.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El asesor no existe.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del asesor.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del asesor.'; LEAVE main;     END IF;
 
     IF p_IdUsuario IS NOT NULL AND p_IdUsuario <> ''
        AND NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El usuario vinculado no existe.'; LEAVE main; 
     END IF;
 
-    IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre AND IDASESOR <> p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre AND IDASESOR <> p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.'; LEAVE main;     END IF;
 
     IF p_IdUsuario IS NOT NULL AND p_IdUsuario <> ''
        AND EXISTS (SELECT 1 FROM ASESOR WHERE IDUSUARIO = p_IdUsuario AND IDASESOR <> p_Id AND ACTIVO = 1)
@@ -243,8 +235,8 @@ CREATE PROCEDURE usp_asesor_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El asesor no existe.'; LEAVE main; 
+IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El asesor no existe.'; LEAVE main;     END IF;
     DELETE FROM ASESOR WHERE IDASESOR = p_Id;
     SET p_Resultado = 1; SET p_Mensaje = 'Asesor eliminado.';
 END;
@@ -271,7 +263,6 @@ CREATE PROCEDURE usp_mensualidad_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
     SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
@@ -296,7 +287,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT
         m.IDMENSUALIDAD,
         m.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         m.IDPLAN,
         pl.NOMBRE AS PLAN_NOMBRE,
@@ -315,8 +306,8 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         m.REGISTRADOPOR,
         UPPER(TRIM(
             COALESCE(
-                (SELECT TOP 1 a.NOMBRE FROM ASESOR a WHERE a.IDUSUARIO = m.REGISTRADOPOR AND a.ACTIVO = 1),
-                CONCAT(IFNULL(reg.APELLIDO, ''), ' ') + IFNULL(reg.NOMBRE, '')
+                (SELECT a.NOMBRE FROM ASESOR a WHERE a.IDUSUARIO = m.REGISTRADOPOR AND a.ACTIVO = 1),
+                CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, ''))
             )
         ))) AS ASESOR_NOMBRE,
         m.ESTADO,
@@ -328,9 +319,10 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = m.REGISTRADOPOR
-    OUTER APPLY (
+    LEFT JOIN LATERAL (
         SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
-    ) pag
+        LIMIT 1
+    ) pag ON TRUE
     WHERE m.ESTADO = p_Estado
       AND (p_Buscar IS NULL OR p_Buscar = '' OR
            m.IDMENSUALIDAD LIKE CONCAT('%', p_Buscar, '%') OR
@@ -362,7 +354,7 @@ main: BEGIN
 SELECT
         m.IDMENSUALIDAD,
         m.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         m.IDPLAN,
         pl.NOMBRE AS PLAN_NOMBRE,
@@ -382,8 +374,8 @@ SELECT
         m.REGISTRADOPOR,
         UPPER(TRIM(
             COALESCE(
-                (SELECT TOP 1 a.NOMBRE FROM ASESOR a WHERE a.IDUSUARIO = m.REGISTRADOPOR AND a.ACTIVO = 1),
-                CONCAT(IFNULL(reg.APELLIDO, ''), ' ') + IFNULL(reg.NOMBRE, '')
+                (SELECT a.NOMBRE FROM ASESOR a WHERE a.IDUSUARIO = m.REGISTRADOPOR AND a.ACTIVO = 1),
+                CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, ''))
             )
         ))) AS ASESOR_NOMBRE,
         IFNULL(pag.PAGOINICIAL, 0) AS PAGOINICIAL,
@@ -395,12 +387,13 @@ SELECT
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = m.REGISTRADOPOR
-    OUTER APPLY (
-        SELECT TOP 1 p.MONTO AS PAGOINICIAL, p.IDMETODOPAGO
+    LEFT JOIN LATERAL (
+        SELECT p.MONTO AS PAGOINICIAL, p.IDMETODOPAGO
         FROM PAGOMENSUALIDAD p
         WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
         ORDER BY p.FECHAPAGO, p.IDPAGOMENSUALIDAD
-    ) pag
+        LIMIT 1
+    ) pag ON TRUE
     WHERE m.IDMENSUALIDAD = p_Id;
 END;
 

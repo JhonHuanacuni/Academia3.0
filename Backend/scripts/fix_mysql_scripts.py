@@ -88,6 +88,7 @@ ORDER = [
     '26_07_2026/2.plan_catalogo_academia_vita.sql',
     '26_07_2026/3.aula_catalogo_academia_vita.sql',
     '26_07_2026/4.rename_membresia_asesor_a_mensualidad_tutor.sql',
+    '26_07_2026/20.usp_asistencia_informe.sql',
     '26_07_2026/5.menu_mensualidad_tutor.sql',
     '26_07_2026/6.plan_turno.sql',
     '26_07_2026/7.plan_nombres_sin_turno.sql',
@@ -135,6 +136,22 @@ SKIP_FIX = {
     '17_07_2026/5.menu_estudiante_examenes.sql',
     '30_07_2026/6.sub_academico_auditoria.sql',
     '26_07_2026/4.rename_membresia_asesor_a_mensualidad_tutor.sql',
+    '26_07_2026/20.usp_asistencia_informe.sql',
+    '30_07_2026/2.auditoria_columnas_tablas.sql',
+    '31_07_2026/3.usp_usuario_eliminar_fisica.sql',
+    '06_07_2026/7.usp_membresia_crud.sql',
+    '06_07_2026/2.usp_asistencia_informe.sql',
+    '06_07_2026/3.alter_usp_asistencia_informe_vence.sql',
+    '06_07_2026/10.usp_asistencia_informe_vence_vigente.sql',
+    '08_07_2026/1.usp_asistencia_informe_filtro_plan.sql',
+    '08_07_2026/2.usp_asistencia_informe_filtro_estado.sql',
+    '08_07_2026/3.usp_asistencia_informe_faltas_desde_membresia.sql',
+    '14_07_2026/2.usp_libro_crud.sql',
+    '14_07_2026/4.usp_horario_crud.sql',
+    '30_07_2026/7.modulos_admin_rol.sql',
+    '17_07_2026/2.usp_examen_crud.sql',
+    '17_07_2026/4.usp_examen_estudiante.sql',
+    '31_07_2026/8.usp_examen_ranking_aula.sql',
 }
 
 
@@ -491,8 +508,358 @@ def fix_col_length_blocks(text: str) -> str:
     return text
 
 
+def fix_raiserror_and_return(text: str) -> str:
+    text = re.sub(
+        r"RAISERROR\s*\(\s*'((?:[^']|'')*)'\s*,\s*16\s*,\s*1\s*\)\s*;\s*\n\s*RETURN\s*;",
+        r"SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = '\1';",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"RAISERROR\s*\(\s*'((?:[^']|'')*)'\s*,\s*16\s*,\s*1\s*\)\s*;",
+        r"SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = '\1';",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r'\bRETURN\s*;', 'LEAVE main;', text, flags=re.I)
+    return text
+
+
+def fix_outer_apply(text: str) -> str:
+    text = re.sub(r'\bOUTER APPLY\s*\(', 'LEFT JOIN LATERAL (', text, flags=re.I)
+    text = re.sub(r'\bSELECT TOP 1\b', 'SELECT', text, flags=re.I)
+    text = re.sub(r'\bSELECT TOP (\d+)\b', r'SELECT', text, flags=re.I)
+
+    def lateral_limit(m):
+        body = m.group(1).rstrip()
+        alias = m.group(2)
+        tail = m.group(3)
+        if not re.search(r'\bLIMIT\s+\d+\s*$', body, re.I | re.M):
+            body += '\n        LIMIT 1'
+        if ' ON TRUE' not in m.group(0):
+            return f'LEFT JOIN LATERAL ({body}\n    ) {alias} ON TRUE{tail}'
+        return m.group(0)
+
+    text = re.sub(
+        r'LEFT JOIN LATERAL\s*\(([\s\S]*?)\)\s*(\w+)\s*(?:ON TRUE)?\s*(\n\s*LEFT JOIN|\n\s*INNER JOIN|\n\s*WHERE|\n\s*ORDER)',
+        lateral_limit,
+        text,
+        flags=re.I,
+    )
+    return text
+
+
+def fix_begin_try_catch(text: str) -> str:
+    text = re.sub(r'\bBEGIN TRY\s*\n', '', text, flags=re.I)
+    text = re.sub(r'\bEND TRY\s*\n', '', text, flags=re.I)
+    text = re.sub(
+        r'\bBEGIN CATCH[\s\S]*?\bEND CATCH\s*\n?',
+        '',
+        text,
+        flags=re.I,
+    )
+    return text
+
+
+def fix_exec_calls(text: str) -> str:
+    text = re.sub(
+        r"\bEXEC(?:UTE)?\s+(?:dbo\.)?usp_(\w+)\s+(?:@|p_)(\w+)\s*=\s*'([^']*)'",
+        r"CALL usp_\1('\3')",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"\bEXEC(?:UTE)?\s+(?:dbo\.)?usp_(\w+)\s+(?:@|p_)(\w+)\s*=\s*(\w+)",
+        r"CALL usp_\1(\3)",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r'\bEXEC\s+sp_executesql\s+\w+\s*;', '', text, flags=re.I)
+    text = re.sub(r'\bsp_executesql\b', 'PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt', text, flags=re.I)
+    return text
+
+
+def fix_object_id_and_col_length(text: str) -> str:
+    text = re.sub(
+        r"IF\s+OBJECT_ID\s*\(\s*QUOTENAME\s*\(\s*'dbo'\s*\)\s*\+\s*'\.'\s*\+\s*QUOTENAME\s*\(\s*(?:@|p_)(\w+)\s*\)\s*,\s*'U'\s*\)\s+IS\s+NULL",
+        r"IF (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = p_\1) = 0",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"IF\s+OBJECT_ID\s*\(\s*'([^']+)'\s*,\s*'U'\s*\)\s+IS\s+NOT\s+NULL",
+        r"IF (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '\1') > 0",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"IF\s+OBJECT_ID\s*\(\s*'([^']+)'\s*,\s*'P'\s*\)\s+IS\s+NOT\s+NULL\s*\n\s*DROP PROCEDURE[^;]+;",
+        r'DROP PROCEDURE IF EXISTS \1;',
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"IF\s+COL_LENGTH\s*\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)\s+IS\s+NOT\s+NULL",
+        r"IF (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '\1' AND COLUMN_NAME = '\2') > 0",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"IF\s+COL_LENGTH\s*\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)\s+IS\s+NULL",
+        r"IF (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '\1' AND COLUMN_NAME = '\2') = 0",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"IF\s+COL_LENGTH\s*\(\s*(?:@|p_)(\w+)\s*,\s*'([^']+)'\s*\)\s+IS\s+NULL",
+        r"IF (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = p_\1 AND COLUMN_NAME = '\2') = 0",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r'\bQUOTENAME\s*\(\s*([^)]+)\s*\)', r'`\1`', text, flags=re.I)
+    text = re.sub(r'\bOBJECT_ID\s*\([^)]+\)', '1', text, flags=re.I)
+    return text
+
+
+def fix_ltrim_rtrim(text: str) -> str:
+    text = re.sub(r'\bLTRIM\s*\(\s*RTRIM\s*\(', 'TRIM(', text, flags=re.I)
+    return text
+
+
+def fix_isnull_string_plus(text: str) -> str:
+    text = re.sub(
+        r"IFNULL\(([^,]+),\s*''\)\s*\+\s*'\s*'\s*\+\s*IFNULL\(([^,]+),\s*''\)",
+        r"CONCAT(IFNULL(\1, ''), ' ', IFNULL(\2, ''))",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"IFNULL\(([^,]+),\s*''\)\s*\+\s*CASE WHEN",
+        r"CONCAT(IFNULL(\1, ''), CASE WHEN",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"LIKE\s+'%'\s*\+\s*(p_\w+|@\w+)\s*\+\s*'%'",
+        r"LIKE CONCAT('%', \1, '%')",
+        text,
+        flags=re.I,
+    )
+    return text
+
+
+def fix_broken_procedure_end(text: str) -> str:
+    text = re.sub(
+        r'END;\s*\n\s*SELECT\s+[^;]+;\s*\nEND\$\$',
+        'END$$',
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"SELECT CONCAT\('([^']+)'\)\s*'\.';",
+        r"SELECT CONCAT('\1', '.') AS info;",
+        text,
+    )
+    text = re.sub(
+        r"SET v_Sql = CONCAT\('([^']+)',\s*([^)]+)\)\s*\+\s*'([^']+)'",
+        r"SET v_Sql = CONCAT('\1', \2, '\3'",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r'\bSET NOCOUNT ON\s*;\s*\n', '', text, flags=re.I)
+    text = re.sub(r'\bPRINT\s+[^;]+;\s*\n', '', text, flags=re.I)
+    text = re.sub(r'\bGO\s*\n', '\n', text, flags=re.I)
+    return text
+
+
+def fix_cross_apply(text: str) -> str:
+    return re.sub(r'\bCROSS APPLY\s*\(', 'JOIN LATERAL (', text, flags=re.I)
+
+
+def fix_sys_objects(text: str) -> str:
+    text = re.sub(
+        r"IF\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+sys\.(?:tables|objects)[^)]+\)\s*\n\s*DROP TABLE\s+(\w+)",
+        r'DROP TABLE IF EXISTS \1',
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"IF\s+NOT EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+sys\.tables\s+WHERE\s+name\s*=\s*'(\w+)'[^)]*\)\s*\n\s*CREATE TABLE",
+        r'CREATE TABLE IF NOT EXISTS',
+        text,
+        flags=re.I,
+    )
+    return text
+
+
+def fix_broken_concat_plus(text: str) -> str:
+    text = re.sub(
+        r"CONCAT\((IFNULL\([^)]+\)),\s*'\s*'\)\s*\+\s*(IFNULL\([^)]+\))",
+        r"CONCAT(\1, ' ', \2)",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"TRIM\(CONCAT\((IFNULL\([^)]+\),\s*'[^']*',\s*IFNULL\([^)]+\))\)\)\)",
+        r"TRIM(CONCAT(\1))",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"UPPER\(TRIM\(CONCAT\((IFNULL\([^)]+\),\s*'[^']*',\s*IFNULL\([^)]+\))\)\)\)\)",
+        r"UPPER(TRIM(CONCAT(\1)))",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"CAST\((v_\w+|p_\w+)\s+AS\s+CHAR\(\d+\)\)\)\s*\+\s*'\.'",
+        r"CAST(\1 AS CHAR(20)), '.')",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"CAST\((v_\w+|p_\w+)\s+AS\s+CHAR\(\d+\)\)\)\s*\+\s*'\.';",
+        r"CAST(\1 AS CHAR(20)), '.');",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"CAST\((v_\w+)\s+AS\s+CHAR\(\d+\)\)\)\s*\+\s*'\.'",
+        r"CONCAT(CAST(\1 AS CHAR(20)), '.')",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"CAST\(([^)]+)\s+AS\s+VARCHAR\s*\(\s*(\d+)\s*\)\)", r"CAST(\1 AS CHAR(\2))", text, flags=re.I)
+    text = re.sub(
+        r"CONCAT\('PAG', RIGHT\(CONCAT\('000000', CAST\(\(\s*IFNULL\(\(SELECT MAX\(CAST\(SUBSTRING\(IDPAG(?:O)?MEMBRESIA, 4, 10\) AS INT\)\)\)\s*FROM PAG(?:O)?MEMBRESIA WHERE IDPAG(?:O)?MEMBRESIA LIKE 'PAG%'\), 0\) \+ 1\s*\) AS CHAR\(10\)\), 6\)\)",
+        r"CONCAT('PAG', LPAD(IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMEMBRESIA, 4, 10) AS UNSIGNED)) FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA LIKE 'PAG%'), 0) + 1, 6, '0'))",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"CONCAT\('PAG', RIGHT\(CONCAT\('000000', CAST\(\(\s*IFNULL\(\(SELECT MAX\(CAST\(SUBSTRING\(IDPAGOMENSUALIDAD, 4, 10\) AS INT\)\)\)\s*FROM PAGOMENSUALIDAD WHERE IDPAGOMENSUALIDAD LIKE 'PAG%'\), 0\) \+ 1\s*\) AS CHAR\(10\)\), 6\)\)",
+        r"CONCAT('PAG', LPAD(IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMENSUALIDAD, 4, 10) AS UNSIGNED)) FROM PAGOMENSUALIDAD WHERE IDPAGOMENSUALIDAD LIKE 'PAG%'), 0) + 1, 6, '0'))",
+        text,
+        flags=re.I,
+    )
+    return text
+
+
+def fix_if_begin_set_oneline(text: str) -> str:
+    """IF cond\\n    BEGIN SET ... LEAVE main; -> IF cond THEN SET ... LEAVE main; END IF;"""
+    text = re.sub(
+        r"IF ([^\n]+?)\n\s+BEGIN ((?:SET [^;]+;\s*)+LEAVE main;\s*)\n\s+END IF;",
+        lambda m: f"IF {m.group(1).strip()} THEN\n        {m.group(2)}    END IF;",
+        text,
+        flags=re.M,
+    )
+    text = re.sub(
+        r"IF ([^\n]+?)\n\s+BEGIN (SET [^;]+; LEAVE main;\s*)\n(?!\s*END IF;)",
+        lambda m: f"IF {m.group(1).strip()} THEN\n        {m.group(2)}    END IF;\n",
+        text,
+        flags=re.M,
+    )
+    text = re.sub(
+        r"IF ([^\n]+?)\n\s+BEGIN (SET [^;]+; SET [^;]+; LEAVE main;\s*)\n(?!\s*END IF;)",
+        lambda m: f"IF {m.group(1).strip()} THEN\n        {m.group(2)}    END IF;\n",
+        text,
+        flags=re.M,
+    )
+    text = re.sub(
+        r"IF ([^\n]+?)\n\s+BEGIN (SET [^;]+; SET [^;]+; SET [^;]+; LEAVE main;\s*)\n(?!\s*END IF;)",
+        lambda m: f"IF {m.group(1).strip()} THEN\n        {m.group(2)}    END IF;\n",
+        text,
+        flags=re.M,
+    )
+    return text
+
+
+def fix_declare_inside_if(text: str) -> str:
+    """Mueve DECLARE sueltos dentro de IF al inicio del bloque main (heurística)."""
+    def proc_repl(m):
+        body = m.group(2)
+        declares = re.findall(
+            r"(?m)^\s*DECLARE (v_\w+ [^;]+;)",
+            body,
+        )
+        if not declares:
+            return m.group(0)
+        seen = set()
+        decl_lines = []
+        for d in declares:
+            if d not in seen:
+                seen.add(d)
+                decl_lines.append(f"    DECLARE {d}")
+        for d in seen:
+            body = re.sub(rf"(?m)^\s*DECLARE {re.escape(d)}\s*\n?", "", body)
+        insert = "\n".join(decl_lines) + "\n"
+        body = re.sub(r"(main:\s*BEGIN\s*\n)", r"\1" + insert, body, count=1)
+        return m.group(1) + body + m.group(3)
+
+    return re.sub(
+        r"(CREATE PROCEDURE[\s\S]*?main:\s*BEGIN\s*\n)([\s\S]*?)(END\$\$)",
+        proc_repl,
+        text,
+        flags=re.I,
+    )
+
+
+def fix_mem_id_generation(text: str) -> str:
+    text = re.sub(
+        r"SET p_Id = CONCAT\('MEM', RIGHT\(CONCAT\('000000', CAST\(v_Next AS CHAR\(10\)\)\), 6\)\);",
+        "SET p_Id = CONCAT('MEM', LPAD(v_Next, 6, '0'));",
+        text,
+    )
+    text = re.sub(
+        r"DECLARE v_Next INT = IFNULL\(\(\s*SELECT MAX\(CAST\(SUBSTRING\(IDMEMBRESIA, 4, 10\) AS INT\)\)\s*FROM MEMBRESIA WHERE IDMEMBRESIA LIKE 'MEM%'\s*\), 0\) \+ 1;",
+        "SET v_Next = IFNULL((SELECT MAX(CAST(SUBSTRING(IDMEMBRESIA, 4, 10) AS UNSIGNED)) FROM MEMBRESIA WHERE IDMEMBRESIA LIKE 'MEM%'), 0) + 1;",
+        text,
+        flags=re.I,
+    )
+    return text
+
+
+def fix_pag_id_block(text: str) -> str:
+    text = re.sub(
+        r"DECLARE v_IdPago VARCHAR\(50\) = CONCAT\('PAG', RIGHT\(CONCAT\('000000', CAST\(\(\s*"
+        r"IFNULL\(\(SELECT MAX\(CAST\(SUBSTRING\(IDPAGOMEMBRESIA, 4, 10\) AS INT\)\)\)\s*"
+        r"FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA LIKE 'PAG%'\), 0\) \+ 1\s*"
+        r"\) AS (?:VARCHAR|CHAR)\(10\)\), 6\)\);",
+        "SET v_IdPago = CONCAT('PAG', LPAD(IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMEMBRESIA, 4, 10) AS UNSIGNED)) "
+        "FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA LIKE 'PAG%'), 0) + 1, 6, '0'));",
+        text,
+        flags=re.I | re.S,
+    )
+    text = re.sub(
+        r"DECLARE v_IdPago VARCHAR\(50\) = CONCAT\('PAG', RIGHT\(CONCAT\('000000', CAST\(\(\s*"
+        r"IFNULL\(\(SELECT MAX\(CAST\(SUBSTRING\(IDPAGOMENSUALIDAD, 4, 10\) AS INT\)\)\)\s*"
+        r"FROM PAGOMENSUALIDAD WHERE IDPAGOMENSUALIDAD LIKE 'PAG%'\), 0\) \+ 1\s*"
+        r"\) AS (?:VARCHAR|CHAR)\(10\)\), 6\)\);",
+        "SET v_IdPago = CONCAT('PAG', LPAD(IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMENSUALIDAD, 4, 10) AS UNSIGNED)) "
+        "FROM PAGOMENSUALIDAD WHERE IDPAGOMENSUALIDAD LIKE 'PAG%'), 0) + 1, 6, '0'));",
+        text,
+        flags=re.I | re.S,
+    )
+    return text
+
+
 def fix_file(content: str) -> str:
     content = fix_types_and_functions(content)
+    content = fix_raiserror_and_return(content)
+    content = fix_outer_apply(content)
+    content = fix_cross_apply(content)
+    content = fix_begin_try_catch(content)
+    content = fix_object_id_and_col_length(content)
+    content = fix_exec_calls(content)
+    content = fix_ltrim_rtrim(content)
+    content = fix_isnull_string_plus(content)
+    content = fix_broken_concat_plus(content)
+    content = fix_if_begin_set_oneline(content)
+    content = fix_declare_inside_if(content)
+    content = fix_mem_id_generation(content)
+    content = fix_pag_id_block(content)
+    content = fix_broken_procedure_end(content)
+    content = fix_sys_objects(content)
     content = fix_broken_trim(content)
     content = fix_broken_comment_concat(content)
     content = fix_broken_usuario_nombre_concat(content)

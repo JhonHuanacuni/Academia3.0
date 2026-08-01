@@ -20,7 +20,7 @@ CREATE PROCEDURE usp_mensualidad_listar_pagos(
 )
 main: BEGIN
 IF NOT EXISTS (SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = p_IdMensualidad) THEN
-        RAISERROR('La mensualidad no existe.', 16, 1);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La mensualidad no existe.';
         LEAVE main;
     
     SELECT
@@ -31,16 +31,13 @@ IF NOT EXISTS (SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = p_IdMensualidad) 
         p.OBSERVACIONES,
         IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
         UPPER(TRIM(
-            CONCAT(IFNULL(reg.APELLIDO, ''), ' ') + IFNULL(reg.NOMBRE, '')
+            CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, ''))
         ))) AS REGISTRADO_POR
     FROM PAGOMENSUALIDAD p
     LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = p.IDUSUARIO
     WHERE p.IDMENSUALIDAD = p_IdMensualidad
     ORDER BY p.FECHAPAGO DESC, p.HORAPAGO DESC, p.IDPAGOMENSUALIDAD DESC;
-END;
-
-SELECT 'usp_mensualidad_listar_pagos listo.';
 END$$
 
 DELIMITER ;

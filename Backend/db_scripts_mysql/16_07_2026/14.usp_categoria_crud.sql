@@ -25,7 +25,6 @@ CREATE PROCEDURE usp_categoria_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -108,24 +107,20 @@ CREATE PROCEDURE usp_categoria_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código de la categoría.'; LEAVE main; 
-    END IF;
+IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código de la categoría.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main;     END IF;
 
-    IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main; 
-    END IF;
+    IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de categoría ya existe.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El código de categoría ya existe.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main;     END IF;
     INSERT INTO CATEGORIA (IDCATEGORIA, NOMBRE, PORCENTAJE, ORDEN, ACTIVO)
     VALUES (
         p_Id,
@@ -156,20 +151,17 @@ CREATE PROCEDURE usp_categoria_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main;     END IF;
 
-    IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main; 
-    END IF;
+    IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre AND IDCATEGORIA <> p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre AND IDCATEGORIA <> p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main;     END IF;
     UPDATE CATEGORIA SET
         NOMBRE     = p_Nombre,
         PORCENTAJE = p_Porcentaje,
@@ -195,9 +187,8 @@ CREATE PROCEDURE usp_categoria_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.'; LEAVE main;     END IF;
 
     IF EXISTS (SELECT 1 FROM MATERIA WHERE IDCATEGORIA = p_Id) THEN
         SET p_Resultado = 0;

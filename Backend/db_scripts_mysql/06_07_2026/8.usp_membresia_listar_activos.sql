@@ -25,7 +25,6 @@ CREATE PROCEDURE usp_membresia_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -51,7 +50,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT
         m.IDMEMBRESIA,
         m.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         m.IDPLAN,
         pl.NOMBRE AS PLAN_NOMBRE,

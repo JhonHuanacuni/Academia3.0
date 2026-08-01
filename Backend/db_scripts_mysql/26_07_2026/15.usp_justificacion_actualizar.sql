@@ -24,23 +24,18 @@ CREATE PROCEDURE usp_justificacion_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La justificación no existe.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La justificación no existe.'; LEAVE main;     END IF;
 
-    IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un estudiante.'; LEAVE main; 
-    END IF;
+    IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un estudiante.'; LEAVE main;     END IF;
 
-    IF p_Fecha IS NULL OR TRIM(p_Fecha) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Selecciona la fecha a justificar.'; LEAVE main; 
-    END IF;
+    IF p_Fecha IS NULL OR TRIM(p_Fecha) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Selecciona la fecha a justificar.'; LEAVE main;     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND ESTADO = 'Activo')
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe o está inactivo.'; LEAVE main; 
-    DECLARE v_OldUsuario VARCHAR(50);
-    DECLARE v_OldFecha CHAR(8);
-    SELECT IDUSUARIO, v_OldFecha = FECHA FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id INTO v_OldUsuario;
+    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND ESTADO = 'Activo') THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe o está inactivo.'; LEAVE main;     END IF;
+SELECT IDUSUARIO, v_OldFecha = FECHA FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id INTO v_OldUsuario;
 
     IF EXISTS (
         SELECT 1 FROM JUSTIFICACION
@@ -67,8 +62,7 @@ IF NOT EXISTS (SELECT 1 FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id)
         IF EXISTS (SELECT 1 FROM ASISTENCIA WHERE IDUSUARIO = p_IdUsuario AND FECHAREGISTRO = p_Fecha)
             UPDATE ASISTENCIA SET JUSTIFICADO = 1 WHERE IDUSUARIO = p_IdUsuario AND FECHAREGISTRO = p_Fecha;
 ELSE
-            DECLARE v_Hora CHAR(8) = TIME_FORMAT(CONVERT_TZ(NOW(), ', 00):00', '-05:00'), '%H:%i:%s');
-            INSERT INTO ASISTENCIA (IDASISTENCIA, FECHAREGISTRO, HORAINICIO, ESTADO, JUSTIFICADO, IDUSUARIO)
+INSERT INTO ASISTENCIA (IDASISTENCIA, FECHAREGISTRO, HORAINICIO, ESTADO, JUSTIFICADO, IDUSUARIO)
             VALUES (CONCAT('AS_', REPLACE(UUID()), '-', ''), p_Fecha, v_Hora, 'Falta', 1, p_IdUsuario);
         
     

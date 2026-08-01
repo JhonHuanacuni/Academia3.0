@@ -43,29 +43,22 @@ CREATE PROCEDURE usp_tutor_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = ''Ingresa el nombre del tutor.''; LEAVE main; 
-    END IF;
+IF p_Nombre IS NULL OR TRIM(p_Nombre) = '''' THEN
+        SET p_Resultado = 0; SET p_Mensaje = ''Ingresa el nombre del tutor.''; LEAVE main;     END IF;
 
     IF p_Id IS NULL OR TRIM(p_Id) = '''' THEN
-        DECLARE v_Next INT = IFNULL((
-            SELECT MAX(CAST(SUBSTRING(IDTUTOR, 4, 10) AS INT))
-            FROM TUTOR WHERE IDTUTOR LIKE ''TUT%''
-        ), 0) + 1;
-        SET p_Id = CONCAT(''TUT'', RIGHT(CONCAT(''000'', CAST(v_Next AS CHAR(10))), 3);
+SET p_Id = CONCAT(''TUT'', RIGHT(CONCAT(''000'', CAST(v_Next AS CHAR(10))), 3);
     
     SET p_Id = UPPER(TRIM(p_Id);
 
-    IF p_Id NOT LIKE ''TUT[0-9]%''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = ''El código debe ser TUT seguido del número (ej. TUT001).''; LEAVE main; 
-    END IF;
+    IF p_Id NOT LIKE ''TUT[0-9]%'' THEN
+        SET p_Resultado = 0; SET p_Mensaje = ''El código debe ser TUT seguido del número (ej. TUT001).''; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM TUTOR WHERE IDTUTOR = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = ''El código de tutor ya existe.''; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM TUTOR WHERE IDTUTOR = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = ''El código de tutor ya existe.''; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM TUTOR WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = ''Ya existe un tutor con ese nombre.''; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM TUTOR WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = ''Ya existe un tutor con ese nombre.''; LEAVE main;     END IF;
     INSERT INTO TUTOR (IDTUTOR, NOMBRE, ACTIVO)
     VALUES (p_Id, p_Nombre, CASE WHEN p_Estado = ''Activo'' THEN 1 ELSE 0 END);
 

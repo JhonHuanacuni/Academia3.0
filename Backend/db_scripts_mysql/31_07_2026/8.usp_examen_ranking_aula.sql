@@ -1,15 +1,10 @@
--- Convertido automáticamente desde db_scripts/31_07_2026/8.usp_examen_ranking_aula.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- Ranking del último examen realizado en el aula del estudiante — MySQL 8
+-- Ejecutar después de scripts de exámenes (17_07_2026)
+-- Fecha: 31/07/2026
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   Ranking del último examen realizado en el aula del estudiante
-   Ejecutar después de scripts de exámenes (17_07_2026)
-   Fecha: 31/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_examen_ranking_aula;
 
 DROP PROCEDURE IF EXISTS usp_examen_ranking_aula;
 
@@ -19,23 +14,25 @@ CREATE PROCEDURE usp_examen_ranking_aula(
     IN p_IdUsuario VARCHAR(50)
 )
 main: BEGIN
-DECLARE v_IdAula VARCHAR(50);
+    DECLARE v_IdAula VARCHAR(50);
     DECLARE v_IdExamen VARCHAR(50);
     DECLARE v_TotalPreg INT;
 
-    SELECT TOP 1 v_IdAula = m.IDAULA
+    SELECT m.IDAULA INTO v_IdAula
     FROM MENSUALIDAD m
     WHERE m.IDUSUARIO = p_IdUsuario
       AND IFNULL(m.ESTADO, 'Activo') = 'Activo'
       AND (m.ESTADOMIEMBRO IS NULL OR m.ESTADOMIEMBRO <> 3)
-    ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC;
+    ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
+    LIMIT 1;
 
     IF v_IdAula IS NULL THEN
         SELECT CAST(NULL AS CHAR(50)) AS IDEXAMEN WHERE 1 = 0;
-        SELECT CAST(NULL AS INT) AS POSICION WHERE 1 = 0;
+        SELECT CAST(NULL AS SIGNED) AS POSICION WHERE 1 = 0;
         LEAVE main;
-    
-    SELECT TOP 1 v_IdExamen = i.IDEXAMEN
+    END IF;
+
+    SELECT i.IDEXAMEN INTO v_IdExamen
     FROM INTENTO_EXAMEN i
     INNER JOIN (
         SELECT um.IDUSUARIO
@@ -52,12 +49,19 @@ DECLARE v_IdAula VARCHAR(50);
         WHERE um.RN = 1 AND um.IDAULA = v_IdAula
     ) aa ON aa.IDUSUARIO = i.IDUSUARIO
     WHERE IFNULL(i.ESTADO, 0) = 1
-      AND i.FECHAFIN IS NOT NULL AND LEN(i.FECHAFIN) = 8
+      AND i.FECHAFIN IS NOT NULL AND CHAR_LENGTH(i.FECHAFIN) = 8
     ORDER BY
-        CONCAT(TRY_CONVERT(DATETIME,
-            SUBSTRING(i.FECHAFIN, 5, 4), '-') + CONCAT(SUBSTRING(i.FECHAFIN, 3, 2), '-') + CONCAT(SUBSTRING(i.FECHAFIN, 1, 2), ' ') + LEFT(IFNULL(NULLIF(RTRIM(i.HORAFIN), ''), '00:00:00') + '00', 8),
-            120) DESC,
-        i.IDINTENTOEXAMEN DESC;
+        STR_TO_DATE(
+            CONCAT(
+                SUBSTRING(i.FECHAFIN, 5, 4), '-',
+                SUBSTRING(i.FECHAFIN, 3, 2), '-',
+                SUBSTRING(i.FECHAFIN, 1, 2), ' ',
+                LEFT(CONCAT(IFNULL(NULLIF(TRIM(i.HORAFIN), ''), '00:00:00'), '00'), 8)
+            ),
+            '%Y-%m-%d %H:%i:%s'
+        ) DESC,
+        i.IDINTENTOEXAMEN DESC
+    LIMIT 1;
 
     IF v_IdExamen IS NULL THEN
         SELECT
@@ -69,10 +73,11 @@ DECLARE v_IdAula VARCHAR(50);
         FROM AULA au
         WHERE au.IDAULA = v_IdAula;
 
-        SELECT CAST(NULL AS INT) AS POSICION WHERE 1 = 0;
+        SELECT CAST(NULL AS SIGNED) AS POSICION WHERE 1 = 0;
         LEAVE main;
-    
-    SELECT COUNT(*) FROM PREGUNTA WHERE IDEXAMEN = v_IdExamen INTO v_TotalPreg;
+    END IF;
+
+    SELECT COUNT(*) INTO v_TotalPreg FROM PREGUNTA WHERE IDEXAMEN = v_IdExamen;
     IF v_TotalPreg < 1 THEN SET v_TotalPreg = 1; END IF;
 
     SELECT
@@ -86,7 +91,7 @@ DECLARE v_IdAula VARCHAR(50);
     CROSS JOIN AULA au
     WHERE e.IDEXAMEN = v_IdExamen AND au.IDAULA = v_IdAula;
 
-    ;WITH AlumnosAula AS (
+    WITH AlumnosAula AS (
         SELECT um.IDUSUARIO
         FROM (
             SELECT m.IDUSUARIO, m.IDAULA,
@@ -119,7 +124,7 @@ DECLARE v_IdAula VARCHAR(50);
         SELECT
             u.IDUSUARIO,
             u.DNI,
-            UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS NOMBRE_COMPLETO,
+            UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS NOMBRE_COMPLETO,
             mi.PUNTAJEOBTENIDO,
             mi.CANTCORRECTAS,
             mi.CANTINCORRECTAS,
@@ -144,14 +149,13 @@ DECLARE v_IdAula VARCHAR(50);
         CANTSINRESPONDER,
         APROBADO,
         ES_YO,
-        CAST(ROUND(CAST(IFNULL(CANTCORRECTAS, 0) AS FLOAT) / v_TotalPreg * 100, 1) AS DECIMAL(5,1)) AS PCT_CORRECTAS,
-        CAST(ROUND(CAST(IFNULL(CANTINCORRECTAS, 0) AS FLOAT) / v_TotalPreg * 100, 1) AS DECIMAL(5,1)) AS PCT_ERRORES,
-        CAST(ROUND(CAST(IFNULL(CANTSINRESPONDER, 0) AS FLOAT) / v_TotalPreg * 100, 1) AS DECIMAL(5,1)) AS PCT_BLANCO
+        CAST(ROUND(CAST(IFNULL(CANTCORRECTAS, 0) AS DOUBLE) / v_TotalPreg * 100, 1) AS DECIMAL(5,1)) AS PCT_CORRECTAS,
+        CAST(ROUND(CAST(IFNULL(CANTINCORRECTAS, 0) AS DOUBLE) / v_TotalPreg * 100, 1) AS DECIMAL(5,1)) AS PCT_ERRORES,
+        CAST(ROUND(CAST(IFNULL(CANTSINRESPONDER, 0) AS DOUBLE) / v_TotalPreg * 100, 1) AS DECIMAL(5,1)) AS PCT_BLANCO
     FROM RankingBase
     ORDER BY POSICION;
-END;
-
-SELECT 'usp_examen_ranking_aula creado.';
 END$$
 
 DELIMITER ;
+
+SELECT 'usp_examen_ranking_aula creado.' AS info;

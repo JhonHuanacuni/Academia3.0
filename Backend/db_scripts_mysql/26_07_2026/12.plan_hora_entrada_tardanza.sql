@@ -52,7 +52,6 @@ CREATE PROCEDURE usp_plan_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -151,17 +150,14 @@ CREATE PROCEDURE usp_plan_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del plan.'; LEAVE main; 
-    END IF;
+IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del plan.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main;     END IF;
 
-    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main; 
-    END IF;
+    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0 THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main;     END IF;
 
     IF p_DiasAsistencia IS NULL OR p_DiasAsistencia = 0 THEN SET p_DiasAsistencia = 63; END IF;
 
@@ -174,12 +170,11 @@ IF p_Id IS NULL OR TRIM(p_Id) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El turno seleccionado no es válido.'; LEAVE main; 
     END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main;     END IF;
     INSERT INTO `PLAN` (IDPLAN, NOMBRE, DESCRIPCION, COSTOMENSUAL, DIASASISTENCIA, IDTURNO, HORAENTRADA, TIEMPOEXTRA, ACTIVO)
     VALUES (
         p_Id,
@@ -218,17 +213,14 @@ CREATE PROCEDURE usp_plan_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main;     END IF;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main;     END IF;
 
-    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main; 
-    END IF;
+    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0 THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main;     END IF;
 
     IF p_DiasAsistencia IS NULL OR p_DiasAsistencia = 0 THEN SET p_DiasAsistencia = 63; END IF;
 
@@ -241,8 +233,8 @@ IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El turno seleccionado no es válido.'; LEAVE main; 
     END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main;     END IF;
     UPDATE `PLAN` SET
         NOMBRE          = p_Nombre,
         DESCRIPCION     = p_Descripcion,
@@ -282,15 +274,7 @@ CREATE PROCEDURE usp_asistencia_marcar(
     OUT p_IdAsistencia VARCHAR(50)
 )
 main: BEGIN
-DECLARE v_IdUsuario VARCHAR(50);
-    DECLARE v_FechaHoy CHAR(8) = fn_fecha_ddmmyyyy();
-    DECLARE v_HoraAhora TIME;
-    DECLARE v_Estado VARCHAR(50);
-    DECLARE v_HoraEntrada TIME = CAST('08:00:00' AS TIME);
-    DECLARE v_TiempoExtra INT = 0;
-    DECLARE v_HoraLimite TIME;
-
-    SET v_HoraAhora = CAST(CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'SA Pacific Standard Time' AS DATETIME) AS TIME);
+SET v_HoraAhora = CAST(CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'SA Pacific Standard Time' AS DATETIME) AS TIME);
 
     SELECT IDUSUARIO INTO v_IdUsuario
     FROM USUARIO
@@ -314,7 +298,7 @@ DECLARE v_IdUsuario VARCHAR(50);
         SET p_IdAsistencia = NULL;
         LEAVE main;
     
-    SELECT TOP 1
+    SELECT
         v_HoraEntrada = IFNULL(p.HORAENTRADA, CAST('08:00:00' AS TIME)),
         v_TiempoExtra = IFNULL(p.TIEMPOEXTRA, 0)
     FROM MENSUALIDAD m

@@ -29,7 +29,7 @@ SELECT
         p.IDMETODOPAGO,
         IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
         m.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         pl.NOMBRE AS PLAN_NOMBRE,
         m.MONTOTOTAL,
@@ -43,11 +43,12 @@ SELECT
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
     INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
-    OUTER APPLY (
+    LEFT JOIN LATERAL (
         SELECT SUM(x.MONTO) AS PAGADO
         FROM PAGOMEMBRESIA x
         WHERE x.IDMEMBRESIA = m.IDMEMBRESIA
-    ) pag
+        LIMIT 1
+    ) pag ON TRUE
     WHERE p.IDPAGOMEMBRESIA = p_Id;
 END$$
 
@@ -69,27 +70,18 @@ CREATE PROCEDURE usp_pago_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.'; LEAVE main; 
-    END IF;
+IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.'; LEAVE main;     END IF;
 
-    IF p_Monto IS NULL OR p_Monto <= 0
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingrese un monto válido.'; LEAVE main; 
-    END IF;
+    IF p_Monto IS NULL OR p_Monto <= 0 THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingrese un monto válido.'; LEAVE main;     END IF;
 
-    IF p_IdMetodoPago IS NULL OR p_IdMetodoPago = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago.'; LEAVE main; 
-    END IF;
+    IF p_IdMetodoPago IS NULL OR p_IdMetodoPago = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago.'; LEAVE main;     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM METODO_PAGO WHERE IDMETODOPAGO = p_IdMetodoPago AND ACTIVO = 1)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El método de pago no es válido.'; LEAVE main; 
-    DECLARE v_IdMembresia VARCHAR(50);
-    DECLARE v_MontoAnterior DECIMAL(10,2);
-    DECLARE v_MontoTotal DECIMAL(10,2);
-    DECLARE v_PagadoOtros DECIMAL(10,2);
-    DECLARE v_Maximo DECIMAL(10,2);
-
-    SELECT IDMEMBRESIA, v_MontoAnterior = MONTO INTO v_IdMembresia
+    IF NOT EXISTS (SELECT 1 FROM METODO_PAGO WHERE IDMETODOPAGO = p_IdMetodoPago AND ACTIVO = 1) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El método de pago no es válido.'; LEAVE main;     END IF;
+SELECT IDMEMBRESIA, v_MontoAnterior = MONTO INTO v_IdMembresia
     FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id;
 
     SELECT IFNULL(MONTOTOTAL, 0) FROM MEMBRESIA WHERE IDMEMBRESIA = v_IdMembresia INTO v_MontoTotal;
@@ -101,7 +93,7 @@ IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id)
     IF v_Maximo < 0 THEN SET v_Maximo = 0; END IF;
     IF p_Monto > v_Maximo THEN
         SET p_Resultado = 0;
-        SET p_Mensaje = CONCAT('El monto no puede superar S/ ', CAST(v_Maximo AS CHAR(20))) + '.';
+        SET p_Mensaje = CONCAT('El monto no puede superar S/ ', CAST(v_Maximo AS CHAR(20)), '.');
         LEAVE main;
     
     UPDATE PAGOMEMBRESIA SET
@@ -130,8 +122,8 @@ CREATE PROCEDURE usp_pago_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.'; LEAVE main; 
+IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.'; LEAVE main;     END IF;
     DELETE FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id;
 
     SET p_Resultado = 1;

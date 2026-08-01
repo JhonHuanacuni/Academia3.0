@@ -1,16 +1,9 @@
--- Convertido automáticamente desde db_scripts/06_07_2026/7.usp_membresia_crud.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- CRUD MEMBRESIA — MySQL 8
+-- Ejecutar después de 6.membresia_alter_catalogos.sql
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   CRUD MEMBRESIA — Mantenedor de membresías
-   5 SPs estándar: listar, obtener, insertar, actualizar, eliminar
-   Ejecutar después de 6.membresia_alter_catalogos.sql
-   Fecha: 06/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_membresia_listar;
 
 DROP PROCEDURE IF EXISTS usp_membresia_listar;
 
@@ -27,10 +20,11 @@ CREATE PROCEDURE usp_membresia_listar(
 )
 main: BEGIN
     DECLARE v_offset INT DEFAULT 0;
-IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
-    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
+    IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
+    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
     SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
+
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM MEMBRESIA m
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
@@ -49,7 +43,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT
         m.IDMEMBRESIA,
         m.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         m.IDPLAN,
         pl.NOMBRE AS PLAN_NOMBRE,
@@ -98,25 +92,20 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'FECHAREGISTRO' AND p_Direccion = 'DESC' THEN m.FECHAREGISTRO END DESC,
         m.IDMEMBRESIA DESC
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_membresia_obtener;
 
-DROP PROCEDURE IF EXISTS usp_membresia_obtener;
-
 DELIMITER $$
 
-CREATE PROCEDURE usp_membresia_obtener(
-    IN p_Id VARCHAR(50)
-)
+CREATE PROCEDURE usp_membresia_obtener(IN p_Id VARCHAR(50))
 main: BEGIN
-SELECT
+    SELECT
         m.IDMEMBRESIA,
         m.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         m.IDPLAN,
         pl.NOMBRE AS PLAN_NOMBRE,
@@ -142,12 +131,13 @@ SELECT
     INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TURNO tu ON tu.IDTURNO = m.IDTURNO
-    OUTER APPLY (
-        SELECT TOP 1 p.MONTO AS PAGOINICIAL, p.IDMETODOPAGO
+    LEFT JOIN LATERAL (
+        SELECT p.MONTO AS PAGOINICIAL, p.IDMETODOPAGO
         FROM PAGOMEMBRESIA p
         WHERE p.IDMEMBRESIA = m.IDMEMBRESIA
         ORDER BY p.FECHAPAGO, p.IDPAGOMEMBRESIA
-    ) pag
+        LIMIT 1
+    ) pag ON TRUE
     WHERE m.IDMEMBRESIA = p_Id;
 END$$
 
@@ -155,12 +145,10 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_membresia_insertar;
 
-DROP PROCEDURE IF EXISTS usp_membresia_insertar;
-
 DELIMITER $$
 
 CREATE PROCEDURE usp_membresia_insertar(
-    IN p_Id VARCHAR(50),
+    INOUT p_Id VARCHAR(50),
     IN p_IdUsuario VARCHAR(50),
     IN p_IdPlan VARCHAR(50),
     IN p_IdTurno VARCHAR(50),
@@ -180,40 +168,39 @@ CREATE PROCEDURE usp_membresia_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_IdUsuario IS NULL OR p_IdUsuario = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Debe seleccionar un estudiante.'; LEAVE main; 
-    END IF;
+    DECLARE v_Next INT DEFAULT 0;
+    DECLARE v_IdPago VARCHAR(50);
 
-    IF p_FechaInicio IS NULL OR p_FechaFin IS NULL
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingrese fecha de inicio y fin.'; LEAVE main; 
+    IF p_IdUsuario IS NULL OR p_IdUsuario = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Debe seleccionar un estudiante.'; LEAVE main;
     END IF;
-
-    IF p_MontoTotal IS NULL
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingrese el monto total.'; LEAVE main; 
+    IF p_FechaInicio IS NULL OR p_FechaFin IS NULL THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingrese fecha de inicio y fin.'; LEAVE main;
     END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND IDTIPOUSUARIO = '1')
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe o no es válido.'; LEAVE main; 
+    IF p_MontoTotal IS NULL THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingrese el monto total.'; LEAVE main;
     END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_IdPlan)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan seleccionado no es válido.'; LEAVE main; 
+    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND IDTIPOUSUARIO = '1') THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe o no es válido.'; LEAVE main;
     END IF;
-
+    IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_IdPlan) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El plan seleccionado no es válido.'; LEAVE main;
+    END IF;
     IF p_PagoInicial IS NOT NULL AND p_PagoInicial > 0
-       AND (p_IdMetodoPago IS NULL OR p_IdMetodoPago = '')
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago del pago inicial.'; LEAVE main; 
+       AND (p_IdMetodoPago IS NULL OR p_IdMetodoPago = '') THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago del pago inicial.'; LEAVE main;
     END IF;
 
     IF p_Id IS NULL OR p_Id = '' THEN
-        DECLARE v_Next INT = IFNULL((
-            SELECT MAX(CAST(SUBSTRING(IDMEMBRESIA, 4, 10) AS INT))
-            FROM MEMBRESIA WHERE IDMEMBRESIA LIKE 'MEM%'
-        ), 0) + 1;
-        SET p_Id = CONCAT('MEM', RIGHT(CONCAT('000000', CAST(v_Next AS CHAR(10))), 6);
-    
-    IF EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La membresía ya existe.'; LEAVE main; 
+        SELECT IFNULL(MAX(CAST(SUBSTRING(IDMEMBRESIA, 4, 10) AS UNSIGNED)), 0) + 1 INTO v_Next
+        FROM MEMBRESIA WHERE IDMEMBRESIA LIKE 'MEM%';
+        SET p_Id = CONCAT('MEM', LPAD(v_Next, 6, '0'));
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La membresía ya existe.'; LEAVE main;
+    END IF;
+
     INSERT INTO MEMBRESIA (
         IDMEMBRESIA, FECHAINICIO, FECHAFIN, ESTADOMIEMBRO, MONTOTOTAL, OBSERVACIONES,
         FECHAREGISTRO, HORAREGISTRO, IDPLAN, IDAULA, IDTURNO, IDUSUARIO, REGISTRADOPOR,
@@ -226,10 +213,9 @@ IF p_IdUsuario IS NULL OR p_IdUsuario = ''
     );
 
     IF p_PagoInicial IS NOT NULL AND p_PagoInicial > 0 THEN
-        DECLARE v_IdPago VARCHAR(50) = CONCAT('PAG', RIGHT(CONCAT('000000', CAST((
-            IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMEMBRESIA, 4, 10)) AS INT))
-                    FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA LIKE 'PAG%'), 0) + 1
-        ) AS VARCHAR(10)), 6);
+        SELECT IFNULL(MAX(CAST(SUBSTRING(IDPAGOMEMBRESIA, 4, 10) AS UNSIGNED)), 0) + 1 INTO v_Next
+        FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA LIKE 'PAG%';
+        SET v_IdPago = CONCAT('PAG', LPAD(v_Next, 6, '0'));
 
         INSERT INTO PAGOMEMBRESIA (
             IDPAGOMEMBRESIA, MONTO, FECHAPAGO, HORAPAGO, OBSERVACIONES,
@@ -238,14 +224,12 @@ IF p_IdUsuario IS NULL OR p_IdUsuario = ''
             v_IdPago, p_PagoInicial, fn_fecha_ddmmyyyy(), TIME_FORMAT(NOW(), '%H:%i:%s'),
             'Pago inicial', p_Id, p_IdMetodoPago, p_RegistradoPor
         );
-    
+    END IF;
+
     SET p_Resultado = 1; SET p_Mensaje = 'Membresía registrada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_membresia_actualizar;
 
 DROP PROCEDURE IF EXISTS usp_membresia_actualizar;
 
@@ -269,38 +253,35 @@ CREATE PROCEDURE usp_membresia_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La membresía no existe.'; LEAVE main; 
+    IF NOT EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La membresía no existe.'; LEAVE main;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND IDTIPOUSUARIO = '1') THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no es válido.'; LEAVE main;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_IdPlan) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El plan no es válido.'; LEAVE main;
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND IDTIPOUSUARIO = '1')
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no es válido.'; LEAVE main; 
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_IdPlan)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan no es válido.'; LEAVE main; 
     UPDATE MEMBRESIA SET
-        IDUSUARIO        = p_IdUsuario,
-        IDPLAN           = p_IdPlan,
-        IDTURNO          = p_IdTurno,
-        ESTADOMIEMBRO    = p_EstadoMiembro,
-        FECHAINICIO      = p_FechaInicio,
-        FECHAFIN         = p_FechaFin,
-        MONTOTOTAL       = p_MontoTotal,
-        TIPOMEMBRESIA    = p_TipoMembresia,
-        IDAULA           = p_IdAula,
-        ASESOR           = p_Asesor,
-        OBSERVACIONES    = p_Observaciones,
+        IDUSUARIO = p_IdUsuario,
+        IDPLAN = p_IdPlan,
+        IDTURNO = p_IdTurno,
+        ESTADOMIEMBRO = p_EstadoMiembro,
+        FECHAINICIO = p_FechaInicio,
+        FECHAFIN = p_FechaFin,
+        MONTOTOTAL = p_MontoTotal,
+        TIPOMEMBRESIA = p_TipoMembresia,
+        IDAULA = p_IdAula,
+        ASESOR = p_Asesor,
+        OBSERVACIONES = p_Observaciones,
         FECHACANCELACION = p_FechaCancelacion
     WHERE IDMEMBRESIA = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Membresía actualizada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_membresia_eliminar;
 
 DROP PROCEDURE IF EXISTS usp_membresia_eliminar;
 
@@ -312,31 +293,28 @@ CREATE PROCEDURE usp_membresia_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La membresía no existe.'; LEAVE main; 
+    IF NOT EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La membresía no existe.'; LEAVE main;
+    END IF;
+
     UPDATE MEMBRESIA SET ESTADO = 'Inactivo', ESTADOMIEMBRO = 4 WHERE IDMEMBRESIA = p_Id;
     SET p_Resultado = 1; SET p_Mensaje = 'Membresía eliminada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_membresia_buscar_estudiantes;
 
-DROP PROCEDURE IF EXISTS usp_membresia_buscar_estudiantes;
-
 DELIMITER $$
 
-CREATE PROCEDURE usp_membresia_buscar_estudiantes(
-    IN p_Buscar VARCHAR(200)
-)
+CREATE PROCEDURE usp_membresia_buscar_estudiantes(IN p_Buscar VARCHAR(200))
 main: BEGIN
-SELECT TOP 20
+    SELECT
         u.IDUSUARIO,
         u.DNI,
         u.NOMBRE,
         u.APELLIDO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS NOMBRE_COMPLETO
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS NOMBRE_COMPLETO
     FROM USUARIO u
     WHERE u.IDTIPOUSUARIO = '1'
       AND u.ESTADO = 'Activo'
@@ -344,11 +322,11 @@ SELECT TOP 20
            u.DNI LIKE CONCAT('%', p_Buscar, '%') OR
            u.NOMBRE LIKE CONCAT('%', p_Buscar, '%') OR
            u.APELLIDO LIKE CONCAT('%', p_Buscar, '%') OR
-           (CONCAT(u.APELLIDO, ' ') u.NOMBRE) LIKE CONCAT('%', p_Buscar, '%'))
-    ORDER BY u.APELLIDO, u.NOMBRE;
-END;
-
-SELECT 'usp_membresia_crud ejecutado correctamente.';
+           CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')) LIKE CONCAT('%', p_Buscar, '%'))
+    ORDER BY u.APELLIDO, u.NOMBRE
+    LIMIT 20;
 END$$
 
 DELIMITER ;
+
+SELECT 'usp_membresia_crud listo.' AS info;

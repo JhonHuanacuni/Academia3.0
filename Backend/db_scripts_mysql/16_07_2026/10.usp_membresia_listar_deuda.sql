@@ -25,7 +25,6 @@ CREATE PROCEDURE usp_membresia_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
     SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
@@ -51,7 +50,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT
         m.IDMEMBRESIA,
         m.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         m.IDPLAN,
         pl.NOMBRE AS PLAN_NOMBRE,
@@ -81,11 +80,12 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TURNO tu ON tu.IDTURNO = m.IDTURNO
     LEFT JOIN ASESOR ase ON ase.IDASESOR = m.IDASESOR
-    OUTER APPLY (
+    LEFT JOIN LATERAL (
         SELECT SUM(p.MONTO) AS PAGADO
         FROM PAGOMEMBRESIA p
         WHERE p.IDMEMBRESIA = m.IDMEMBRESIA
-    ) pag
+        LIMIT 1
+    ) pag ON TRUE
     WHERE m.ESTADO = p_Estado
       AND (p_Buscar IS NULL OR p_Buscar = '' OR
            m.IDMEMBRESIA LIKE CONCAT('%', p_Buscar, '%') OR

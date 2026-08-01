@@ -29,13 +29,11 @@ CREATE PROCEDURE usp_plan_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
-    END IF;
+IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main;     END IF;
 
-    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main; 
-    END IF;
+    IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0 THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main;     END IF;
 
     IF p_DiasAsistencia IS NULL OR p_DiasAsistencia = 0 THEN SET p_DiasAsistencia = 63; END IF;
 
@@ -49,21 +47,16 @@ IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     END IF;
 
     IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
-        DECLARE v_NextPln INT = IFNULL((
-            SELECT MAX(CAST(REPLACE(IDPLAN, 'PLN', '') AS INT))
-            FROM `PLAN` WHERE IDPLAN LIKE 'PLN%'
-        ), 0) + 1;
-        SET p_Id = CONCAT('PLN', RIGHT(CONCAT('000', CAST(v_NextPln AS CHAR(10))), 3);
+SET p_Id = CONCAT('PLN', RIGHT(CONCAT('000', CAST(v_NextPln AS CHAR(10))), 3);
     
 ELSE
         SET p_Id = UPPER(TRIM(p_Id);
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main;     END IF;
     INSERT INTO `PLAN` (IDPLAN, NOMBRE, DESCRIPCION, COSTOMENSUAL, DIASASISTENCIA, IDTURNO, HORAENTRADA, TIEMPOEXTRA, ACTIVO)
     VALUES (
         p_Id,
@@ -100,26 +93,20 @@ CREATE PROCEDURE usp_aula_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del aula.'; LEAVE main; 
-    END IF;
+IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del aula.'; LEAVE main;     END IF;
 
     IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
-        DECLARE v_NextAul INT = IFNULL((
-            SELECT MAX(CAST(REPLACE(IDAULA, 'AUL', '') AS INT))
-            FROM AULA WHERE IDAULA LIKE 'AUL%'
-        ), 0) + 1;
-        SET p_Id = CONCAT('AUL', RIGHT(CONCAT('000', CAST(v_NextAul AS CHAR(10))), 3);
+SET p_Id = CONCAT('AUL', RIGHT(CONCAT('000', CAST(v_NextAul AS CHAR(10))), 3);
     
 ELSE
         SET p_Id = UPPER(TRIM(p_Id);
 
-    IF EXISTS (SELECT 1 FROM AULA WHERE IDAULA = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de aula ya existe.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM AULA WHERE IDAULA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El código de aula ya existe.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM AULA WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un aula con ese nombre.'; LEAVE main; 
+    IF EXISTS (SELECT 1 FROM AULA WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un aula con ese nombre.'; LEAVE main;     END IF;
     INSERT INTO AULA (IDAULA, NOMBRE, DESCRIPCION, CAPACIDAD, ACTIVO, ENLACEVIRTUAL, ENLACECUESTIONARIO)
     VALUES (
         p_Id,
@@ -155,18 +142,15 @@ CREATE PROCEDURE usp_categoria_insertar(
 main: BEGIN
 SET p_IdGenerado = NULL;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main;     END IF;
 
-    IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main; 
-    END IF;
+    IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main; 
-    DECLARE v_NextCat INT;
-    SELECT IFNULL(MAX(CAST(REPLACE(IDCATEGORIA, 'CAT', '') AS INT)), 0) + 1 INTO v_NextCat
+    IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main;     END IF;
+SELECT IFNULL(MAX(CAST(REPLACE(IDCATEGORIA, 'CAT', '') AS INT)), 0) + 1 INTO v_NextCat
     FROM CATEGORIA WHERE IDCATEGORIA LIKE 'CAT%';
     SET p_IdGenerado = CONCAT('CAT', RIGHT(CONCAT('000', CAST(v_NextCat AS CHAR(3))), 3);
 
@@ -202,13 +186,11 @@ CREATE PROCEDURE usp_materia_insertar(
 main: BEGIN
 SET p_IdGenerado = NULL;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la materia.'; LEAVE main; 
-    END IF;
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la materia.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM MATERIA WHERE NOMBRE = p_Nombre)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese nombre.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM MATERIA WHERE NOMBRE = p_Nombre) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese nombre.'; LEAVE main;     END IF;
 
     IF p_IdCategoria IS NOT NULL AND TRIM(p_IdCategoria) <> ''
        AND NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_IdCategoria)
@@ -218,8 +200,7 @@ SET p_IdGenerado = NULL;
     IF p_Codigo IS NOT NULL AND TRIM(p_Codigo) <> ''
        AND EXISTS (SELECT 1 FROM MATERIA WHERE CODIGO = p_Codigo)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese código corto.'; LEAVE main; 
-    DECLARE v_NextMat INT;
-    SELECT IFNULL(MAX(CAST(REPLACE(IDMATERIA, 'MAT', '') AS INT)), 0) + 1 INTO v_NextMat
+SELECT IFNULL(MAX(CAST(REPLACE(IDMATERIA, 'MAT', '') AS INT)), 0) + 1 INTO v_NextMat
     FROM MATERIA WHERE IDMATERIA LIKE 'MAT%';
     SET p_IdGenerado = CONCAT('MAT', RIGHT(CONCAT('000', CAST(v_NextMat AS CHAR(3))), 3);
 
@@ -268,28 +249,24 @@ CREATE PROCEDURE usp_usuario_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Dni IS NULL OR TRIM(p_Dni) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el DNI.'; LEAVE main; 
-    END IF;
+IF p_Dni IS NULL OR TRIM(p_Dni) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el DNI.'; LEAVE main;     END IF;
 
     IF p_Id IS NULL OR TRIM(p_Id) = '' THEN SET p_Id = TRIM(p_Dni); END IF;
 
     IF p_Contra IS NULL OR TRIM(p_Contra) = '' THEN SET p_Contra = p_Id; END IF;
 
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El usuario ya existe.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El usuario ya existe.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El DNI ya está registrado.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El DNI ya está registrado.'; LEAVE main;     END IF;
 
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El email ya está registrado.'; LEAVE main; 
-    END IF;
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El email ya está registrado.'; LEAVE main;     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.'; LEAVE main; 
+    IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.'; LEAVE main;     END IF;
     INSERT INTO USUARIO (
         IDUSUARIO, CONTRA, NOMBRE, APELLIDO, DNI, EMAIL, IDTIPOUSUARIO, ESTADO,
         FECHANACIMIENTO, DIRECCION, DISTRITO, COLEGIO, GRADO,

@@ -1,15 +1,10 @@
--- Convertido automáticamente desde db_scripts/17_07_2026/2.usp_examen_crud.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- CRUD EXAMEN + preguntas + distribución — MySQL 8
+-- Ejecutar después de 1.examen_tablas_plantilla.sql
+-- Fecha: 17/07/2026
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   CRUD CONCAT(EXAMEN, preguntas) distribución
-   Ejecutar después de 1.examen_tablas_plantilla.sql
-   Fecha: 17/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_examen_listar;
 
 DROP PROCEDURE IF EXISTS usp_examen_listar;
 
@@ -25,10 +20,11 @@ CREATE PROCEDURE usp_examen_listar(
 )
 main: BEGIN
     DECLARE v_offset INT DEFAULT 0;
-IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
-    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
+    IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
+    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
     SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
+
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM EXAMEN e
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
@@ -64,12 +60,9 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'FECHAINICIO' AND p_Direccion = 'DESC' THEN e.FECHAINICIO END DESC,
         e.IDEXAMEN DESC
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_examen_obtener;
 
 DROP PROCEDURE IF EXISTS usp_examen_obtener;
 
@@ -79,7 +72,7 @@ CREATE PROCEDURE usp_examen_obtener(
     IN p_Id VARCHAR(50)
 )
 main: BEGIN
-SELECT
+    SELECT
         e.IDEXAMEN,
         e.TITULO,
         e.DESCRIPCION,
@@ -127,8 +120,6 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_examen_pregunta_detalle;
 
-DROP PROCEDURE IF EXISTS usp_examen_pregunta_detalle;
-
 DELIMITER $$
 
 CREATE PROCEDURE usp_examen_pregunta_detalle(
@@ -136,7 +127,7 @@ CREATE PROCEDURE usp_examen_pregunta_detalle(
     IN p_IdPregunta VARCHAR(50)
 )
 main: BEGIN
-SELECT
+    SELECT
         p.IDPREGUNTA,
         p.TITULO,
         p.DESCRIPCION,
@@ -166,8 +157,6 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_examen_distribucion;
 
-DROP PROCEDURE IF EXISTS usp_examen_distribucion;
-
 DELIMITER $$
 
 CREATE PROCEDURE usp_examen_distribucion(
@@ -175,7 +164,7 @@ CREATE PROCEDURE usp_examen_distribucion(
     IN p_IdExamen VARCHAR(50)
 )
 main: BEGIN
-IF p_IdExamen IS NOT NULL AND TRIM(p_IdExamen) <> '' THEN
+    IF p_IdExamen IS NOT NULL AND TRIM(p_IdExamen) <> '' THEN
         SELECT
             c.IDCATEGORIA,
             c.NOMBRE AS CATEGORIA_NOMBRE,
@@ -203,7 +192,6 @@ IF p_IdExamen IS NOT NULL AND TRIM(p_IdExamen) <> '' THEN
         GROUP BY c.IDCATEGORIA, m.IDMATERIA, m.CODIGO, m.NOMBRE, c.ORDEN, m.CODIGO
         ORDER BY c.ORDEN, m.CODIGO;
         LEAVE main;
-    
     END IF;
 
     IF p_Tipo IS NULL THEN SET p_Tipo = 40; END IF;
@@ -239,8 +227,6 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_examen_insertar;
 
-DROP PROCEDURE IF EXISTS usp_examen_insertar;
-
 DELIMITER $$
 
 CREATE PROCEDURE usp_examen_insertar(
@@ -261,32 +247,63 @@ CREATE PROCEDURE usp_examen_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-SET p_IdGenerado = NULL;
+    DECLARE v_NextNum INT;
+    DECLARE v_Orden INT DEFAULT 0;
+    DECLARE v_Codigo VARCHAR(50);
+    DECLARE v_Cant INT;
+    DECLARE v_IdMateria VARCHAR(50);
+    DECLARE v_i INT;
+    DECLARE v_IdPreg VARCHAR(50);
+    DECLARE v_AltOrd INT;
+    DECLARE v_done INT DEFAULT 0;
+    DECLARE v_pos INT DEFAULT 1;
+    DECLARE v_next INT DEFAULT 0;
+    DECLARE v_token VARCHAR(50);
+    DECLARE v_csv LONGTEXT;
 
-    IF p_Titulo IS NULL OR TRIM(p_Titulo) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el título del examen.'; LEAVE main; 
+    DECLARE cur CURSOR FOR
+        SELECT pl.CODIGOMATERIA, pl.CANTIDAD, m.IDMATERIA
+        FROM EXAMEN_PLANTILLA pl
+        INNER JOIN MATERIA m ON m.CODIGO = pl.CODIGOMATERIA
+        INNER JOIN CATEGORIA c ON c.IDCATEGORIA = m.IDCATEGORIA
+        WHERE pl.TIPO = p_Tipo
+        ORDER BY c.ORDEN, m.CODIGO;
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+
+    SET p_IdGenerado = NULL;
+    SET p_Resultado = 0;
+    SET p_Mensaje = 'Error desconocido.';
+
+    IF p_Titulo IS NULL OR TRIM(p_Titulo) = '' THEN
+        SET p_Mensaje = 'Ingresa el título del examen.';
+        LEAVE main;
     END IF;
 
-    IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Usuario creador no válido.'; LEAVE main; 
+    IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = '' THEN
+        SET p_Mensaje = 'Usuario creador no válido.';
+        LEAVE main;
     END IF;
 
     IF p_Tipo NOT IN (40, 100) THEN SET p_Tipo = 40; END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM EXAMEN_PLANTILLA WHERE TIPO = p_Tipo)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'No hay plantilla de distribución para ese tipo.'; LEAVE main; 
+    IF NOT EXISTS (SELECT 1 FROM EXAMEN_PLANTILLA WHERE TIPO = p_Tipo) THEN
+        SET p_Mensaje = 'No hay plantilla de distribución para ese tipo.';
+        LEAVE main;
     END IF;
 
     IF EXISTS (
         SELECT 1 FROM EXAMEN_PLANTILLA pl
         WHERE pl.TIPO = p_Tipo
           AND NOT EXISTS (SELECT 1 FROM MATERIA m WHERE m.CODIGO = pl.CODIGOMATERIA)
-    )
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Faltan materias de la plantilla. Revisa el mantenedor de materias.'; LEAVE main; 
-    DECLARE v_NextNum INT;
-    SELECT IFNULL(MAX(CAST(REPLACE(IDEXAMEN, 'EXA', '') AS INT)), 0) + 1 INTO v_NextNum
+    ) THEN
+        SET p_Mensaje = 'Faltan materias de la plantilla. Revisa el mantenedor de materias.';
+        LEAVE main;
+    END IF;
+
+    SELECT IFNULL(MAX(CAST(REPLACE(IDEXAMEN, 'EXA', '') AS UNSIGNED)), 0) + 1 INTO v_NextNum
     FROM EXAMEN WHERE IDEXAMEN LIKE 'EXA%';
-    SET p_IdGenerado = CONCAT('EXA', RIGHT(CONCAT('000', CAST(v_NextNum AS CHAR(3))), 3);
+    SET p_IdGenerado = CONCAT('EXA', LPAD(CAST(v_NextNum AS CHAR), 3, '0'));
 
     INSERT INTO EXAMEN (
         IDEXAMEN, TITULO, DESCRIPCION, TIPO, DURACIONMIN,
@@ -300,79 +317,79 @@ SET p_IdGenerado = NULL;
     );
 
     IF p_TodasLasAula = 0 AND p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv) <> '' THEN
-        INSERT INTO EXAMEN_AULA (IDEXAMENAULA, IDEXAMEN, IDAULA)
-        SELECT
-            CONCAT('EXAUL', REPLACE(UUID()), '-', ''),
-            p_IdGenerado,
-            TRIM(value))
-        FROM STRING_SPLIT(p_AulasCsv, ',')
-        WHERE TRIM(value)) <> '';
-    
-    DECLARE v_Orden INT = 0;
-    DECLARE v_Codigo VARCHAR(50), @Cant INT, @IdMateria VARCHAR(50);
-    DECLARE v_i INT, @IdPreg VARCHAR(50), @PregNum INT;
-    DECLARE v_AltOrd INT, @Letra CHAR(1);
+        SET v_csv = CONCAT(p_AulasCsv, ',');
+        SET v_pos = 1;
 
-    DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
-        SELECT pl.CODIGOMATERIA, pl.CANTIDAD, m.IDMATERIA
-        FROM EXAMEN_PLANTILLA pl
-        INNER JOIN MATERIA m ON m.CODIGO = pl.CODIGOMATERIA
-        INNER JOIN CATEGORIA c ON c.IDCATEGORIA = m.IDCATEGORIA
-        WHERE pl.TIPO = p_Tipo
-        ORDER BY c.ORDEN, m.CODIGO;
+        csv_loop: WHILE v_pos <= CHAR_LENGTH(v_csv) DO
+            SET v_next = LOCATE(',', v_csv, v_pos);
+            IF v_next = 0 THEN
+                LEAVE csv_loop;
+            END IF;
 
+            SET v_token = TRIM(SUBSTRING(v_csv, v_pos, v_next - v_pos));
+
+            IF v_token <> '' THEN
+                INSERT INTO EXAMEN_AULA (IDEXAMENAULA, IDEXAMEN, IDAULA)
+                VALUES (
+                    CONCAT('EXAUL', REPLACE(UUID(), '-', '')),
+                    p_IdGenerado,
+                    v_token
+                );
+            END IF;
+
+            SET v_pos = v_next + 1;
+        END WHILE csv_loop;
+    END IF;
+
+    SET v_done = 0;
     OPEN cur;
-    FETCH NEXT FROM cur INTO v_Codigo, @Cant, @IdMateria;
-    WHILE @@FETCH_STATUS = 0
-    BEGIN
+    read_loop: LOOP
+        FETCH cur INTO v_Codigo, v_Cant, v_IdMateria;
+        IF v_done = 1 THEN
+            LEAVE read_loop;
+        END IF;
+
         SET v_i = 1;
-        WHILE v_i <= @Cant
-        BEGIN
-            SET v_Orden = CONCAT(v_Orden, 1);
-            SET @IdPreg = CONCAT(p_IdGenerado, '_P') RIGHT('000', CAST(v_Orden AS CHAR(3)), 3);
+        WHILE v_i <= v_Cant DO
+            SET v_Orden = v_Orden + 1;
+            SET v_IdPreg = CONCAT(p_IdGenerado, '_P', LPAD(CAST(v_Orden AS CHAR), 3, '0'));
 
             INSERT INTO PREGUNTA (IDPREGUNTA, TITULO, DESCRIPCION, PUNTAJE, ORDEN, IMAGEURL, IDEXAMEN, IDMATERIA)
             VALUES (
-                @IdPreg,
-                CONCAT('Pregunta ', CAST(v_Orden AS CHAR(10))),
+                v_IdPreg,
+                CONCAT('Pregunta ', CAST(v_Orden AS CHAR)),
                 NULL,
                 1,
                 v_Orden,
                 NULL,
                 p_IdGenerado,
-                @IdMateria
+                v_IdMateria
             );
 
             SET v_AltOrd = 1;
-            WHILE v_AltOrd <= 5
-            BEGIN
-                SET @Letra = CHAR(CONCAT(64, v_AltOrd)); -- A=65
+            WHILE v_AltOrd <= 5 DO
                 INSERT INTO ALTERNATIVA (IDALTERNATIVA, DESCRIPCION, ESCORRECTA, ORDEN, IMAGEURL, IDPREGUNTA)
                 VALUES (
-                    CONCAT(@IdPreg, '_A') CAST(v_AltOrd AS CHAR(1)),
+                    CONCAT(v_IdPreg, '_A', CAST(v_AltOrd AS CHAR)),
                     '',
                     CASE WHEN v_AltOrd = 1 THEN 1 ELSE 0 END,
                     v_AltOrd,
                     NULL,
-                    @IdPreg
+                    v_IdPreg
                 );
-                SET v_AltOrd = CONCAT(v_AltOrd, 1);
-            
-            SET v_i = CONCAT(v_i, 1);
-        
-        FETCH NEXT FROM cur INTO v_Codigo, @Cant, @IdMateria;
-    
+                SET v_AltOrd = v_AltOrd + 1;
+            END WHILE;
+
+            SET v_i = v_i + 1;
+        END WHILE;
+    END LOOP;
     CLOSE cur;
-    DEALLOCATE cur;
 
     SET p_Resultado = 1;
-    SET p_Mensaje = CONCAT('Examen creado con ', CAST(v_Orden AS CHAR(10))) + ' preguntas.';
-    SELECT p_IdGenerado AS IdGenerado, p_Resultado AS Resultado, p_Mensaje AS Mensaje
+    SET p_Mensaje = CONCAT('Examen creado con ', CAST(v_Orden AS CHAR), ' preguntas.');
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_examen_actualizar;
 
 DROP PROCEDURE IF EXISTS usp_examen_actualizar;
 
@@ -394,12 +411,24 @@ CREATE PROCEDURE usp_examen_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM EXAMEN WHERE IDEXAMEN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El examen no existe.'; LEAVE main; 
+    DECLARE v_pos INT DEFAULT 1;
+    DECLARE v_next INT DEFAULT 0;
+    DECLARE v_token VARCHAR(50);
+    DECLARE v_csv LONGTEXT;
+
+    SET p_Resultado = 0;
+    SET p_Mensaje = 'Error desconocido.';
+
+    IF NOT EXISTS (SELECT 1 FROM EXAMEN WHERE IDEXAMEN = p_Id) THEN
+        SET p_Mensaje = 'El examen no existe.';
+        LEAVE main;
     END IF;
 
-    IF p_Titulo IS NULL OR TRIM(p_Titulo) = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el título del examen.'; LEAVE main; 
+    IF p_Titulo IS NULL OR TRIM(p_Titulo) = '' THEN
+        SET p_Mensaje = 'Ingresa el título del examen.';
+        LEAVE main;
+    END IF;
+
     UPDATE EXAMEN SET
         TITULO = p_Titulo,
         DESCRIPCION = p_Descripcion,
@@ -415,21 +444,35 @@ IF NOT EXISTS (SELECT 1 FROM EXAMEN WHERE IDEXAMEN = p_Id)
     DELETE FROM EXAMEN_AULA WHERE IDEXAMEN = p_Id;
 
     IF p_TodasLasAula = 0 AND p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv) <> '' THEN
-        INSERT INTO EXAMEN_AULA (IDEXAMENAULA, IDEXAMEN, IDAULA)
-        SELECT
-            CONCAT('EXAUL', REPLACE(UUID()), '-', ''),
-            p_Id,
-            TRIM(value))
-        FROM STRING_SPLIT(p_AulasCsv, ',')
-        WHERE TRIM(value)) <> '';
-    
-    SET p_Resultado = 1; SET p_Mensaje = 'Examen actualizado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
+        SET v_csv = CONCAT(p_AulasCsv, ',');
+        SET v_pos = 1;
+
+        csv_loop: WHILE v_pos <= CHAR_LENGTH(v_csv) DO
+            SET v_next = LOCATE(',', v_csv, v_pos);
+            IF v_next = 0 THEN
+                LEAVE csv_loop;
+            END IF;
+
+            SET v_token = TRIM(SUBSTRING(v_csv, v_pos, v_next - v_pos));
+
+            IF v_token <> '' THEN
+                INSERT INTO EXAMEN_AULA (IDEXAMENAULA, IDEXAMEN, IDAULA)
+                VALUES (
+                    CONCAT('EXAUL', REPLACE(UUID(), '-', '')),
+                    p_Id,
+                    v_token
+                );
+            END IF;
+
+            SET v_pos = v_next + 1;
+        END WHILE csv_loop;
+    END IF;
+
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Examen actualizado.';
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_examen_eliminar;
 
 DROP PROCEDURE IF EXISTS usp_examen_eliminar;
 
@@ -441,15 +484,19 @@ CREATE PROCEDURE usp_examen_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM EXAMEN WHERE IDEXAMEN = p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El examen no existe.'; LEAVE main; 
+    SET p_Resultado = 0;
+    SET p_Mensaje = 'Error desconocido.';
+
+    IF NOT EXISTS (SELECT 1 FROM EXAMEN WHERE IDEXAMEN = p_Id) THEN
+        SET p_Mensaje = 'El examen no existe.';
+        LEAVE main;
     END IF;
 
     IF EXISTS (SELECT 1 FROM INTENTO_EXAMEN WHERE IDEXAMEN = p_Id) THEN
-        SET p_Resultado = 0;
         SET p_Mensaje = 'No se puede eliminar: hay intentos de estudiantes.';
         LEAVE main;
-    
+    END IF;
+
     DELETE FROM ALTERNATIVA
     WHERE IDPREGUNTA IN (SELECT IDPREGUNTA FROM PREGUNTA WHERE IDEXAMEN = p_Id);
 
@@ -457,13 +504,11 @@ IF NOT EXISTS (SELECT 1 FROM EXAMEN WHERE IDEXAMEN = p_Id)
     DELETE FROM EXAMEN_AULA WHERE IDEXAMEN = p_Id;
     DELETE FROM EXAMEN WHERE IDEXAMEN = p_Id;
 
-    SET p_Resultado = 1; SET p_Mensaje = 'Examen eliminado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Examen eliminado.';
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_examen_pregunta_guardar;
 
 DROP PROCEDURE IF EXISTS usp_examen_pregunta_guardar;
 
@@ -485,11 +530,17 @@ CREATE PROCEDURE usp_examen_pregunta_guardar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAMEN = p_IdExamen)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La pregunta no existe en este examen.'; LEAVE main; 
+    SET p_Resultado = 0;
+    SET p_Mensaje = 'Error desconocido.';
+
+    IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAMEN = p_IdExamen) THEN
+        SET p_Mensaje = 'La pregunta no existe en este examen.';
+        LEAVE main;
     END IF;
 
-    IF p_CorrectaOrden IS NULL OR p_CorrectaOrden < 1 OR p_CorrectaOrden > 5 THEN SET p_CorrectaOrden = 1; END IF;
+    IF p_CorrectaOrden IS NULL OR p_CorrectaOrden < 1 OR p_CorrectaOrden > 5 THEN
+        SET p_CorrectaOrden = 1;
+    END IF;
 
     UPDATE PREGUNTA SET
         DESCRIPCION = p_Descripcion,
@@ -497,7 +548,7 @@ IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAM
             WHEN p_QuitarImagen = 1 THEN NULL
             WHEN p_ImageUrl IS NOT NULL AND TRIM(p_ImageUrl) <> '' THEN p_ImageUrl
             ELSE IMAGEURL
-        
+        END
     WHERE IDPREGUNTA = p_IdPregunta;
 
     UPDATE ALTERNATIVA SET
@@ -512,11 +563,10 @@ IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAM
         ESCORRECTA = CASE WHEN ORDEN = p_CorrectaOrden THEN 1 ELSE 0 END
     WHERE IDPREGUNTA = p_IdPregunta;
 
-    SET p_Resultado = 1; SET p_Mensaje = 'Pregunta guardada.';
-END;
-
-SELECT 'SPs usp_examen_* creados.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Pregunta guardada.';
 END$$
 
 DELIMITER ;
+
+SELECT 'SPs usp_examen_* creados.' AS info;

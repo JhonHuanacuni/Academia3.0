@@ -25,7 +25,6 @@ CREATE PROCEDURE usp_mensualidad_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -36,9 +35,10 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
-    OUTER APPLY (
+    LEFT JOIN LATERAL (
         SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
-    ) pag
+        LIMIT 1
+    ) pag ON TRUE
     WHERE m.ESTADO = 'Activo'
       AND (p_Buscar IS NULL OR p_Buscar = '' OR
            m.IDMENSUALIDAD LIKE CONCAT('%', p_Buscar, '%') OR
@@ -61,7 +61,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT
         m.IDMENSUALIDAD,
         m.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         m.IDPLAN,
         pl.NOMBRE AS PLAN_NOMBRE,
@@ -78,7 +78,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         IFNULL(tut.NOMBRE, IFNULL(m.TUTORLEGACY, '')) AS TUTOR_NOMBRE,
         m.REGISTRADOPOR,
         UPPER(TRIM(
-            CONCAT(IFNULL(reg.APELLIDO, ''), ' ') + IFNULL(reg.NOMBRE, '')
+            CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, ''))
         ))) AS ASESOR_NOMBRE,
         m.ESTADO,
         m.FECHAREGISTRO
@@ -89,9 +89,10 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = m.REGISTRADOPOR
-    OUTER APPLY (
+    LEFT JOIN LATERAL (
         SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
-    ) pag
+        LIMIT 1
+    ) pag ON TRUE
     WHERE m.ESTADO = 'Activo'
       AND (p_Buscar IS NULL OR p_Buscar = '' OR
            m.IDMENSUALIDAD LIKE CONCAT('%', p_Buscar, '%') OR

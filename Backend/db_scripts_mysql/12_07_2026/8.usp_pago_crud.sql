@@ -24,7 +24,6 @@ CREATE PROCEDURE usp_pago_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -53,7 +52,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         p.OBSERVACIONES,
         p.IDMETODOPAGO,
         IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ') + IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         pl.NOMBRE AS PLAN_NOMBRE
     FROM PAGOMEMBRESIA p
@@ -95,7 +94,7 @@ CREATE PROCEDURE usp_pago_membresias_estudiante(
     IN p_IdUsuario VARCHAR(50)
 )
 main: BEGIN
-SELECT TOP 3
+SELECT
         m.IDMEMBRESIA,
         m.IDPLAN,
         pl.NOMBRE AS PLAN_NOMBRE,
@@ -117,11 +116,12 @@ SELECT TOP 3
         m.FECHAREGISTRO
     FROM MEMBRESIA m
     INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
-    OUTER APPLY (
+    LEFT JOIN LATERAL (
         SELECT SUM(p.MONTO) AS PAGADO
         FROM PAGOMEMBRESIA p
         WHERE p.IDMEMBRESIA = m.IDMEMBRESIA
-    ) pag
+        LIMIT 1
+    ) pag ON TRUE
     WHERE m.IDUSUARIO = p_IdUsuario
       AND m.ESTADO = 'Activo'
     ORDER BY m.FECHAREGISTRO DESC, m.IDMEMBRESIA DESC;
@@ -145,45 +145,31 @@ CREATE PROCEDURE usp_pago_insertar_abono(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_IdMembresia IS NULL OR p_IdMembresia = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Debe seleccionar una membresía.'; LEAVE main; 
-    END IF;
+IF p_IdMembresia IS NULL OR p_IdMembresia = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Debe seleccionar una membresía.'; LEAVE main;     END IF;
 
-    IF p_Monto IS NULL OR p_Monto <= 0
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingrese un monto válido.'; LEAVE main; 
-    END IF;
+    IF p_Monto IS NULL OR p_Monto <= 0 THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingrese un monto válido.'; LEAVE main;     END IF;
 
-    IF p_IdMetodoPago IS NULL OR p_IdMetodoPago = ''
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago.'; LEAVE main; 
-    END IF;
+    IF p_IdMetodoPago IS NULL OR p_IdMetodoPago = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago.'; LEAVE main;     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_IdMembresia AND ESTADO = 'Activo')
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La membresía no existe o está inactiva.'; LEAVE main; 
-    END IF;
+    IF NOT EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_IdMembresia AND ESTADO = 'Activo') THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La membresía no existe o está inactiva.'; LEAVE main;     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM METODO_PAGO WHERE IDMETODOPAGO = p_IdMetodoPago AND ACTIVO = 1)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El método de pago no es válido.'; LEAVE main; 
-    DECLARE v_MontoTotal DECIMAL(10,2);
-    DECLARE v_Pagado DECIMAL(10,2);
-    DECLARE v_Deuda DECIMAL(10,2);
-
-    SELECT IFNULL(MONTOTOTAL, 0) FROM MEMBRESIA WHERE IDMEMBRESIA = p_IdMembresia INTO v_MontoTotal;
+    IF NOT EXISTS (SELECT 1 FROM METODO_PAGO WHERE IDMETODOPAGO = p_IdMetodoPago AND ACTIVO = 1) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El método de pago no es válido.'; LEAVE main;     END IF;
+SELECT IFNULL(MONTOTOTAL, 0) FROM MEMBRESIA WHERE IDMEMBRESIA = p_IdMembresia INTO v_MontoTotal;
     SELECT IFNULL(SUM(MONTO), 0) FROM PAGOMEMBRESIA WHERE IDMEMBRESIA = p_IdMembresia INTO v_Pagado;
     SET v_Deuda = v_MontoTotal - v_Pagado;
     IF v_Deuda < 0 THEN SET v_Deuda = 0; END IF;
 
-    IF v_Deuda <= 0
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Esta membresía no tiene deuda pendiente.'; LEAVE main; 
-    END IF;
+    IF v_Deuda <= 0 THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Esta membresía no tiene deuda pendiente.'; LEAVE main;     END IF;
 
-    IF p_Monto > v_Deuda
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = CONCAT('El abono no puede superar la deuda (S/ ', CAST(v_Deuda AS CHAR(20))) + ').'; LEAVE main; 
-    DECLARE v_IdPago VARCHAR(50) = CONCAT('PAG', RIGHT(CONCAT('000000', CAST((
-        IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMEMBRESIA, 4, 10)) AS INT))
-                FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA LIKE 'PAG%'), 0) + 1
-    ) AS VARCHAR(10)), 6);
-
-    INSERT INTO PAGOMEMBRESIA (
+    IF p_Monto > v_Deuda THEN
+        SET p_Resultado = 0; SET p_Mensaje = CONCAT('El abono no puede superar la deuda (S/ ', CAST(v_Deuda AS CHAR(20))) + ').'; LEAVE main;     END IF;
+INSERT INTO PAGOMEMBRESIA (
         IDPAGOMEMBRESIA, MONTO, FECHAPAGO, HORAPAGO, OBSERVACIONES,
         IDMEMBRESIA, IDMETODOPAGO, IDUSUARIO
     ) VALUES (
