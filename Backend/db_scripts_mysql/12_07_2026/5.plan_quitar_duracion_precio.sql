@@ -1,21 +1,24 @@
--- Convertido automáticamente desde db_scripts/12_07_2026/5.plan_quitar_duracion_precio.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- PLAN: quitar DURACIONDIAS y PRECIO — MySQL 8
+-- Esos valores se registran en MEMBRESIA (fechas + MONTOTOTAL).
+-- ============================================================================
 
 USE `AcademiaDB`;
 
-/* ============================================================================
-   PLAN: quitar DURACIONDIAS y PRECIO
-   Esos valores se registran en MEMBRESIA (CONCAT(fechas, MONTOTOTAL)).
-   Ejecutar después de 3.usp_plan_crud.sql
-   Fecha: 12/07/2026
-   ============================================================================ */
+SET @exists = (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PLAN' AND COLUMN_NAME = 'DURACIONDIAS'
+);
+SET @ddl = IF(@exists > 0, 'ALTER TABLE `PLAN` DROP COLUMN DURACIONDIAS', 'SELECT ''PLAN.DURACIONDIAS ya no existe'' AS info');
+PREPARE _stmt FROM @ddl;
+EXECUTE _stmt;
+DEALLOCATE PREPARE _stmt;
 
-IF (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PLAN' AND COLUMN_NAME = 'DURACIONDIAS') > 0
-BEGIN
-    ALTER TABLE `PLAN` DROP COLUMN DURACIONDIAS;
-    SELECT 'Columna PLAN.DURACIONDIAS eliminada.';
-
-IF (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PLAN' AND COLUMN_NAME = 'PRECIO') > 0
-BEGIN
-    ALTER TABLE `PLAN` DROP COLUMN PRECIO;
-    SELECT 'Columna PLAN.PRECIO eliminada.';
+SET @exists = (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PLAN' AND COLUMN_NAME = 'PRECIO'
+);
+SET @ddl = IF(@exists > 0, 'ALTER TABLE `PLAN` DROP COLUMN PRECIO', 'SELECT ''PLAN.PRECIO ya no existe'' AS info');
+PREPARE _stmt FROM @ddl;
+EXECUTE _stmt;
+DEALLOCATE PREPARE _stmt;
