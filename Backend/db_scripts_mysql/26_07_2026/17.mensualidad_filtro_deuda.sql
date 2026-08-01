@@ -25,11 +25,10 @@ CREATE PROCEDURE usp_mensualidad_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
-    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
+    SET @v_offset = (p_Pagina - 1) * p_TamanioPagina;
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM MENSUALIDAD m
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
@@ -122,7 +121,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
             CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
                  ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END END ASC,
         m.IDMENSUALIDAD DESC
-    LIMIT p_TamanioPagina OFFSET v_offset;
+    LIMIT p_TamanioPagina OFFSET @v_offset;
 END$$
 
 DELIMITER ;

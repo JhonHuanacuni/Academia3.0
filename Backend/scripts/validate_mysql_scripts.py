@@ -70,7 +70,15 @@ def main():
     failed = []
     try:
         with conn.cursor() as cur:
-            cur.execute('SET GLOBAL log_bin_trust_function_creators = 1')
+            try:
+                cur.execute('SET GLOBAL log_bin_trust_function_creators = 1')
+            except pymysql.err.OperationalError as exc:
+                if exc.args[0] != 1227:
+                    raise
+                print(
+                    'Aviso: sin privilegio SUPER; omitiendo log_bin_trust_function_creators',
+                    file=sys.stderr,
+                )
             for rel in order:
                 path = SCRIPTS_DIR / rel.replace('/', os.sep)
                 if not path.exists():

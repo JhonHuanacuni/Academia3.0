@@ -210,7 +210,7 @@ def _strip_leading_comments(sql: str) -> str:
 
 def run_file(cursor, path: Path):
     sql = path.read_text(encoding='utf-8')
-    for stmt in split_sql(sql):
+    for n, stmt in enumerate(split_sql(sql), start=1):
         s = _strip_leading_comments(stmt.strip())
         if not s:
             continue
@@ -221,13 +221,15 @@ def run_file(cursor, path: Path):
         try:
             cursor.execute(s)
         except pymysql.err.ProgrammingError as exc:
-            print(f'ERROR en {path.name}: {exc.args[1][:200]}', file=sys.stderr)
+            preview = s.splitlines()[0][:80] if s else ''
+            print(f'ERROR en {path.name} stmt #{n} ({preview}): {exc.args[1][:200]}', file=sys.stderr)
             raise
         except pymysql.err.OperationalError as exc:
             # Índice/columna ya existe en reimport parcial
             if exc.args[0] in (1060, 1061, 1826):
                 continue
-            print(f'ERROR en {path.name}: {exc.args[1][:200]}', file=sys.stderr)
+            preview = s.splitlines()[0][:80] if s else ''
+            print(f'ERROR en {path.name} stmt #{n} ({preview}): {exc.args[1][:200]}', file=sys.stderr)
             raise
 
 
