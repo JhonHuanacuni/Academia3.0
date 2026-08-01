@@ -29,6 +29,7 @@ CREATE PROCEDURE usp_auditoria_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -91,7 +92,6 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
             THEN TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, ''))) END ASC,
         a.FECHA DESC, a.HORA DESC, a.IDAUDITORIA DESC
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;

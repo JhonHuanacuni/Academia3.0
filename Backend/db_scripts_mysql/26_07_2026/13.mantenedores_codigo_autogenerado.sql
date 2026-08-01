@@ -70,7 +70,6 @@ ELSE
         CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Plan registrado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -119,7 +118,6 @@ ELSE
     );
 
     SET p_Resultado = 1; SET p_Mensaje = 'Aula registrada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -280,7 +278,6 @@ IF p_Dni IS NULL OR TRIM(p_Dni) = '' THEN
     );
 
     SET p_Resultado = 1; SET p_Mensaje = 'Usuario creado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

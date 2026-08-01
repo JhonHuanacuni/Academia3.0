@@ -24,6 +24,7 @@ CREATE PROCEDURE usp_pagoextra_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -42,7 +43,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT
         p.IDPAGOEXTRA,
         p.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         p.IDCONCEPTO,
         c.NOMBRE AS CONCEPTO_NOMBRE,
@@ -71,7 +72,6 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'CONCEPTO_NOMBRE' AND p_Direccion = 'DESC' THEN c.NOMBRE END DESC,
         p.FECHAPAGO DESC, p.IDPAGOEXTRA DESC
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
@@ -89,7 +89,7 @@ main: BEGIN
 SELECT
         p.IDPAGOEXTRA,
         p.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         p.IDCONCEPTO,
         c.NOMBRE AS CONCEPTO_NOMBRE,
@@ -258,6 +258,8 @@ IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa las fechas de inicio y fin.';
         LEAVE main;
     
+    END IF;
+
     UPDATE PAGOEXTRAORDINARIO SET
         IDCONCEPTO = p_IdConcepto,
         MONTO = p_Monto,
@@ -268,7 +270,6 @@ IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id) THEN
     WHERE IDPAGOEXTRA = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Pago extraordinario actualizado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -289,13 +290,11 @@ IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.';
         LEAVE main;
     
+    END IF;
+
     DELETE FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Pago extraordinario eliminado.';
-END;
-
-SELECT 'SPs usp_pagoextra_* creados.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

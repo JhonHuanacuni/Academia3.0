@@ -36,6 +36,7 @@ CREATE PROCEDURE usp_justificacion_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -75,7 +76,6 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
        OR reg.APELLIDO LIKE CONCAT('%', p_Buscar, '%')
     ORDER BY j.FECHA DESC, j.HORAREGISTRO DESC
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
@@ -147,7 +147,6 @@ ELSE
         VALUES (CONCAT('AS_', REPLACE(UUID()), '-', ''), p_Fecha, v_Hora, 'Falta', 1, p_IdUsuario);
     
     SET p_Resultado = 1; SET p_Mensaje = 'Justificación registrada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -194,7 +193,6 @@ ELSE
     WHERE IDSUBMODULO = 'SUB025';
 
 SELECT 'Justificación: tabla, SPs y menú SUB025 listos.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

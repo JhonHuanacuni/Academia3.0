@@ -212,6 +212,8 @@ IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un concepto con ese nombre.';
         LEAVE main;
     
+    END IF;
+
     UPDATE CONCEPTOPAGOEXTRA SET
         NOMBRE = p_Nombre,
         COSTO = p_Costo,
@@ -221,7 +223,6 @@ IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id) THEN
     WHERE IDCONCEPTO = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Concepto actualizado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -251,13 +252,11 @@ IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id) THEN
         SET p_Mensaje = 'No se puede eliminar: el concepto tiene pagos asociados.';
         LEAVE main;
     
+    END IF;
+
     DELETE FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Concepto eliminado.';
-END;
-
-SELECT 'SPs usp_concepto_* creados.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

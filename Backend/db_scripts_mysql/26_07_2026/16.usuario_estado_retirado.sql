@@ -27,13 +27,11 @@ IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
     
+    END IF;
+
     UPDATE USUARIO SET ESTADO = 'Retirado' WHERE IDUSUARIO = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Usuario retirado.';
-END;
-
-SELECT 'USUARIO: estado Retirado aplicado (CONCAT(datos, usp_usuario_eliminar)).';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

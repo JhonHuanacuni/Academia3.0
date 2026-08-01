@@ -23,6 +23,7 @@ CREATE PROCEDURE usp_pagoextra_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -41,7 +42,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT
         p.IDPAGOEXTRA,
         p.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         p.IDCONCEPTO,
         c.NOMBRE AS CONCEPTO_NOMBRE,
@@ -68,7 +69,6 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'CONCEPTO_NOMBRE' AND p_Direccion = 'DESC' THEN c.NOMBRE END DESC,
         p.FECHAPAGO DESC, p.IDPAGOEXTRA DESC
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
@@ -100,9 +100,6 @@ SELECT
         ON p.IDCONCEPTO = c.IDCONCEPTO AND p.IDUSUARIO = p_IdUsuario
     GROUP BY c.IDCONCEPTO, c.NOMBRE, c.COSTO, c.FECHAINICIO, c.FECHAFIN
     ORDER BY MAX(p.FECHAPAGO) DESC;
-END;
-
-SELECT 'usp_pagoextra_listar restaurado; usp_pagoextra_conceptos_estudiante creado.';
 END$$
 
 DELIMITER ;

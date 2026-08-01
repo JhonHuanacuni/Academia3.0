@@ -24,6 +24,7 @@ CREATE PROCEDURE usp_pago_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -52,7 +53,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         p.OBSERVACIONES,
         p.IDMETODOPAGO,
         IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         pl.NOMBRE AS PLAN_NOMBRE
     FROM PAGOMEMBRESIA p
@@ -79,7 +80,6 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'IDPAGOMEMBRESIA' AND p_Direccion = 'DESC' THEN p.IDPAGOMEMBRESIA END DESC,
         p.FECHAPAGO DESC, p.HORAPAGO DESC, p.IDPAGOMEMBRESIA DESC
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
@@ -180,10 +180,6 @@ INSERT INTO PAGOMEMBRESIA (
 
     SET p_Resultado = 1;
     SET p_Mensaje = 'Abono registrado correctamente.';
-END;
-
-SELECT 'SPs de pagos creados: listar, abono, membresías del estudiante.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

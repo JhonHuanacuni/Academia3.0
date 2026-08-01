@@ -26,6 +26,7 @@ CREATE PROCEDURE usp_materia_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -74,7 +75,6 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'ESTADO' AND p_Direccion = 'DESC' THEN m.ACTIVO END DESC,
         m.NOMBRE
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
@@ -148,7 +148,6 @@ IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
         CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Materia registrada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -194,7 +193,6 @@ IF NOT EXISTS (SELECT 1 FROM MATERIA WHERE IDMATERIA = p_Id) THEN
     WHERE IDMATERIA = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Materia actualizada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -230,12 +228,10 @@ IF NOT EXISTS (SELECT 1 FROM MATERIA WHERE IDMATERIA = p_Id) THEN
         SET p_Mensaje = 'No se puede eliminar: la materia está ligada a libros.';
         LEAVE main;
     
+    END IF;
+
     DELETE FROM MATERIA WHERE IDMATERIA = p_Id;
     SET p_Resultado = 1; SET p_Mensaje = 'Materia eliminada.';
-END;
-
-SELECT 'SPs usp_materia_* creados.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

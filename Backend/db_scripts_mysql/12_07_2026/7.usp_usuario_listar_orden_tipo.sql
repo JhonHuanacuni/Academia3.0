@@ -25,6 +25,7 @@ CREATE PROCEDURE usp_usuario_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -93,10 +94,6 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'PARENTESCO'      AND p_Direccion = 'DESC' THEN u.PARENTESCO END DESC,
         u.IDUSUARIO
     LIMIT p_TamanioPagina OFFSET v_offset;
-END;
-
-SELECT 'usp_usuario_listar: orden por TIPOUSUARIO_DESCRIPCION habilitado.';
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;

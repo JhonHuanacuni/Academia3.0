@@ -29,7 +29,7 @@ SELECT
         p.IDMETODOPAGO,
         IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
         m.IDUSUARIO,
-        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))) AS ESTUDIANTE_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
         u.DNI AS ESTUDIANTE_DNI,
         pl.NOMBRE AS PLAN_NOMBRE,
         m.MONTOTOTAL,
@@ -96,6 +96,8 @@ SELECT IDMEMBRESIA, v_MontoAnterior = MONTO INTO v_IdMembresia
         SET p_Mensaje = CONCAT('El monto no puede superar S/ ', CAST(v_Maximo AS CHAR(20)), '.');
         LEAVE main;
     
+    END IF;
+
     UPDATE PAGOMEMBRESIA SET
         MONTO          = p_Monto,
         IDMETODOPAGO   = p_IdMetodoPago,
@@ -105,7 +107,6 @@ SELECT IDMEMBRESIA, v_MontoAnterior = MONTO INTO v_IdMembresia
 
     SET p_Resultado = 1;
     SET p_Mensaje = 'Pago actualizado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -128,10 +129,6 @@ IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id) THEN
 
     SET p_Resultado = 1;
     SET p_Mensaje = 'Pago eliminado.';
-END;
-
-SELECT 'SPs pago obtener / actualizar / eliminar creados.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

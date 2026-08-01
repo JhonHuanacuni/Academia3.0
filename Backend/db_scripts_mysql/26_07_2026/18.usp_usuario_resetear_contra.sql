@@ -25,13 +25,11 @@ IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
     
+    END IF;
+
     UPDATE USUARIO SET CONTRA = DNI WHERE IDUSUARIO = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Contraseña restablecida al DNI.';
-END;
-
-SELECT 'usp_usuario_resetear_contra listo.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

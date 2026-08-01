@@ -99,10 +99,6 @@ IF p_Dni IS NULL OR TRIM(p_Dni) = '' THEN
 
     SET p_Resultado = 1;
     SET p_Mensaje = 'Usuario creado.';
-END;
-
-SELECT 'usp_usuario_insertar: mensajes de duplicado mejorados.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

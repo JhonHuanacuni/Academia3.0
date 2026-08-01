@@ -70,10 +70,6 @@ INSERT INTO ASISTENCIA (IDASISTENCIA, FECHAREGISTRO, HORAINICIO, ESTADO, JUSTIFI
         UPDATE ASISTENCIA SET JUSTIFICADO = 1 WHERE IDUSUARIO = p_IdUsuario AND FECHAREGISTRO = p_Fecha;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Justificación actualizada.';
-END;
-
-SELECT 'usp_justificacion_actualizar listo.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

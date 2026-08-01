@@ -157,10 +157,6 @@ IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id) THEN
     WHERE IDPAGOEXTRA = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Pago extraordinario actualizado.';
-END;
-
-SELECT 'Pago extraordinario: fechas tomadas del concepto.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

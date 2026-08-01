@@ -25,6 +25,7 @@ CREATE PROCEDURE usp_asesor_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
+    DECLARE v_offset INT DEFAULT 0;
 IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
@@ -58,7 +59,6 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'ESTADO'   AND p_Direccion = 'DESC' THEN a.ACTIVO END DESC,
         a.NOMBRE
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
@@ -119,6 +119,8 @@ IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.';
         LEAVE main;
     
+    END IF;
+
     INSERT INTO ASESOR (IDASESOR, NOMBRE, ACTIVO)
     VALUES (
         p_Id,
@@ -126,7 +128,6 @@ IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
         CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Asesor registrado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -161,13 +162,14 @@ IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.';
         LEAVE main;
     
+    END IF;
+
     UPDATE ASESOR SET
         NOMBRE = p_Nombre,
         ACTIVO = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
     WHERE IDASESOR = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Asesor actualizado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
@@ -195,13 +197,11 @@ IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id) THEN
         SET p_Mensaje = 'No se puede eliminar: el asesor tiene membresías asociadas.';
         LEAVE main;
     
+    END IF;
+
     DELETE FROM ASESOR WHERE IDASESOR = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Asesor eliminado.';
-END;
-
-SELECT 'SPs usp_asesor_* creados.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

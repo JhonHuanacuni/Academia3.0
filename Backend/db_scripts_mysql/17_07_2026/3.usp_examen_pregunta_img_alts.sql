@@ -90,10 +90,6 @@ IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAM
     WHERE IDPREGUNTA = p_IdPregunta;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Pregunta guardada.';
-END;
-
-SELECT 'usp_examen_pregunta_guardar: imágenes por alternativa.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;

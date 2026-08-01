@@ -65,7 +65,6 @@ SET p_Id = CONCAT(''TUT'', RIGHT(CONCAT(''000'', CAST(v_Next AS CHAR(10))), 3);
     SET p_Resultado = 1; SET p_Mensaje = ''Tutor registrado.'';
 END', 'SELECT 1');
 PREPARE stmt FROM @sql_FK_MENSUALIDAD_TUTOR; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
