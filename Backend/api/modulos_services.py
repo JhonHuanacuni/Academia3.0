@@ -1,6 +1,7 @@
 import uuid
 from django.db import connection
 from django.utils import timezone
+from . import sp_runner as sp
 from .models import (
     Modulo, Submodulo, UsuarioModulo, GrupoModulo,
     UsuarioModuloExcluido, UsuarioSubmoduloExcluido, GrupoSubmoduloExcluido,
@@ -14,11 +15,6 @@ from .menu_config import (
 
 def _fecha_hoy():
     return timezone.localtime().strftime('%d%m%Y')
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description]
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 def get_usuarios_activos():
@@ -154,11 +150,15 @@ def listar_submodulos_modulo_usuario(idusuario: str, idmodulo: str):
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                'EXEC usp_submodulos_modulo_usuario @idusuario=%s, @idmodulo=%s',
-                [idusuario, idmodulo],
-            )
-            rows = _cursor_rows(cursor)
+            if sp.is_mysql():
+                sp.call_simple(cursor, 'usp_submodulos_modulo_usuario', [idusuario, idmodulo])
+                rows = sp.cursor_rows(cursor)
+            else:
+                cursor.execute(
+                    'EXEC usp_submodulos_modulo_usuario @idusuario=%s, @idmodulo=%s',
+                    [idusuario, idmodulo],
+                )
+                rows = sp.cursor_rows(cursor)
         return [
             {
                 'IDSUBMODULO': row['IDSUBMODULO'],
@@ -262,11 +262,15 @@ def get_menu_for_user(idusuario: str):
 def listar_modulos_efectivos_usuario(idusuario: str):
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                'EXEC usp_modulos_efectivos_usuario @idusuario=%s',
-                [idusuario],
-            )
-            rows = _cursor_rows(cursor)
+            if sp.is_mysql():
+                sp.call_simple(cursor, 'usp_modulos_efectivos_usuario', [idusuario])
+                rows = sp.cursor_rows(cursor)
+            else:
+                cursor.execute(
+                    'EXEC usp_modulos_efectivos_usuario @idusuario=%s',
+                    [idusuario],
+                )
+                rows = sp.cursor_rows(cursor)
 
         resultado = []
         for row in rows:
@@ -318,19 +322,25 @@ def listar_modulos_con_submodulos():
 
 def asignar_modulo_usuario(idusuario: str, idmodulo: str):
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC usp_modulo_asignar_usuario @idusuario=%s, @idmodulo=%s',
-            [idusuario, idmodulo],
-        )
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_modulo_asignar_usuario', [idusuario, idmodulo])
+        else:
+            cursor.execute(
+                'EXEC usp_modulo_asignar_usuario @idusuario=%s, @idmodulo=%s',
+                [idusuario, idmodulo],
+            )
 
 
 def desasignar_modulo_usuario(idusuario: str, idmodulo: str):
     validar_desasignacion_modulo(idusuario, idmodulo)
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC usp_modulo_desasignar_usuario @idusuario=%s, @idmodulo=%s',
-            [idusuario, idmodulo],
-        )
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_modulo_desasignar_usuario', [idusuario, idmodulo])
+        else:
+            cursor.execute(
+                'EXEC usp_modulo_desasignar_usuario @idusuario=%s, @idmodulo=%s',
+                [idusuario, idmodulo],
+            )
 
 
 def asignar_modulo_usuario_orm(idusuario: str, idmodulo: str):
@@ -387,18 +397,24 @@ def desasignar_modulo_usuario_orm(idusuario: str, idmodulo: str):
 
 def asignar_submodulo_usuario(idusuario: str, idsubmodulo: str):
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC usp_submodulo_asignar_usuario @idusuario=%s, @idsubmodulo=%s',
-            [idusuario, idsubmodulo],
-        )
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_submodulo_asignar_usuario', [idusuario, idsubmodulo])
+        else:
+            cursor.execute(
+                'EXEC usp_submodulo_asignar_usuario @idusuario=%s, @idsubmodulo=%s',
+                [idusuario, idsubmodulo],
+            )
 
 
 def desasignar_submodulo_usuario(idusuario: str, idsubmodulo: str):
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC usp_submodulo_desasignar_usuario @idusuario=%s, @idsubmodulo=%s',
-            [idusuario, idsubmodulo],
-        )
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_submodulo_desasignar_usuario', [idusuario, idsubmodulo])
+        else:
+            cursor.execute(
+                'EXEC usp_submodulo_desasignar_usuario @idusuario=%s, @idsubmodulo=%s',
+                [idusuario, idsubmodulo],
+            )
 
 
 def asignar_submodulo_usuario_orm(idusuario: str, idsubmodulo: str):
@@ -472,11 +488,15 @@ def _permisos_por_modulo_rol(idtipousuario: str):
 def listar_modulos_efectivos_rol(idtipousuario: str):
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                'EXEC usp_modulos_efectivos_rol @idtipousuario=%s',
-                [idtipousuario],
-            )
-            rows = _cursor_rows(cursor)
+            if sp.is_mysql():
+                sp.call_simple(cursor, 'usp_modulos_efectivos_rol', [idtipousuario])
+                rows = sp.cursor_rows(cursor)
+            else:
+                cursor.execute(
+                    'EXEC usp_modulos_efectivos_rol @idtipousuario=%s',
+                    [idtipousuario],
+                )
+                rows = sp.cursor_rows(cursor)
 
         resultado = []
         for row in rows:
@@ -532,11 +552,15 @@ def listar_submodulos_modulo_rol(idtipousuario: str, idmodulo: str):
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                'EXEC usp_submodulos_modulo_rol @idtipousuario=%s, @idmodulo=%s',
-                [idtipousuario, idmodulo],
-            )
-            rows = _cursor_rows(cursor)
+            if sp.is_mysql():
+                sp.call_simple(cursor, 'usp_submodulos_modulo_rol', [idtipousuario, idmodulo])
+                rows = sp.cursor_rows(cursor)
+            else:
+                cursor.execute(
+                    'EXEC usp_submodulos_modulo_rol @idtipousuario=%s, @idmodulo=%s',
+                    [idtipousuario, idmodulo],
+                )
+                rows = sp.cursor_rows(cursor)
         return [
             {
                 'IDSUBMODULO': row['IDSUBMODULO'],
@@ -576,19 +600,25 @@ def validar_desasignacion_modulo_rol(idtipousuario: str, idmodulo: str):
 
 def asignar_modulo_rol(idtipousuario: str, idmodulo: str):
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC usp_modulo_asignar_rol @idtipousuario=%s, @idmodulo=%s',
-            [idtipousuario, idmodulo],
-        )
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_modulo_asignar_rol', [idtipousuario, idmodulo])
+        else:
+            cursor.execute(
+                'EXEC usp_modulo_asignar_rol @idtipousuario=%s, @idmodulo=%s',
+                [idtipousuario, idmodulo],
+            )
 
 
 def desasignar_modulo_rol(idtipousuario: str, idmodulo: str):
     validar_desasignacion_modulo_rol(idtipousuario, idmodulo)
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC usp_modulo_desasignar_rol @idtipousuario=%s, @idmodulo=%s',
-            [idtipousuario, idmodulo],
-        )
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_modulo_desasignar_rol', [idtipousuario, idmodulo])
+        else:
+            cursor.execute(
+                'EXEC usp_modulo_desasignar_rol @idtipousuario=%s, @idmodulo=%s',
+                [idtipousuario, idmodulo],
+            )
 
 
 def asignar_modulo_rol_orm(idtipousuario: str, idmodulo: str):
@@ -622,18 +652,24 @@ def desasignar_modulo_rol_orm(idtipousuario: str, idmodulo: str):
 
 def asignar_submodulo_rol(idtipousuario: str, idsubmodulo: str):
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC usp_submodulo_asignar_rol @idtipousuario=%s, @idsubmodulo=%s',
-            [idtipousuario, idsubmodulo],
-        )
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_submodulo_asignar_rol', [idtipousuario, idsubmodulo])
+        else:
+            cursor.execute(
+                'EXEC usp_submodulo_asignar_rol @idtipousuario=%s, @idsubmodulo=%s',
+                [idtipousuario, idsubmodulo],
+            )
 
 
 def desasignar_submodulo_rol(idtipousuario: str, idsubmodulo: str):
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC usp_submodulo_desasignar_rol @idtipousuario=%s, @idsubmodulo=%s',
-            [idtipousuario, idsubmodulo],
-        )
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_submodulo_desasignar_rol', [idtipousuario, idsubmodulo])
+        else:
+            cursor.execute(
+                'EXEC usp_submodulo_desasignar_rol @idtipousuario=%s, @idsubmodulo=%s',
+                [idtipousuario, idsubmodulo],
+            )
 
 
 def asignar_submodulo_rol_orm(idtipousuario: str, idsubmodulo: str):

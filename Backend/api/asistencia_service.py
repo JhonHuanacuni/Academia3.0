@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from django.db import connection
 from .db_context import prepare_write_cursor
 from django.utils import timezone
+from . import sp_runner as sp
+from .sql_compat import is_mysql
 
 
 def _cursor_rows(cursor):
@@ -57,18 +59,27 @@ def _limite_tardanza_desde_plan(hora_entrada, tiempo_extra_min):
 
 
 def _obtener_limite_tardanza_usuario(id_usuario):
-    with connection.cursor() as cursor:
-        cursor.execute(
+    if is_mysql():
+        sql = """
+            SELECT p.HORAENTRADA, IFNULL(p.TIEMPOEXTRA, 0)
+            FROM MENSUALIDAD m
+            INNER JOIN `PLAN` p ON p.IDPLAN = m.IDPLAN
+            WHERE m.IDUSUARIO = %s
+              AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+            ORDER BY m.FECHAREGISTRO DESC, m.FECHAINICIO DESC
+            LIMIT 1
             """
+    else:
+        sql = """
             SELECT TOP 1 p.HORAENTRADA, ISNULL(p.TIEMPOEXTRA, 0)
             FROM MENSUALIDAD m
             INNER JOIN [PLAN] p ON p.IDPLAN = m.IDPLAN
             WHERE m.IDUSUARIO = %s
               AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
             ORDER BY m.FECHAREGISTRO DESC, m.FECHAINICIO DESC
-            """,
-            [id_usuario],
-        )
+            """
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [id_usuario])
         row = cursor.fetchone()
     if not row:
         return _limite_tardanza_desde_plan('08:00:00', 0)
@@ -88,17 +99,32 @@ def marcar_asistencia_por_dni(dni: str, id_registrador: str = None):
 
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_registrador)
-        cursor.execute(
-            """
-            DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);
-            EXEC dbo.usp_asistencia_marcar
-                @Dni=%s, @IdRegistrador=%s,
-                @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT, @IdAsistencia=@Id OUTPUT;
-            SELECT @R AS Resultado, @M AS Mensaje, @Id AS IdAsistencia;
-            """,
-            [dni, id_registrador],
-        )
-        resultado, mensaje, id_asistencia = _read_marcar_outputs(cursor)
+        if sp.is_mysql():
+            row = sp.call_write_outs(
+                cursor,
+                'usp_asistencia_marcar',
+                [dni, id_registrador],
+                ['@_sp_r', '@_sp_m', '@_sp_id'],
+                ['Resultado', 'Mensaje', 'IdAsistencia'],
+            )
+            if not row:
+                resultado, mensaje, id_asistencia = 0, 'Error desconocido', None
+            else:
+                resultado = int(row[0] or 0)
+                mensaje = str(row[1] or '')
+                id_asistencia = row[2]
+        else:
+            cursor.execute(
+                """
+                DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);
+                EXEC dbo.usp_asistencia_marcar
+                    @Dni=%s, @IdRegistrador=%s,
+                    @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT, @IdAsistencia=@Id OUTPUT;
+                SELECT @R AS Resultado, @M AS Mensaje, @Id AS IdAsistencia;
+                """,
+                [dni, id_registrador],
+            )
+            resultado, mensaje, id_asistencia = _read_marcar_outputs(cursor)
 
     if resultado != 1:
         return resultado, mensaje, None, None
@@ -165,7 +191,14 @@ def marcar_asistencia_orm(dni: str, id_registrador: str = None):
 
 
 def listar_asistencias(fecha=None, buscar=None, pagina=1, tamanio=50):
+    params = [fecha, buscar, pagina, tamanio]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_list(
+                cursor,
+                'usp_asistencia_listar',
+                [fecha, buscar, 'HORAINICIO', 'DESC', pagina, tamanio],
+            )
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -174,7 +207,7 @@ def listar_asistencias(fecha=None, buscar=None, pagina=1, tamanio=50):
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [fecha, buscar, pagina, tamanio],
+            params,
         )
         data = _cursor_rows(cursor)
         total = 0

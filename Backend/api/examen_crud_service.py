@@ -2,11 +2,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import connection
 from .db_context import prepare_write_cursor
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+from . import sp_runner as sp
 
 
 def _read_sp_write_result(cursor, extra_cols=None):
@@ -58,7 +54,10 @@ def listar_examenes(
     pagina=1,
     tamanio=10,
 ):
+    params = [buscar or None, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_list(cursor, 'usp_examen_listar', params)
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -67,9 +66,9 @@ def listar_examenes(
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, ordenar_por, direccion, pagina, tamanio],
+            params,
         )
-        data = _cursor_rows(cursor)
+        data = sp.cursor_rows(cursor)
         total = 0
         if cursor.nextset() and cursor.description:
             row = cursor.fetchone()
@@ -80,14 +79,24 @@ def listar_examenes(
 
 def obtener_examen(id_examen: str):
     with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_examen_obtener @Id=%s', [id_examen])
-        rows = _cursor_rows(cursor)
-        aulas = []
-        if cursor.nextset():
-            aulas = [r['IDAULA'] for r in _cursor_rows(cursor)]
-        preguntas = []
-        if cursor.nextset():
-            preguntas = [enriquecer_pregunta(r) for r in _cursor_rows(cursor)]
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_examen_obtener', [id_examen])
+            rows = sp.cursor_rows(cursor)
+            aulas = []
+            if cursor.nextset():
+                aulas = [r['IDAULA'] for r in sp.cursor_rows(cursor)]
+            preguntas = []
+            if cursor.nextset():
+                preguntas = [enriquecer_pregunta(r) for r in sp.cursor_rows(cursor)]
+        else:
+            cursor.execute('EXEC dbo.usp_examen_obtener @Id=%s', [id_examen])
+            rows = sp.cursor_rows(cursor)
+            aulas = []
+            if cursor.nextset():
+                aulas = [r['IDAULA'] for r in sp.cursor_rows(cursor)]
+            preguntas = []
+            if cursor.nextset():
+                preguntas = [enriquecer_pregunta(r) for r in sp.cursor_rows(cursor)]
     if not rows:
         return None
     out = dict(rows[0])
@@ -98,14 +107,21 @@ def obtener_examen(id_examen: str):
 
 def obtener_pregunta(id_examen: str, id_pregunta: str):
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC dbo.usp_examen_pregunta_detalle @IdExamen=%s, @IdPregunta=%s',
-            [id_examen, id_pregunta],
-        )
-        rows = _cursor_rows(cursor)
-        alts = []
-        if cursor.nextset():
-            alts = [enriquecer_alternativa(r) for r in _cursor_rows(cursor)]
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_examen_pregunta_detalle', [id_examen, id_pregunta])
+            rows = sp.cursor_rows(cursor)
+            alts = []
+            if cursor.nextset():
+                alts = [enriquecer_alternativa(r) for r in sp.cursor_rows(cursor)]
+        else:
+            cursor.execute(
+                'EXEC dbo.usp_examen_pregunta_detalle @IdExamen=%s, @IdPregunta=%s',
+                [id_examen, id_pregunta],
+            )
+            rows = sp.cursor_rows(cursor)
+            alts = []
+            if cursor.nextset():
+                alts = [enriquecer_alternativa(r) for r in sp.cursor_rows(cursor)]
     if not rows:
         return None
     out = enriquecer_pregunta(rows[0])
@@ -115,20 +131,50 @@ def obtener_pregunta(id_examen: str, id_pregunta: str):
 
 def distribucion_examen(tipo=None, id_examen=None):
     with connection.cursor() as cursor:
-        cursor.execute(
-            'EXEC dbo.usp_examen_distribucion @Tipo=%s, @IdExamen=%s',
-            [tipo, id_examen],
-        )
-        categorias = _cursor_rows(cursor)
-        materias = []
-        if cursor.nextset():
-            materias = _cursor_rows(cursor)
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_examen_distribucion', [tipo, id_examen])
+            categorias = sp.cursor_rows(cursor)
+            materias = []
+            if cursor.nextset():
+                materias = sp.cursor_rows(cursor)
+        else:
+            cursor.execute(
+                'EXEC dbo.usp_examen_distribucion @Tipo=%s, @IdExamen=%s',
+                [tipo, id_examen],
+            )
+            categorias = sp.cursor_rows(cursor)
+            materias = []
+            if cursor.nextset():
+                materias = sp.cursor_rows(cursor)
     return {'categorias': categorias, 'materias': materias}
 
 
 def insertar_examen(payload: dict, id_usuario=None):
+    params = [
+        payload['TITULO'],
+        payload.get('DESCRIPCION'),
+        int(payload.get('TIPO') or 40),
+        int(payload.get('DURACIONMIN') or 120),
+        payload.get('FECHAINICIO'),
+        payload.get('FECHAFIN'),
+        payload.get('HORAINICIO'),
+        payload.get('HORAFIN'),
+        1 if payload.get('VISIBLE', True) else 0,
+        1 if payload.get('TODASLASULA', True) else 0,
+        payload['IDUSUARIO'],
+        payload.get('AULAS_CSV') or None,
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            row = sp.call_write_outs(
+                cursor,
+                'usp_examen_insertar',
+                params,
+                ['@_sp_r', '@_sp_m', '@_sp_id'],
+                ['Resultado', 'Mensaje', 'IdGenerado'],
+            )
+            return int(row[0] or 0), str(row[1] or ''), row[2]
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);
@@ -139,28 +185,31 @@ def insertar_examen(payload: dict, id_usuario=None):
                 @IdGenerado=@Id OUTPUT, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje, @Id AS IdGenerado;
             """,
-            [
-                payload['TITULO'],
-                payload.get('DESCRIPCION'),
-                int(payload.get('TIPO') or 40),
-                int(payload.get('DURACIONMIN') or 120),
-                payload.get('FECHAINICIO'),
-                payload.get('FECHAFIN'),
-                payload.get('HORAINICIO'),
-                payload.get('HORAFIN'),
-                1 if payload.get('VISIBLE', True) else 0,
-                1 if payload.get('TODASLASULA', True) else 0,
-                payload['IDUSUARIO'],
-                payload.get('AULAS_CSV') or None,
-            ],
+            params,
         )
         ok, mensaje, extras = _read_sp_write_result(cursor, extra_cols=['idgenerado'])
         return ok, mensaje, extras.get('idgenerado')
 
 
 def actualizar_examen(id_examen: str, payload: dict, id_usuario=None):
+    params = [
+        id_examen,
+        payload['TITULO'],
+        payload.get('DESCRIPCION'),
+        int(payload.get('DURACIONMIN') or 120),
+        payload.get('FECHAINICIO'),
+        payload.get('FECHAFIN'),
+        payload.get('HORAINICIO'),
+        payload.get('HORAFIN'),
+        1 if payload.get('VISIBLE', True) else 0,
+        1 if payload.get('TODASLASULA', True) else 0,
+        payload.get('AULAS_CSV') or None,
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            ok, mensaje = sp.call_write(cursor, 'usp_examen_actualizar', params)
+            return ok, mensaje
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -171,19 +220,7 @@ def actualizar_examen(id_examen: str, payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                id_examen,
-                payload['TITULO'],
-                payload.get('DESCRIPCION'),
-                int(payload.get('DURACIONMIN') or 120),
-                payload.get('FECHAINICIO'),
-                payload.get('FECHAFIN'),
-                payload.get('HORAINICIO'),
-                payload.get('HORAFIN'),
-                1 if payload.get('VISIBLE', True) else 0,
-                1 if payload.get('TODASLASULA', True) else 0,
-                payload.get('AULAS_CSV') or None,
-            ],
+            params,
         )
         ok, mensaje, _ = _read_sp_write_result(cursor)
         return ok, mensaje
@@ -192,6 +229,9 @@ def actualizar_examen(id_examen: str, payload: dict, id_usuario=None):
 def eliminar_examen(id_examen: str, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario)
+        if sp.is_mysql():
+            ok, mensaje = sp.call_write(cursor, 'usp_examen_eliminar', [id_examen])
+            return ok, mensaje
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -205,8 +245,34 @@ def eliminar_examen(id_examen: str, id_usuario=None):
 
 
 def guardar_pregunta(id_examen: str, id_pregunta: str, payload: dict, id_usuario=None):
+    params = [
+        id_examen,
+        id_pregunta,
+        payload.get('DESCRIPCION'),
+        payload.get('IMAGEURL'),
+        1 if payload.get('QUITAR_IMAGEN') else 0,
+        payload.get('ALT1') or '',
+        payload.get('ALT2') or '',
+        payload.get('ALT3') or '',
+        payload.get('ALT4') or '',
+        payload.get('ALT5') or '',
+        payload.get('IMG_ALT1'),
+        payload.get('IMG_ALT2'),
+        payload.get('IMG_ALT3'),
+        payload.get('IMG_ALT4'),
+        payload.get('IMG_ALT5'),
+        1 if payload.get('QUITAR_IMG_ALT1') else 0,
+        1 if payload.get('QUITAR_IMG_ALT2') else 0,
+        1 if payload.get('QUITAR_IMG_ALT3') else 0,
+        1 if payload.get('QUITAR_IMG_ALT4') else 0,
+        1 if payload.get('QUITAR_IMG_ALT5') else 0,
+        int(payload.get('CORRECTA_ORDEN') or 1),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            ok, mensaje = sp.call_write(cursor, 'usp_examen_pregunta_guardar', params)
+            return ok, mensaje
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -220,29 +286,7 @@ def guardar_pregunta(id_examen: str, id_pregunta: str, payload: dict, id_usuario
                 @CorrectaOrden=%s, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                id_examen,
-                id_pregunta,
-                payload.get('DESCRIPCION'),
-                payload.get('IMAGEURL'),
-                1 if payload.get('QUITAR_IMAGEN') else 0,
-                payload.get('ALT1') or '',
-                payload.get('ALT2') or '',
-                payload.get('ALT3') or '',
-                payload.get('ALT4') or '',
-                payload.get('ALT5') or '',
-                payload.get('IMG_ALT1'),
-                payload.get('IMG_ALT2'),
-                payload.get('IMG_ALT3'),
-                payload.get('IMG_ALT4'),
-                payload.get('IMG_ALT5'),
-                1 if payload.get('QUITAR_IMG_ALT1') else 0,
-                1 if payload.get('QUITAR_IMG_ALT2') else 0,
-                1 if payload.get('QUITAR_IMG_ALT3') else 0,
-                1 if payload.get('QUITAR_IMG_ALT4') else 0,
-                1 if payload.get('QUITAR_IMG_ALT5') else 0,
-                int(payload.get('CORRECTA_ORDEN') or 1),
-            ],
+            params,
         )
         ok, mensaje, _ = _read_sp_write_result(cursor)
         return ok, mensaje
@@ -258,7 +302,7 @@ def listar_catalogos_examen():
             ORDER BY NOMBRE
             """
         )
-        aulas = _cursor_rows(cursor)
+        aulas = sp.cursor_rows(cursor)
     return {
         'aulas': aulas,
         'tipos': [

@@ -1,9 +1,5 @@
 from django.db import connection
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+from . import sp_runner as sp
 
 
 def listar_auditoria(
@@ -18,7 +14,21 @@ def listar_auditoria(
     pagina=1,
     tamanio=10,
 ):
+    params = [
+        buscar or None,
+        tabla or None,
+        accion or None,
+        id_usuario or None,
+        fecha_desde or None,
+        fecha_hasta or None,
+        ordenar_por,
+        direccion,
+        pagina,
+        tamanio,
+    ]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_list(cursor, 'usp_auditoria_listar', params)
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -29,20 +39,9 @@ def listar_auditoria(
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [
-                buscar or None,
-                tabla or None,
-                accion or None,
-                id_usuario or None,
-                fecha_desde or None,
-                fecha_hasta or None,
-                ordenar_por,
-                direccion,
-                pagina,
-                tamanio,
-            ],
+            params,
         )
-        data = _cursor_rows(cursor)
+        data = sp.cursor_rows(cursor)
         total = 0
         if cursor.nextset() and cursor.description:
             row = cursor.fetchone()
@@ -52,13 +51,12 @@ def listar_auditoria(
 
 
 def obtener_auditoria(id_auditoria: str):
-    with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_auditoria_obtener @Id=%s', [id_auditoria])
-        rows = _cursor_rows(cursor)
-    return rows[0] if rows else None
+    return sp.call_obtain('usp_auditoria_obtener', id_auditoria)
 
 
 def listar_tablas_auditoria():
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_simple(cursor, 'usp_auditoria_tablas_catalogo', [])
         cursor.execute('EXEC dbo.usp_auditoria_tablas_catalogo')
-        return _cursor_rows(cursor)
+        return sp.cursor_rows(cursor)

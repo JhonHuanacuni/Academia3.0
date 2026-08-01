@@ -1,25 +1,10 @@
 from django.db import connection
 from .db_context import prepare_write_cursor
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+from . import sp_runner as sp
 
 
 def _read_sp_write_result(cursor):
-    resultado, mensaje = 0, 'Error desconocido'
-    while True:
-        if cursor.description:
-            row = cursor.fetchone()
-            if row:
-                cols = [c[0].lower() for c in cursor.description]
-                data = dict(zip(cols, row))
-                resultado = data.get('resultado', resultado)
-                mensaje = data.get('mensaje', mensaje)
-        if not cursor.nextset():
-            break
-    return int(resultado or 0), str(mensaje or '')
+    return sp.read_write_result(cursor)
 
 
 def _decimal_or_none(value):
@@ -35,7 +20,10 @@ def listar_pagos(
     pagina=1,
     tamanio=10,
 ):
+    params = [buscar or None, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_list(cursor, 'usp_pago_listar', params)
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -44,9 +32,9 @@ def listar_pagos(
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, ordenar_por, direccion, pagina, tamanio],
+            params,
         )
-        data = _cursor_rows(cursor)
+        data = sp.cursor_rows(cursor)
         total = 0
         if cursor.nextset() and cursor.description:
             row = cursor.fetchone()
@@ -57,16 +45,27 @@ def listar_pagos(
 
 def mensualidades_estudiante(id_usuario: str):
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_simple(cursor, 'usp_pago_mensualidades_estudiante', [id_usuario])
         cursor.execute(
             'EXEC dbo.usp_pago_mensualidades_estudiante @IdUsuario=%s',
             [id_usuario],
         )
-        return _cursor_rows(cursor)
+        return sp.cursor_rows(cursor)
 
 
 def insertar_abono(payload: dict, id_usuario=None):
+    params = [
+        payload.get('IDMENSUALIDAD'),
+        _decimal_or_none(payload.get('MONTO')),
+        payload.get('IDMETODOPAGO'),
+        payload.get('OBSERVACIONES') or None,
+        payload.get('REGISTRADOPOR') or None,
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_pago_insertar_abono', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -76,27 +75,27 @@ def insertar_abono(payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                payload.get('IDMENSUALIDAD'),
-                _decimal_or_none(payload.get('MONTO')),
-                payload.get('IDMETODOPAGO'),
-                payload.get('OBSERVACIONES') or None,
-                payload.get('REGISTRADOPOR') or None,
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
 
 def obtener_pago(id_pago: str):
-    with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_pago_obtener @Id=%s', [id_pago])
-        rows = _cursor_rows(cursor)
-    return rows[0] if rows else None
+    return sp.call_obtain('usp_pago_obtener', id_pago)
 
 
 def actualizar_pago(id_pago: str, payload: dict, id_usuario=None):
+    params = [
+        id_pago,
+        _decimal_or_none(payload.get('MONTO')),
+        payload.get('IDMETODOPAGO'),
+        payload.get('FECHAPAGO') or None,
+        payload.get('OBSERVACIONES') or None,
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_pago_actualizar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -106,13 +105,7 @@ def actualizar_pago(id_pago: str, payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                id_pago,
-                _decimal_or_none(payload.get('MONTO')),
-                payload.get('IDMETODOPAGO'),
-                payload.get('FECHAPAGO') or None,
-                payload.get('OBSERVACIONES') or None,
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
@@ -120,6 +113,8 @@ def actualizar_pago(id_pago: str, payload: dict, id_usuario=None):
 def eliminar_pago(id_pago: str, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_pago_eliminar', [id_pago])
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -140,4 +135,4 @@ def listar_metodos_pago():
             FROM METODO_PAGO WHERE ACTIVO = 1 ORDER BY TITULO
             """
         )
-        return _cursor_rows(cursor)
+        return sp.cursor_rows(cursor)

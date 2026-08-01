@@ -1,25 +1,10 @@
 from django.db import connection
 from .db_context import prepare_write_cursor
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+from . import sp_runner as sp
 
 
 def _read_sp_write_result(cursor):
-    resultado, mensaje = 0, 'Error desconocido'
-    while True:
-        if cursor.description:
-            row = cursor.fetchone()
-            if row:
-                cols = [c[0].lower() for c in cursor.description]
-                data = dict(zip(cols, row))
-                resultado = data.get('resultado', resultado)
-                mensaje = data.get('mensaje', mensaje)
-        if not cursor.nextset():
-            break
-    return int(resultado or 0), str(mensaje or '')
+    return sp.read_write_result(cursor)
 
 
 def listar_tutores(
@@ -30,7 +15,10 @@ def listar_tutores(
     pagina=1,
     tamanio=10,
 ):
+    params = [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_list(cursor, 'usp_tutor_listar', params)
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -39,9 +27,9 @@ def listar_tutores(
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio],
+            params,
         )
-        data = _cursor_rows(cursor)
+        data = sp.cursor_rows(cursor)
         total = 0
         if cursor.nextset() and cursor.description:
             row = cursor.fetchone()
@@ -51,15 +39,19 @@ def listar_tutores(
 
 
 def obtener_tutor(id_tutor: str):
-    with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_tutor_obtener @Id=%s', [id_tutor])
-        rows = _cursor_rows(cursor)
-    return rows[0] if rows else None
+    return sp.call_obtain('usp_tutor_obtener', id_tutor)
 
 
 def insertar_tutor(payload: dict, id_usuario=None):
+    params = [
+        payload.get('IDTUTOR') or None,
+        payload['NOMBRE'],
+        payload.get('ESTADO', 'Activo'),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_tutor_insertar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -68,18 +60,21 @@ def insertar_tutor(payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                payload.get('IDTUTOR') or None,
-                payload['NOMBRE'],
-                payload.get('ESTADO', 'Activo'),
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
 
 def actualizar_tutor(id_tutor: str, payload: dict, id_usuario=None):
+    params = [
+        id_tutor,
+        payload['NOMBRE'],
+        payload.get('ESTADO', 'Activo'),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_tutor_actualizar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -88,11 +83,7 @@ def actualizar_tutor(id_tutor: str, payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                id_tutor,
-                payload['NOMBRE'],
-                payload.get('ESTADO', 'Activo'),
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
@@ -100,6 +91,8 @@ def actualizar_tutor(id_tutor: str, payload: dict, id_usuario=None):
 def eliminar_tutor(id_tutor: str, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_tutor_eliminar', [id_tutor])
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

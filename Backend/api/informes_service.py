@@ -3,6 +3,9 @@ from datetime import datetime, timedelta
 from django.db import connection
 from django.utils import timezone
 
+from . import sp_runner as sp
+from .sql_compat import is_mysql, isnull
+
 DIAS_ES = ('lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom')
 DEFAULT_DIAS_ASISTENCIA = 63  # lun–sáb (bits 0–5)
 
@@ -349,13 +352,20 @@ def informe_asistencias(fecha_desde, fecha_hasta, buscar=None, id_plan=None, est
         raise ValueError('Rango de fechas inválido.')
 
     with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            EXEC dbo.usp_asistencia_informe
-                @FechaDesde=%s, @FechaHasta=%s, @Buscar=%s, @IDPlan=%s, @EstadoUsuario=%s;
-            """,
-            [fecha_desde, fecha_hasta, buscar, id_plan, estado_usuario],
-        )
+        params = [fecha_desde, fecha_hasta, buscar, id_plan, estado_usuario]
+        if sp.is_mysql():
+            cursor.execute(
+                'CALL usp_asistencia_informe(%s, %s, %s, %s, %s)',
+                params,
+            )
+        else:
+            cursor.execute(
+                """
+                EXEC dbo.usp_asistencia_informe
+                    @FechaDesde=%s, @FechaHasta=%s, @Buscar=%s, @IDPlan=%s, @EstadoUsuario=%s;
+                """,
+                params,
+            )
         estudiantes = _cursor_rows(cursor)
         asistencias = []
         if cursor.nextset() and cursor.description:
@@ -440,26 +450,50 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
             plan_filter = ' AND mem.IDPLAN = %s'
             params.append(id_plan)
         if estado_usuario:
-            estado_filter = ' AND UPPER(ISNULL(u.ESTADO, ''Activo'')) = UPPER(%s)'
+            estado_filter = ' AND UPPER(' + isnull('u.ESTADO', "'Activo'") + ') = UPPER(%s)'
             params.append(estado_usuario)
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"""
-                SELECT
-                    u.IDUSUARIO,
-                    mem.IDPLAN,
-                    ISNULL(pl.DIASASISTENCIA, 63) AS DIASASISTENCIA,
-                    UPPER(ISNULL(tut.NOMBRE, '')) AS TUTORA,
-                    ISNULL(au.NOMBRE, '') AS AULA,
-                    UPPER(LTRIM(RTRIM(
+        if is_mysql():
+            plan_table = '`PLAN`'
+            ciclo_expr = f"""UPPER(TRIM(CONCAT(
+                        {isnull('pl.NOMBRE', "''")},
+                        CASE WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
+                             THEN CONCAT(' ', tu.DESCRIPCION) ELSE '' END
+                    )))"""
+            mem_join = """
+                LEFT JOIN (
+                    SELECT t.IDUSUARIO, t.IDAULA, t.IDPLAN, t.IDTURNO,
+                           t.FECHAINICIO, t.FECHA_VENCE
+                    FROM (
+                        SELECT
+                            m.IDUSUARIO,
+                            m.IDAULA, m.IDPLAN, m.IDTURNO,
+                            m.FECHAINICIO, m.FECHAFIN AS FECHA_VENCE,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY m.IDUSUARIO
+                                ORDER BY
+                                    CASE
+                                        WHEN (m.FECHAINICIO IS NULL OR m.FECHAINICIO <= %s)
+                                         AND (m.FECHAFIN IS NULL OR m.FECHAFIN >= %s)
+                                        THEN 0 ELSE 1
+                                    END,
+                                    m.FECHAREGISTRO DESC,
+                                    m.FECHAINICIO DESC
+                            ) AS RN
+                        FROM MENSUALIDAD m
+                        WHERE (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                    ) t
+                    WHERE t.RN = 1
+                ) mem ON mem.IDUSUARIO = u.IDUSUARIO
+                """
+        else:
+            plan_table = '[PLAN]'
+            ciclo_expr = """UPPER(LTRIM(RTRIM(
                         ISNULL(pl.NOMBRE, '') +
                         CASE WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
                              THEN ' ' + tu.DESCRIPCION ELSE '' END
-                    ))) AS CICLO,
-                    mem.FECHAINICIO AS FECHA_INICIO_MEM,
-                    mem.FECHA_VENCE
-                FROM USUARIO u
+                    )))"""
+            mem_join = """
                 OUTER APPLY (
                     SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO,
                            m.FECHAINICIO, m.FECHAFIN AS FECHA_VENCE
@@ -475,9 +509,25 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                         m.FECHAREGISTRO DESC,
                         m.FECHAINICIO DESC
                 ) mem
+                """
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT
+                    u.IDUSUARIO,
+                    mem.IDPLAN,
+                    {isnull('pl.DIASASISTENCIA', '63')} AS DIASASISTENCIA,
+                    UPPER({isnull('tut.NOMBRE', "''")}) AS TUTORA,
+                    {isnull("au.NOMBRE", "''")} AS AULA,
+                    {ciclo_expr} AS CICLO,
+                    mem.FECHAINICIO AS FECHA_INICIO_MEM,
+                    mem.FECHA_VENCE
+                FROM USUARIO u
+                {mem_join}
                 LEFT JOIN AULA au ON au.IDAULA = mem.IDAULA
                 LEFT JOIN USUARIO tut ON tut.IDUSUARIO = au.IDTUTORA
-                LEFT JOIN [PLAN] pl ON pl.IDPLAN = mem.IDPLAN
+                LEFT JOIN {plan_table} pl ON pl.IDPLAN = mem.IDPLAN
                 LEFT JOIN TURNO tu ON tu.IDTURNO = mem.IDTURNO
                 WHERE u.IDTIPOUSUARIO = '1'
                 {estado_filter}

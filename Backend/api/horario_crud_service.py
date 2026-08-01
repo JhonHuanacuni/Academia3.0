@@ -2,11 +2,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import connection
 from .db_context import prepare_write_cursor
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+from . import sp_runner as sp
 
 
 def _read_sp_write_result(cursor, extra_cols=None):
@@ -51,7 +47,11 @@ def listar_horarios(
     pagina=1,
     tamanio=10,
 ):
+    params = [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            data, total = sp.call_list(cursor, 'usp_horario_listar', params)
+            return [enriquecer_urls(r) for r in data], total
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -60,9 +60,9 @@ def listar_horarios(
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio],
+            params,
         )
-        data = [enriquecer_urls(r) for r in _cursor_rows(cursor)]
+        data = [enriquecer_urls(r) for r in sp.cursor_rows(cursor)]
         total = 0
         if cursor.nextset() and cursor.description:
             row = cursor.fetchone()
@@ -73,11 +73,18 @@ def listar_horarios(
 
 def obtener_horario(id_horario: str):
     with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_horario_obtener @Id=%s', [id_horario])
-        rows = _cursor_rows(cursor)
-        aulas = []
-        if cursor.nextset():
-            aulas = [r['IDAULA'] for r in _cursor_rows(cursor)]
+        if sp.is_mysql():
+            sp.call_simple(cursor, 'usp_horario_obtener', [id_horario])
+            rows = sp.cursor_rows(cursor)
+            aulas = []
+            if cursor.nextset():
+                aulas = [r['IDAULA'] for r in sp.cursor_rows(cursor)]
+        else:
+            cursor.execute('EXEC dbo.usp_horario_obtener @Id=%s', [id_horario])
+            rows = sp.cursor_rows(cursor)
+            aulas = []
+            if cursor.nextset():
+                aulas = [r['IDAULA'] for r in sp.cursor_rows(cursor)]
     if not rows:
         return None
     out = enriquecer_urls(rows[0])
@@ -86,8 +93,25 @@ def obtener_horario(id_horario: str):
 
 
 def insertar_horario(payload: dict, id_usuario=None):
+    params = [
+        payload['TITULO'],
+        payload.get('DESCRIPCION') or None,
+        payload.get('URLIMAGEN') or None,
+        payload.get('FECHASUBIDA') or None,
+        payload.get('ESTADO', 'Activo'),
+        payload.get('AULAS_CSV') or None,
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            row = sp.call_write_outs(
+                cursor,
+                'usp_horario_insertar',
+                params,
+                ['@_sp_r', '@_sp_m', '@_sp_id'],
+                ['Resultado', 'Mensaje', 'IdGenerado'],
+            )
+            return int(row[0] or 0), str(row[1] or ''), row[2]
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);
@@ -97,22 +121,26 @@ def insertar_horario(payload: dict, id_usuario=None):
                 @IdGenerado=@Id OUTPUT, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje, @Id AS IdGenerado;
             """,
-            [
-                payload['TITULO'],
-                payload.get('DESCRIPCION') or None,
-                payload.get('URLIMAGEN') or None,
-                payload.get('FECHASUBIDA') or None,
-                payload.get('ESTADO', 'Activo'),
-                payload.get('AULAS_CSV') or None,
-            ],
+            params,
         )
         ok, mensaje, extras = _read_sp_write_result(cursor, extra_cols=['idgenerado'])
         return ok, mensaje, extras.get('idgenerado')
 
 
 def actualizar_horario(id_horario: str, payload: dict, id_usuario=None):
+    params = [
+        id_horario,
+        payload['TITULO'],
+        payload.get('DESCRIPCION') or None,
+        payload.get('URLIMAGEN') or None,
+        payload.get('ESTADO', 'Activo'),
+        payload.get('AULAS_CSV') or None,
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            ok, mensaje = sp.call_write(cursor, 'usp_horario_actualizar', params)
+            return ok, mensaje
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -122,14 +150,7 @@ def actualizar_horario(id_horario: str, payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                id_horario,
-                payload['TITULO'],
-                payload.get('DESCRIPCION') or None,
-                payload.get('URLIMAGEN') or None,
-                payload.get('ESTADO', 'Activo'),
-                payload.get('AULAS_CSV') or None,
-            ],
+            params,
         )
         ok, mensaje, _ = _read_sp_write_result(cursor)
         return ok, mensaje
@@ -138,6 +159,9 @@ def actualizar_horario(id_horario: str, payload: dict, id_usuario=None):
 def eliminar_horario(id_horario: str, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario)
+        if sp.is_mysql():
+            ok, mensaje = sp.call_write(cursor, 'usp_horario_eliminar', [id_horario])
+            return ok, mensaje
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -160,7 +184,7 @@ def listar_catalogos_horario():
             ORDER BY NOMBRE
             """
         )
-        aulas = _cursor_rows(cursor)
+        aulas = sp.cursor_rows(cursor)
     return {'aulas': aulas}
 
 

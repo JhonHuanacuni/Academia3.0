@@ -1,27 +1,12 @@
 from django.db import connection
+
 from .db_context import prepare_write_cursor
 from .models import TipoUsuario
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+from . import sp_runner as sp
 
 
 def _read_sp_write_result(cursor):
-    """Lee @Resultado y @Mensaje del último result set."""
-    resultado, mensaje = 0, 'Error desconocido'
-    while True:
-        if cursor.description:
-            row = cursor.fetchone()
-            if row:
-                cols = [c[0].lower() for c in cursor.description]
-                data = dict(zip(cols, row))
-                resultado = data.get('resultado', resultado)
-                mensaje = data.get('mensaje', mensaje)
-        if not cursor.nextset():
-            break
-    return int(resultado or 0), str(mensaje or '')
+    return sp.read_write_result(cursor)
 
 
 def listar_usuarios(
@@ -32,7 +17,10 @@ def listar_usuarios(
     pagina=1,
     tamanio=10,
 ):
+    params = [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_list(cursor, 'usp_usuario_listar', params)
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -41,9 +29,9 @@ def listar_usuarios(
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio],
+            params,
         )
-        data = _cursor_rows(cursor)
+        data = sp.cursor_rows(cursor)
         total = 0
         if cursor.nextset() and cursor.description:
             row = cursor.fetchone()
@@ -53,15 +41,28 @@ def listar_usuarios(
 
 
 def obtener_usuario(id_usuario: str):
-    with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_usuario_obtener @Id=%s', [id_usuario])
-        rows = _cursor_rows(cursor)
-    return rows[0] if rows else None
+    return sp.call_obtain('usp_usuario_obtener', id_usuario)
 
 
 def insertar_usuario(payload: dict, id_usuario=None):
+    id_val = payload.get('IDUSUARIO') or payload.get('DNI')
+    contra_val = payload.get('CONTRA') or payload.get('DNI') or payload.get('IDUSUARIO')
+    rest = [
+        payload['NOMBRE'],
+        payload['APELLIDO'], payload['DNI'], payload['EMAIL'],
+        payload['IDTIPOUSUARIO'], payload.get('ESTADO', 'Activo'),
+        payload.get('FECHANACIMIENTO'), payload.get('DIRECCION'),
+        payload.get('DISTRITO'), payload.get('COLEGIO'), payload.get('GRADO'),
+        payload.get('TELPERSONAL'), payload.get('TELAPODERADO'),
+        payload.get('NOMBREAPODERADO'), payload.get('PARENTESCO'),
+        payload.get('SITUACIONACADEMICA'),
+        payload.get('COMOENTERO') or None,
+        payload.get('FOTO'),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write_inout(cursor, 'usp_usuario_insertar', id_val, contra_val, rest)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -74,28 +75,31 @@ def insertar_usuario(payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                payload.get('IDUSUARIO') or payload.get('DNI'),
-                payload.get('CONTRA') or payload.get('DNI') or payload.get('IDUSUARIO'),
-                payload['NOMBRE'],
-                payload['APELLIDO'], payload['DNI'], payload['EMAIL'],
-                payload['IDTIPOUSUARIO'], payload.get('ESTADO', 'Activo'),
-                payload.get('FECHANACIMIENTO'), payload.get('DIRECCION'),
-                payload.get('DISTRITO'), payload.get('COLEGIO'), payload.get('GRADO'),
-                payload.get('TELPERSONAL'), payload.get('TELAPODERADO'),
-                payload.get('NOMBREAPODERADO'), payload.get('PARENTESCO'),
-                payload.get('SITUACIONACADEMICA'),
-                payload.get('COMOENTERO') or None,
-                payload.get('FOTO'),
-            ],
+            [id_val, contra_val, *rest],
         )
         return _read_sp_write_result(cursor)
 
 
 def actualizar_usuario(id_usuario: str, payload: dict, id_actor=None):
     actualizar_foto = 1 if 'FOTO' in payload else 0
+    params = [
+        id_usuario,
+        payload.get('CONTRA') or None,
+        payload['NOMBRE'], payload['APELLIDO'], payload['DNI'],
+        payload['EMAIL'], payload['IDTIPOUSUARIO'], payload['ESTADO'],
+        payload.get('FECHANACIMIENTO'), payload.get('DIRECCION'),
+        payload.get('DISTRITO'), payload.get('COLEGIO'), payload.get('GRADO'),
+        payload.get('TELPERSONAL'), payload.get('TELAPODERADO'),
+        payload.get('NOMBREAPODERADO'), payload.get('PARENTESCO'),
+        payload.get('SITUACIONACADEMICA'),
+        payload.get('COMOENTERO') or None,
+        payload.get('FOTO'),
+        actualizar_foto,
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_actor, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_usuario_actualizar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -108,20 +112,7 @@ def actualizar_usuario(id_usuario: str, payload: dict, id_actor=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                id_usuario,
-                payload.get('CONTRA') or None,
-                payload['NOMBRE'], payload['APELLIDO'], payload['DNI'],
-                payload['EMAIL'], payload['IDTIPOUSUARIO'], payload['ESTADO'],
-                payload.get('FECHANACIMIENTO'), payload.get('DIRECCION'),
-                payload.get('DISTRITO'), payload.get('COLEGIO'), payload.get('GRADO'),
-                payload.get('TELPERSONAL'), payload.get('TELAPODERADO'),
-                payload.get('NOMBREAPODERADO'), payload.get('PARENTESCO'),
-                payload.get('SITUACIONACADEMICA'),
-                payload.get('COMOENTERO') or None,
-                payload.get('FOTO'),
-                actualizar_foto,
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
@@ -136,6 +127,8 @@ def eliminar_usuario(id_usuario: str, id_actor=None):
 
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_actor)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_usuario_eliminar', [id_usuario, eliminacion_fisica])
         cursor.execute(
             """
             SET QUOTED_IDENTIFIER ON;
@@ -154,6 +147,8 @@ def eliminar_usuario(id_usuario: str, id_actor=None):
 def resetear_contra_usuario(id_usuario: str, id_actor=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_actor)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_usuario_resetear_contra', [id_usuario])
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

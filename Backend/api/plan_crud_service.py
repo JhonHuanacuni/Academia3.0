@@ -1,25 +1,10 @@
 from django.db import connection
 from .db_context import prepare_write_cursor
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+from . import sp_runner as sp
 
 
 def _read_sp_write_result(cursor):
-    resultado, mensaje = 0, 'Error desconocido'
-    while True:
-        if cursor.description:
-            row = cursor.fetchone()
-            if row:
-                cols = [c[0].lower() for c in cursor.description]
-                data = dict(zip(cols, row))
-                resultado = data.get('resultado', resultado)
-                mensaje = data.get('mensaje', mensaje)
-        if not cursor.nextset():
-            break
-    return int(resultado or 0), str(mensaje or '')
+    return sp.read_write_result(cursor)
 
 
 def listar_planes(
@@ -30,7 +15,10 @@ def listar_planes(
     pagina=1,
     tamanio=10,
 ):
+    params = [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_list(cursor, 'usp_plan_listar', params)
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -39,9 +27,9 @@ def listar_planes(
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio],
+            params,
         )
-        data = _cursor_rows(cursor)
+        data = sp.cursor_rows(cursor)
         total = 0
         if cursor.nextset() and cursor.description:
             row = cursor.fetchone()
@@ -51,10 +39,7 @@ def listar_planes(
 
 
 def obtener_plan(id_plan: str):
-    with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_plan_obtener @Id=%s', [id_plan])
-        rows = _cursor_rows(cursor)
-    return rows[0] if rows else None
+    return sp.call_obtain('usp_plan_obtener', id_plan)
 
 
 def _normalizar_hora_entrada(val):
@@ -69,8 +54,21 @@ def _normalizar_hora_entrada(val):
 
 
 def insertar_plan(payload: dict, id_usuario=None):
+    params = [
+        payload.get('IDPLAN') or None,
+        payload['NOMBRE'],
+        payload.get('DESCRIPCION'),
+        payload.get('COSTOMENSUAL'),
+        payload.get('DIASASISTENCIA', 63),
+        payload.get('IDTURNO') or None,
+        _normalizar_hora_entrada(payload.get('HORAENTRADA')),
+        int(payload.get('TIEMPOEXTRA') or 0),
+        payload.get('ESTADO', 'Activo'),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_plan_insertar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -80,24 +78,27 @@ def insertar_plan(payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                payload.get('IDPLAN') or None,
-                payload['NOMBRE'],
-                payload.get('DESCRIPCION'),
-                payload.get('COSTOMENSUAL'),
-                payload.get('DIASASISTENCIA', 63),
-                payload.get('IDTURNO') or None,
-                _normalizar_hora_entrada(payload.get('HORAENTRADA')),
-                int(payload.get('TIEMPOEXTRA') or 0),
-                payload.get('ESTADO', 'Activo'),
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
 
 def actualizar_plan(id_plan: str, payload: dict, id_usuario=None):
+    params = [
+        id_plan,
+        payload['NOMBRE'],
+        payload.get('DESCRIPCION'),
+        payload.get('COSTOMENSUAL'),
+        payload.get('DIASASISTENCIA', 63),
+        payload.get('IDTURNO') or None,
+        _normalizar_hora_entrada(payload.get('HORAENTRADA')),
+        int(payload.get('TIEMPOEXTRA') or 0),
+        payload.get('ESTADO', 'Activo'),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_plan_actualizar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -107,17 +108,7 @@ def actualizar_plan(id_plan: str, payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                id_plan,
-                payload['NOMBRE'],
-                payload.get('DESCRIPCION'),
-                payload.get('COSTOMENSUAL'),
-                payload.get('DIASASISTENCIA', 63),
-                payload.get('IDTURNO') or None,
-                _normalizar_hora_entrada(payload.get('HORAENTRADA')),
-                int(payload.get('TIEMPOEXTRA') or 0),
-                payload.get('ESTADO', 'Activo'),
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
@@ -125,12 +116,14 @@ def actualizar_plan(id_plan: str, payload: dict, id_usuario=None):
 def listar_catalogos_plan():
     with connection.cursor() as cursor:
         cursor.execute('SELECT IDTURNO, DESCRIPCION FROM TURNO ORDER BY DESCRIPCION')
-        return {'turnos': _cursor_rows(cursor)}
+        return {'turnos': sp.cursor_rows(cursor)}
 
 
 def eliminar_plan(id_plan: str, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_plan_eliminar', [id_plan])
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

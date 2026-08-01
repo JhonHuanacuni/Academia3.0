@@ -1,25 +1,10 @@
 from django.db import connection
 from .db_context import prepare_write_cursor
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+from . import sp_runner as sp
 
 
 def _read_sp_write_result(cursor):
-    resultado, mensaje = 0, 'Error desconocido'
-    while True:
-        if cursor.description:
-            row = cursor.fetchone()
-            if row:
-                cols = [c[0].lower() for c in cursor.description]
-                data = dict(zip(cols, row))
-                resultado = data.get('resultado', resultado)
-                mensaje = data.get('mensaje', mensaje)
-        if not cursor.nextset():
-            break
-    return int(resultado or 0), str(mensaje or '')
+    return sp.read_write_result(cursor)
 
 
 def listar_aulas(
@@ -30,7 +15,10 @@ def listar_aulas(
     pagina=1,
     tamanio=10,
 ):
+    params = [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_list(cursor, 'usp_aula_listar', params)
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -39,9 +27,9 @@ def listar_aulas(
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio],
+            params,
         )
-        data = _cursor_rows(cursor)
+        data = sp.cursor_rows(cursor)
         total = 0
         if cursor.nextset() and cursor.description:
             row = cursor.fetchone()
@@ -51,15 +39,23 @@ def listar_aulas(
 
 
 def obtener_aula(id_aula: str):
-    with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_aula_obtener @Id=%s', [id_aula])
-        rows = _cursor_rows(cursor)
-    return rows[0] if rows else None
+    return sp.call_obtain('usp_aula_obtener', id_aula)
 
 
 def insertar_aula(payload: dict, id_usuario=None):
+    params = [
+        payload.get('IDAULA') or None,
+        payload['NOMBRE'],
+        payload.get('DESCRIPCION'),
+        _int_or_none(payload.get('CAPACIDAD')),
+        payload.get('ENLACEVIRTUAL'),
+        payload.get('ENLACECUESTIONARIO'),
+        payload.get('ESTADO', 'Activo'),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_aula_insertar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -69,22 +65,25 @@ def insertar_aula(payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                payload.get('IDAULA') or None,
-                payload['NOMBRE'],
-                payload.get('DESCRIPCION'),
-                _int_or_none(payload.get('CAPACIDAD')),
-                payload.get('ENLACEVIRTUAL'),
-                payload.get('ENLACECUESTIONARIO'),
-                payload.get('ESTADO', 'Activo'),
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
 
 def actualizar_aula(id_aula: str, payload: dict, id_usuario=None):
+    params = [
+        id_aula,
+        payload['NOMBRE'],
+        payload.get('DESCRIPCION'),
+        _int_or_none(payload.get('CAPACIDAD')),
+        payload.get('ENLACEVIRTUAL'),
+        payload.get('ENLACECUESTIONARIO'),
+        payload.get('ESTADO', 'Activo'),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_aula_actualizar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -94,15 +93,7 @@ def actualizar_aula(id_aula: str, payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                id_aula,
-                payload['NOMBRE'],
-                payload.get('DESCRIPCION'),
-                _int_or_none(payload.get('CAPACIDAD')),
-                payload.get('ENLACEVIRTUAL'),
-                payload.get('ENLACECUESTIONARIO'),
-                payload.get('ESTADO', 'Activo'),
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
@@ -110,6 +101,8 @@ def actualizar_aula(id_aula: str, payload: dict, id_usuario=None):
 def eliminar_aula(id_aula: str, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_aula_eliminar', [id_aula])
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

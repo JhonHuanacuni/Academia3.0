@@ -1,25 +1,10 @@
 from django.db import connection
 from .db_context import prepare_write_cursor
-
-
-def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+from . import sp_runner as sp
 
 
 def _read_sp_write_result(cursor):
-    resultado, mensaje = 0, 'Error desconocido'
-    while True:
-        if cursor.description:
-            row = cursor.fetchone()
-            if row:
-                cols = [c[0].lower() for c in cursor.description]
-                data = dict(zip(cols, row))
-                resultado = data.get('resultado', resultado)
-                mensaje = data.get('mensaje', mensaje)
-        if not cursor.nextset():
-            break
-    return int(resultado or 0), str(mensaje or '')
+    return sp.read_write_result(cursor)
 
 
 def listar_justificaciones(
@@ -27,7 +12,10 @@ def listar_justificaciones(
     pagina=1,
     tamanio=10,
 ):
+    params = [buscar or None, pagina, tamanio]
     with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_list(cursor, 'usp_justificacion_listar', params)
         cursor.execute(
             """
             DECLARE @Total INT;
@@ -35,9 +23,9 @@ def listar_justificaciones(
                 @Buscar=%s, @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, pagina, tamanio],
+            params,
         )
-        data = _cursor_rows(cursor)
+        data = sp.cursor_rows(cursor)
         total = 0
         if cursor.nextset() and cursor.description:
             row = cursor.fetchone()
@@ -47,15 +35,20 @@ def listar_justificaciones(
 
 
 def obtener_justificacion(id_justificacion: str):
-    with connection.cursor() as cursor:
-        cursor.execute('EXEC dbo.usp_justificacion_obtener @Id=%s', [id_justificacion])
-        rows = _cursor_rows(cursor)
-    return rows[0] if rows else None
+    return sp.call_obtain('usp_justificacion_obtener', id_justificacion)
 
 
 def insertar_justificacion(payload: dict, id_usuario=None):
+    params = [
+        payload['IDUSUARIO'],
+        payload['FECHA'],
+        payload.get('IDREGISTRADOR') or None,
+        payload.get('OBSERVACION'),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_justificacion_insertar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -64,19 +57,22 @@ def insertar_justificacion(payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                payload['IDUSUARIO'],
-                payload['FECHA'],
-                payload.get('IDREGISTRADOR') or None,
-                payload.get('OBSERVACION'),
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
 
 def actualizar_justificacion(id_justificacion: str, payload: dict, id_usuario=None):
+    params = [
+        id_justificacion,
+        payload['IDUSUARIO'],
+        payload['FECHA'],
+        payload.get('OBSERVACION'),
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_justificacion_actualizar', params)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -85,12 +81,7 @@ def actualizar_justificacion(id_justificacion: str, payload: dict, id_usuario=No
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            [
-                id_justificacion,
-                payload['IDUSUARIO'],
-                payload['FECHA'],
-                payload.get('OBSERVACION'),
-            ],
+            params,
         )
         return _read_sp_write_result(cursor)
 
@@ -98,6 +89,8 @@ def actualizar_justificacion(id_justificacion: str, payload: dict, id_usuario=No
 def eliminar_justificacion(id_justificacion: str, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario)
+        if sp.is_mysql():
+            return sp.call_write(cursor, 'usp_justificacion_eliminar', [id_justificacion])
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

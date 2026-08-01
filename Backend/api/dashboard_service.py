@@ -6,6 +6,7 @@ from django.utils import timezone
 from .informes_service import _calcular_resumen, _hoy_db, informe_asistencias
 from .usuario_crud_service import obtener_usuario
 from .examen_estudiante_service import ranking_aula_ultimo_examen
+from .sql_compat import is_mysql, isnull, ym_from_fechapago, len_expr
 
 
 def _cursor_rows(cursor):
@@ -65,9 +66,37 @@ def _conteo_usuarios():
 def _stats_mensualidades():
     hoy = _hoy_db()
     limite_prox = _fecha_db(timezone.localdate() + timedelta(days=3))
-    with connection.cursor() as cursor:
-        cursor.execute(
+    if is_mysql():
+        sql = f"""
+            SELECT
+                SUM(CASE WHEN u.DEUDA > 0 THEN 1 ELSE 0 END) AS CON_DEUDA,
+                SUM(CASE WHEN u.DEUDA > 0 THEN u.DEUDA ELSE 0 END) AS DEUDA_TOTAL,
+                SUM(CASE WHEN u.DEUDA > 0 AND u.FECHAFIN IS NOT NULL AND u.FECHAFIN <> ''
+                          AND u.FECHAFIN < %s THEN 1 ELSE 0 END) AS VENCIDAS,
+                SUM(CASE WHEN u.DEUDA > 0 AND u.FECHAFIN IS NOT NULL AND u.FECHAFIN <> ''
+                          AND u.FECHAFIN >= %s AND u.FECHAFIN <= %s THEN 1 ELSE 0 END) AS VENCEN_PROXIMO
+            FROM (
+                SELECT
+                    m.IDUSUARIO,
+                    m.FECHAFIN,
+                    CASE WHEN {isnull('m.MONTOTOTAL', '0')} - {isnull('pag.PAGADO', '0')} < 0 THEN 0
+                         ELSE {isnull('m.MONTOTOTAL', '0')} - {isnull('pag.PAGADO', '0')} END AS DEUDA,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY m.IDUSUARIO
+                        ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
+                    ) AS RN
+                FROM MENSUALIDAD m
+                LEFT JOIN (
+                    SELECT IDMENSUALIDAD, SUM(MONTO) AS PAGADO
+                    FROM PAGOMENSUALIDAD
+                    GROUP BY IDMENSUALIDAD
+                ) pag ON pag.IDMENSUALIDAD = m.IDMENSUALIDAD
+                WHERE m.ESTADO = 'Activo'
+            ) u
+            WHERE u.RN = 1
             """
+    else:
+        sql = """
             ;WITH Base AS (
                 SELECT
                     m.IDUSUARIO,
@@ -96,9 +125,9 @@ def _stats_mensualidades():
                 SUM(CASE WHEN DEUDA > 0 AND FECHAFIN IS NOT NULL AND FECHAFIN <> ''
                           AND FECHAFIN >= %s AND FECHAFIN <= %s THEN 1 ELSE 0 END) AS VENCEN_PROXIMO
             FROM Ultima
-            """,
-            [hoy, hoy, limite_prox],
-        )
+            """
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [hoy, hoy, limite_prox])
         row = cursor.fetchone()
     if not row:
         return {}
@@ -115,11 +144,11 @@ def _stats_pagos():
     inicio_mes = _inicio_mes_db()
     with connection.cursor() as cursor:
         cursor.execute(
-            """
+            f"""
             SELECT
                 COUNT(CASE WHEN p.FECHAPAGO = %s THEN 1 END) AS CANT_HOY,
-                ISNULL(SUM(CASE WHEN p.FECHAPAGO = %s THEN p.MONTO ELSE 0 END), 0) AS HOY,
-                ISNULL(SUM(CASE WHEN p.FECHAPAGO >= %s AND p.FECHAPAGO <= %s THEN p.MONTO ELSE 0 END), 0) AS MES
+                {isnull("SUM(CASE WHEN p.FECHAPAGO = %s THEN p.MONTO ELSE 0 END)", '0')} AS HOY,
+                {isnull("SUM(CASE WHEN p.FECHAPAGO >= %s AND p.FECHAPAGO <= %s THEN p.MONTO ELSE 0 END)", '0')} AS MES
             FROM PAGOMENSUALIDAD p
             """,
             [hoy, hoy, inicio_mes, hoy],
@@ -137,8 +166,8 @@ def _asistencias_hoy():
     stats = {'total': 0, 'presente': 0, 'tarde': 0, 'falta': 0}
     with connection.cursor() as cursor:
         cursor.execute(
-            """
-            SELECT ISNULL(ESTADO, ''), COUNT(*)
+            f"""
+            SELECT {isnull('ESTADO', "''")}, COUNT(*)
             FROM ASISTENCIA
             WHERE FECHAREGISTRO = %s
             GROUP BY ESTADO
@@ -227,14 +256,16 @@ def _pagos_mensuales(cant_meses=6):
     }
 
     with connection.cursor() as cursor:
+        ym_expr = ym_from_fechapago()
+        len_col = len_expr('p.FECHAPAGO')
         cursor.execute(
-            """
+            f"""
             SELECT
-                SUBSTRING(p.FECHAPAGO, 5, 4) + SUBSTRING(p.FECHAPAGO, 3, 2) AS YM,
+                {ym_expr} AS YM,
                 SUM(p.MONTO) AS TOTAL
             FROM PAGOMENSUALIDAD p
-            WHERE LEN(p.FECHAPAGO) = 8
-            GROUP BY SUBSTRING(p.FECHAPAGO, 5, 4) + SUBSTRING(p.FECHAPAGO, 3, 2)
+            WHERE {len_col} = 8
+            GROUP BY {ym_expr}
             """,
         )
         por_mes = {row[0]: float(row[1] or 0) for row in cursor.fetchall()}
