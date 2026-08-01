@@ -1,23 +1,18 @@
--- Convertido automáticamente desde db_scripts/31_07_2026/4.usp_usuario_insertar_mensajes.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- usp_usuario_insertar: mensajes claros si el usuario/DNI existe (p. ej. Retirado)
+-- Ejecutar después de 3.usp_usuario_eliminar_fisica.sql — MySQL 8
+-- Fecha: 31/07/2026
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   usp_usuario_insertar: mensajes claros si el usuario/DNI existe (p. ej. Retirado)
-   Ejecutar después de 3.usp_usuario_eliminar_fisica.sql
-   Fecha: 31/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_usuario_insertar;
 
 DROP PROCEDURE IF EXISTS usp_usuario_insertar;
 
 DELIMITER $$
 
 CREATE PROCEDURE usp_usuario_insertar(
-    IN p_Id VARCHAR(50),
-    IN p_Contra VARCHAR(255),
+    INOUT p_Id VARCHAR(50),
+    INOUT p_Contra VARCHAR(255),
     IN p_Nombre VARCHAR(100),
     IN p_Apellido VARCHAR(100),
     IN p_Dni VARCHAR(20),
@@ -40,15 +35,23 @@ CREATE PROCEDURE usp_usuario_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Dni IS NULL OR TRIM(p_Dni) = '' THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el DNI.'; LEAVE main;     END IF;
+    DECLARE v_EstEx VARCHAR(50);
 
-    IF p_Id IS NULL OR TRIM(p_Id) = '' THEN SET p_Id = TRIM(p_Dni); END IF;
+    IF p_Dni IS NULL OR TRIM(p_Dni) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el DNI.';
+        LEAVE main;
+    END IF;
 
-    IF p_Contra IS NULL OR TRIM(p_Contra) = '' THEN SET p_Contra = p_Id; END IF;
+    IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
+        SET p_Id = TRIM(p_Dni);
+    END IF;
+
+    IF p_Contra IS NULL OR TRIM(p_Contra) = '' THEN
+        SET p_Contra = p_Id;
+    END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
-        SELECT ESTADO FROM USUARIO WHERE IDUSUARIO = p_Id INTO v_EstEx;
+        SELECT ESTADO INTO v_EstEx FROM USUARIO WHERE IDUSUARIO = p_Id;
         SET p_Resultado = 0;
         SET p_Mensaje = CASE
             WHEN v_EstEx = 'Retirado'
@@ -56,11 +59,10 @@ IF p_Dni IS NULL OR TRIM(p_Dni) = '' THEN
             ELSE 'El usuario ya existe.'
         END;
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni) THEN
-        SELECT ESTADO FROM USUARIO WHERE DNI = p_Dni INTO v_EstEx;
+        SELECT ESTADO INTO v_EstEx FROM USUARIO WHERE DNI = p_Dni;
         SET p_Resultado = 0;
         SET p_Mensaje = CASE
             WHEN v_EstEx = 'Retirado'
@@ -68,11 +70,10 @@ IF p_Dni IS NULL OR TRIM(p_Dni) = '' THEN
             ELSE 'El DNI ya está registrado.'
         END;
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email) THEN
-        SELECT ESTADO FROM USUARIO WHERE EMAIL = p_Email INTO v_EstEx;
+        SELECT ESTADO INTO v_EstEx FROM USUARIO WHERE EMAIL = p_Email;
         SET p_Resultado = 0;
         SET p_Mensaje = CASE
             WHEN v_EstEx = 'Retirado'
@@ -80,11 +81,13 @@ IF p_Dni IS NULL OR TRIM(p_Dni) = '' THEN
             ELSE 'El email ya está registrado.'
         END;
         LEAVE main;
-    
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.'; LEAVE main;     END IF;
+        SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.';
+        LEAVE main;
+    END IF;
+
     INSERT INTO USUARIO (
         IDUSUARIO, CONTRA, NOMBRE, APELLIDO, DNI, EMAIL, IDTIPOUSUARIO, ESTADO,
         FECHANACIMIENTO, DIRECCION, DISTRITO, COLEGIO, GRADO,
