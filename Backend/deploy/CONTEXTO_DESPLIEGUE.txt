@@ -16,7 +16,7 @@ MI PROYECTO — ACADEMIA 3.0:
 - Stack:             Django (API REST) + React/Vite + MySQL 8
 - Carga de BD:       scripts .sql en Backend/db_scripts_mysql/ (python scripts/setup_mysql_db.py)
 - Servicio Gunicorn: gunicorn-academia.service
-- Puerto Gunicorn:   127.0.0.1:8001   (Restaurante usa 8000)
+- Puerto Gunicorn:   127.0.0.1:8003   (8000–8002 ya ocupados; Restaurante usa 8000)
 - Apache vhost:      deploy/academia.usercodex.com.conf
 
 REPO LOCAL:

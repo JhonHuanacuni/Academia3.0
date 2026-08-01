@@ -31,7 +31,7 @@ Ver `deploy/CONTEXTO_DESPLIEGUE.txt` y plantillas en `deploy/`:
 | BD | `AcademiaDB` |
 | Código servidor | `/home/usercodex/academia_src` |
 | Frontend dist | `/home/usercodex/academia_front` |
-| Gunicorn | servicio `gunicorn-academia`, puerto `8001` |
+| Gunicorn | servicio `gunicorn-academia`, puerto `8003` |
 
 Scripts MySQL: `db_scripts_mysql/` → `python scripts/setup_mysql_db.py`
 

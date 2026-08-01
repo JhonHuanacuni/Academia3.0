@@ -47,4 +47,4 @@ sudo certbot --apache -d academia.usercodex.com
 
 ## Puertos
 # Restaurante (restaurante-criolla): Gunicorn 8000
-# Academia: Gunicorn 8001
+# Academia: Gunicorn 8003 (8000–8002 ya ocupados en el servidor)

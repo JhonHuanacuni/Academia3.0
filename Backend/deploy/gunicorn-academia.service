@@ -9,7 +9,7 @@ WorkingDirectory=/home/usercodex/academia_src/Backend
 EnvironmentFile=/home/usercodex/academia_src/Backend/.env
 ExecStart=/home/usercodex/academia_src/Backend/venv/bin/gunicorn \
     --workers 3 \
-    --bind 127.0.0.1:8001 \
+    --bind 127.0.0.1:8003 \
     --timeout 120 \
     backend_project.wsgi:application
 Restart=always
