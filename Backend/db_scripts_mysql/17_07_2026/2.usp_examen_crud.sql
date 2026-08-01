@@ -286,7 +286,7 @@ SET p_IdGenerado = NULL;
     DECLARE v_NextNum INT;
     SELECT IFNULL(MAX(CAST(REPLACE(IDEXAMEN, 'EXA', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM EXAMEN WHERE IDEXAMEN LIKE 'EXA%';
-    SET p_IdGenerado = CONCAT('EXA', RIGHT(CONCAT('000', CAST(v_NextNum AS VARCHAR(3))), 3);
+    SET p_IdGenerado = CONCAT('EXA', RIGHT(CONCAT('000', CAST(v_NextNum AS CHAR(3))), 3);
 
     INSERT INTO EXAMEN (
         IDEXAMEN, TITULO, DESCRIPCION, TIPO, DURACIONMIN,
@@ -329,12 +329,12 @@ SET p_IdGenerado = NULL;
         WHILE v_i <= @Cant
         BEGIN
             SET v_Orden = CONCAT(v_Orden, 1);
-            SET @IdPreg = CONCAT(p_IdGenerado, '_P') RIGHT('000', CAST(v_Orden AS VARCHAR(3)), 3);
+            SET @IdPreg = CONCAT(p_IdGenerado, '_P') RIGHT('000', CAST(v_Orden AS CHAR(3)), 3);
 
             INSERT INTO PREGUNTA (IDPREGUNTA, TITULO, DESCRIPCION, PUNTAJE, ORDEN, IMAGEURL, IDEXAMEN, IDMATERIA)
             VALUES (
                 @IdPreg,
-                CONCAT('Pregunta ', CAST(v_Orden AS VARCHAR(10))),
+                CONCAT('Pregunta ', CAST(v_Orden AS CHAR(10))),
                 NULL,
                 1,
                 v_Orden,
@@ -349,7 +349,7 @@ SET p_IdGenerado = NULL;
                 SET @Letra = CHAR(CONCAT(64, v_AltOrd)); -- A=65
                 INSERT INTO ALTERNATIVA (IDALTERNATIVA, DESCRIPCION, ESCORRECTA, ORDEN, IMAGEURL, IDPREGUNTA)
                 VALUES (
-                    CONCAT(@IdPreg, '_A') CAST(v_AltOrd AS VARCHAR(1)),
+                    CONCAT(@IdPreg, '_A') CAST(v_AltOrd AS CHAR(1)),
                     '',
                     CASE WHEN v_AltOrd = 1 THEN 1 ELSE 0 END,
                     v_AltOrd,
@@ -366,7 +366,7 @@ SET p_IdGenerado = NULL;
     DEALLOCATE cur;
 
     SET p_Resultado = 1;
-    SET p_Mensaje = CONCAT('Examen creado con ', CAST(v_Orden AS VARCHAR(10))) + ' preguntas.';
+    SET p_Mensaje = CONCAT('Examen creado con ', CAST(v_Orden AS CHAR(10))) + ' preguntas.';
     SELECT p_IdGenerado AS IdGenerado, p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 

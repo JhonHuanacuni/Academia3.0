@@ -130,7 +130,7 @@ SET p_IdGenerado = NULL;
 
     DECLARE v_NextNum INT;
     SELECT IFNULL(MAX(CAST(IDHORARIO AS INT)), 0) + 1 FROM HORARIO INTO v_NextNum;
-    SET p_IdGenerado = CAST(v_NextNum AS VARCHAR(50));
+    SET p_IdGenerado = CAST(v_NextNum AS CHAR(50));
 
     BEGIN TRY
         BEGIN TRAN;
@@ -149,7 +149,7 @@ SET p_IdGenerado = NULL;
                 SET @token = TRIM(SUBSTRING(v_csv, v_pos, @next - v_pos)));
                 IF @token <> '' AND EXISTS (SELECT 1 FROM AULA WHERE IDAULA = @token) THEN
                     INSERT INTO HORARIO_AULA (IDHORARIOAULA, IDHORARIO, IDAULA)
-                    VALUES (CONCAT(p_IdGenerado, '-A') RIGHT('000', CAST(@seq AS VARCHAR(3)), 3), p_IdGenerado, @token);
+                    VALUES (CONCAT(p_IdGenerado, '-A') RIGHT('000', CAST(@seq AS CHAR(3)), 3), p_IdGenerado, @token);
                     SET @seq = @CONCAT(seq, 1);
                 
                 SET v_pos = @CONCAT(next, 1);
@@ -225,7 +225,7 @@ IF NOT EXISTS (SELECT 1 FROM HORARIO WHERE IDHORARIO = p_Id) THEN
                 SET @token = TRIM(SUBSTRING(v_csv, v_pos, @next - v_pos)));
                 IF @token <> '' AND EXISTS (SELECT 1 FROM AULA WHERE IDAULA = @token) THEN
                     INSERT INTO HORARIO_AULA (IDHORARIOAULA, IDHORARIO, IDAULA)
-                    VALUES (CONCAT(p_Id, '-A') RIGHT('000', CAST(@seq AS VARCHAR(3)), 3), p_Id, @token);
+                    VALUES (CONCAT(p_Id, '-A') RIGHT('000', CAST(@seq AS CHAR(3)), 3), p_Id, @token);
                     SET @seq = @CONCAT(seq, 1);
                 
                 SET v_pos = @CONCAT(next, 1);

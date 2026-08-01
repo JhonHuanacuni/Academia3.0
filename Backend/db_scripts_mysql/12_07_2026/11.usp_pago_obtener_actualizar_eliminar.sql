@@ -101,7 +101,7 @@ IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id)
     IF v_Maximo < 0 THEN SET v_Maximo = 0; END IF;
     IF p_Monto > v_Maximo THEN
         SET p_Resultado = 0;
-        SET p_Mensaje = CONCAT('El monto no puede superar S/ ', CAST(v_Maximo AS VARCHAR(20))) + '.';
+        SET p_Mensaje = CONCAT('El monto no puede superar S/ ', CAST(v_Maximo AS CHAR(20))) + '.';
         LEAVE main;
     
     UPDATE PAGOMEMBRESIA SET

@@ -1,17 +1,14 @@
--- Convertido automáticamente desde db_scripts/29_06_2026/usp_aula_crud.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- CRUD AULA — Mantenedor de aulas (módulo Académico) — MySQL 8
+-- ============================================================================
 
 USE `AcademiaDB`;
 
-/* ============================================================================
-   CRUD AULA — Mantenedor de aulas (módulo Académico)
-   5 SPs estándar: listar, obtener, insertar, actualizar, eliminar
-   Fecha: 29/06/2026
-   ============================================================================ */
-
 DROP PROCEDURE IF EXISTS usp_aula_listar;
-
-DROP PROCEDURE IF EXISTS usp_aula_listar;
+DROP PROCEDURE IF EXISTS usp_aula_obtener;
+DROP PROCEDURE IF EXISTS usp_aula_insertar;
+DROP PROCEDURE IF EXISTS usp_aula_actualizar;
+DROP PROCEDURE IF EXISTS usp_aula_eliminar;
 
 DELIMITER $$
 
@@ -26,15 +23,16 @@ CREATE PROCEDURE usp_aula_listar(
 )
 main: BEGIN
     DECLARE v_offset INT DEFAULT 0;
-IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
-    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
+    IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
+    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
     SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
+
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM AULA a
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
-           a.IDAULA      LIKE CONCAT('%', p_Buscar, '%') OR
-           a.NOMBRE      LIKE CONCAT('%', p_Buscar, '%') OR
+           a.IDAULA LIKE CONCAT('%', p_Buscar, '%') OR
+           a.NOMBRE LIKE CONCAT('%', p_Buscar, '%') OR
            a.DESCRIPCION LIKE CONCAT('%', p_Buscar, '%'))
       AND (p_Estado IS NULL OR p_Estado = '' OR
            (p_Estado = 'Activo' AND a.ACTIVO = 1) OR
@@ -50,39 +48,30 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN a.ACTIVO = 1 THEN 'Activo' ELSE 'Inactivo' END AS ESTADO
     FROM AULA a
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
-           a.IDAULA      LIKE CONCAT('%', p_Buscar, '%') OR
-           a.NOMBRE      LIKE CONCAT('%', p_Buscar, '%') OR
+           a.IDAULA LIKE CONCAT('%', p_Buscar, '%') OR
+           a.NOMBRE LIKE CONCAT('%', p_Buscar, '%') OR
            a.DESCRIPCION LIKE CONCAT('%', p_Buscar, '%'))
       AND (p_Estado IS NULL OR p_Estado = '' OR
            (p_Estado = 'Activo' AND a.ACTIVO = 1) OR
            (p_Estado = 'Inactivo' AND a.ACTIVO = 0))
     ORDER BY
-        CASE WHEN p_OrdenarPor = 'IDAULA'   AND p_Direccion = 'ASC'  THEN a.IDAULA END ASC,
-        CASE WHEN p_OrdenarPor = 'IDAULA'   AND p_Direccion = 'DESC' THEN a.IDAULA END DESC,
-        CASE WHEN p_OrdenarPor = 'NOMBRE'   AND p_Direccion = 'ASC'  THEN a.NOMBRE END ASC,
-        CASE WHEN p_OrdenarPor = 'NOMBRE'   AND p_Direccion = 'DESC' THEN a.NOMBRE END DESC,
-        CASE WHEN p_OrdenarPor = 'CAPACIDAD' AND p_Direccion = 'ASC' THEN CAST(a.CAPACIDAD AS VARCHAR(20)) END ASC,
-        CASE WHEN p_OrdenarPor = 'CAPACIDAD' AND p_Direccion = 'DESC' THEN CAST(a.CAPACIDAD AS VARCHAR(20)) END DESC,
-        CASE WHEN p_OrdenarPor = 'ESTADO'   AND p_Direccion = 'ASC'  THEN a.ACTIVO END ASC,
-        CASE WHEN p_OrdenarPor = 'ESTADO'   AND p_Direccion = 'DESC' THEN a.ACTIVO END DESC,
+        CASE WHEN p_OrdenarPor = 'IDAULA'    AND p_Direccion = 'ASC'  THEN a.IDAULA END ASC,
+        CASE WHEN p_OrdenarPor = 'IDAULA'    AND p_Direccion = 'DESC' THEN a.IDAULA END DESC,
+        CASE WHEN p_OrdenarPor = 'NOMBRE'    AND p_Direccion = 'ASC'  THEN a.NOMBRE END ASC,
+        CASE WHEN p_OrdenarPor = 'NOMBRE'    AND p_Direccion = 'DESC' THEN a.NOMBRE END DESC,
+        CASE WHEN p_OrdenarPor = 'CAPACIDAD' AND p_Direccion = 'ASC'  THEN a.CAPACIDAD END ASC,
+        CASE WHEN p_OrdenarPor = 'CAPACIDAD' AND p_Direccion = 'DESC' THEN a.CAPACIDAD END DESC,
+        CASE WHEN p_OrdenarPor = 'ESTADO'    AND p_Direccion = 'ASC'  THEN a.ACTIVO END ASC,
+        CASE WHEN p_OrdenarPor = 'ESTADO'    AND p_Direccion = 'DESC' THEN a.ACTIVO END DESC,
         a.NOMBRE
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
-
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_aula_obtener;
-
-DROP PROCEDURE IF EXISTS usp_aula_obtener;
-
-DELIMITER $$
 
 CREATE PROCEDURE usp_aula_obtener(
     IN p_Id VARCHAR(50)
 )
 main: BEGIN
-SELECT
+    SELECT
         a.IDAULA,
         a.NOMBRE,
         a.DESCRIPCION,
@@ -93,14 +82,6 @@ SELECT
     FROM AULA a
     WHERE a.IDAULA = p_Id;
 END$$
-
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_aula_insertar;
-
-DROP PROCEDURE IF EXISTS usp_aula_insertar;
-
-DELIMITER $$
 
 CREATE PROCEDURE usp_aula_insertar(
     IN p_Id VARCHAR(50),
@@ -114,28 +95,30 @@ CREATE PROCEDURE usp_aula_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del aula.';
+    IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'Ingresa el código del aula.';
         LEAVE main;
-    
     END IF;
 
     IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del aula.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'Ingresa el nombre del aula.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM AULA WHERE IDAULA = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El código de aula ya existe.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El código de aula ya existe.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM AULA WHERE NOMBRE = p_Nombre) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un aula con ese nombre.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'Ya existe un aula con ese nombre.';
         LEAVE main;
-    
+    END IF;
+
     INSERT INTO AULA (
         IDAULA, NOMBRE, DESCRIPCION, CAPACIDAD, ACTIVO, ENLACEVIRTUAL, ENLACECUESTIONARIO
     ) VALUES (
@@ -148,17 +131,9 @@ IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
         p_EnlaceCuestionario
     );
 
-    SET p_Resultado = 1; SET p_Mensaje = 'Aula registrada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Aula registrada.';
 END$$
-
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_aula_actualizar;
-
-DROP PROCEDURE IF EXISTS usp_aula_actualizar;
-
-DELIMITER $$
 
 CREATE PROCEDURE usp_aula_actualizar(
     IN p_Id VARCHAR(50),
@@ -172,22 +147,24 @@ CREATE PROCEDURE usp_aula_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM AULA WHERE IDAULA = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El aula no existe.';
+    IF NOT EXISTS (SELECT 1 FROM AULA WHERE IDAULA = p_Id) THEN
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El aula no existe.';
         LEAVE main;
-    
     END IF;
 
     IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del aula.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'Ingresa el nombre del aula.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM AULA WHERE NOMBRE = p_Nombre AND IDAULA <> p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un aula con ese nombre.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'Ya existe un aula con ese nombre.';
         LEAVE main;
-    
+    END IF;
+
     UPDATE AULA SET
         NOMBRE             = p_Nombre,
         DESCRIPCION        = p_Descripcion,
@@ -197,17 +174,9 @@ IF NOT EXISTS (SELECT 1 FROM AULA WHERE IDAULA = p_Id) THEN
         ACTIVO             = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
     WHERE IDAULA = p_Id;
 
-    SET p_Resultado = 1; SET p_Mensaje = 'Aula actualizada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Aula actualizada.';
 END$$
-
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_aula_eliminar;
-
-DROP PROCEDURE IF EXISTS usp_aula_eliminar;
-
-DELIMITER $$
 
 CREATE PROCEDURE usp_aula_eliminar(
     IN p_Id VARCHAR(50),
@@ -215,24 +184,24 @@ CREATE PROCEDURE usp_aula_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM AULA WHERE IDAULA = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El aula no existe.';
+    IF NOT EXISTS (SELECT 1 FROM AULA WHERE IDAULA = p_Id) THEN
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El aula no existe.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDAULA = p_Id) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'No se puede eliminar: el aula tiene membresías asociadas.';
         LEAVE main;
-    
+    END IF;
+
     DELETE FROM AULA WHERE IDAULA = p_Id;
 
-    SET p_Resultado = 1; SET p_Mensaje = 'Aula eliminada.';
-END;
-
-SELECT 'SPs usp_aula_* creados.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Aula eliminada.';
 END$$
 
 DELIMITER ;
+
+SELECT 'SPs usp_aula_* creados.' AS info;

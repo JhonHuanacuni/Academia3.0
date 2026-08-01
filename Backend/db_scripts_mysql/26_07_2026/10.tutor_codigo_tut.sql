@@ -52,7 +52,7 @@ IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''''
             SELECT MAX(CAST(SUBSTRING(IDTUTOR, 4, 10) AS INT))
             FROM TUTOR WHERE IDTUTOR LIKE ''TUT%''
         ), 0) + 1;
-        SET p_Id = CONCAT(''TUT'', RIGHT(CONCAT(''000'', CAST(v_Next AS VARCHAR(10))), 3);
+        SET p_Id = CONCAT(''TUT'', RIGHT(CONCAT(''000'', CAST(v_Next AS CHAR(10))), 3);
     
     SET p_Id = UPPER(TRIM(p_Id);
 

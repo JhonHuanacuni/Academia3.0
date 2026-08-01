@@ -177,7 +177,7 @@ IF p_IdMembresia IS NULL OR p_IdMembresia = ''
     END IF;
 
     IF p_Monto > v_Deuda
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = CONCAT('El abono no puede superar la deuda (S/ ', CAST(v_Deuda AS VARCHAR(20))) + ').'; LEAVE main; 
+    BEGIN SET p_Resultado = 0; SET p_Mensaje = CONCAT('El abono no puede superar la deuda (S/ ', CAST(v_Deuda AS CHAR(20))) + ').'; LEAVE main; 
     DECLARE v_IdPago VARCHAR(50) = CONCAT('PAG', RIGHT(CONCAT('000000', CAST((
         IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMEMBRESIA, 4, 10)) AS INT))
                 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA LIKE 'PAG%'), 0) + 1

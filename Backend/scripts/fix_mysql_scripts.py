@@ -127,6 +127,7 @@ SKIP_FIX = {
     '22_06_2026/submodulos_admin.sql',
     '22_06_2026/usp_asistencia.sql',
     '22_06_2026/usp_usuario_crud.sql',
+    '29_06_2026/usp_aula_crud.sql',
     '29_06_2026/modulo_academico.sql',
     '06_07_2026/1.modulo_informes.sql',
     '12_07_2026/13.modulo_mantenedores.sql',
@@ -166,6 +167,12 @@ def fix_types_and_functions(text: str) -> str:
     text = re.sub(
         r"CONVERT\s*\(\s*VARCHAR\s*\(\s*5\s*\)\s*,\s*([^,]+)\s*,\s*108\s*\)",
         r"TIME_FORMAT(\1, '%H:%i')",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r'CAST\s*\(([^)]+)\s+AS\s+VARCHAR\s*\(\s*(\d+)\s*\)\)',
+        r'CAST(\1 AS CHAR(\2))',
         text,
         flags=re.I,
     )

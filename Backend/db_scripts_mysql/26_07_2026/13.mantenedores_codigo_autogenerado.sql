@@ -53,7 +53,7 @@ IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
             SELECT MAX(CAST(REPLACE(IDPLAN, 'PLN', '') AS INT))
             FROM `PLAN` WHERE IDPLAN LIKE 'PLN%'
         ), 0) + 1;
-        SET p_Id = CONCAT('PLN', RIGHT(CONCAT('000', CAST(v_NextPln AS VARCHAR(10))), 3);
+        SET p_Id = CONCAT('PLN', RIGHT(CONCAT('000', CAST(v_NextPln AS CHAR(10))), 3);
     
 ELSE
         SET p_Id = UPPER(TRIM(p_Id);
@@ -109,7 +109,7 @@ IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
             SELECT MAX(CAST(REPLACE(IDAULA, 'AUL', '') AS INT))
             FROM AULA WHERE IDAULA LIKE 'AUL%'
         ), 0) + 1;
-        SET p_Id = CONCAT('AUL', RIGHT(CONCAT('000', CAST(v_NextAul AS VARCHAR(10))), 3);
+        SET p_Id = CONCAT('AUL', RIGHT(CONCAT('000', CAST(v_NextAul AS CHAR(10))), 3);
     
 ELSE
         SET p_Id = UPPER(TRIM(p_Id);
@@ -168,7 +168,7 @@ SET p_IdGenerado = NULL;
     DECLARE v_NextCat INT;
     SELECT IFNULL(MAX(CAST(REPLACE(IDCATEGORIA, 'CAT', '') AS INT)), 0) + 1 INTO v_NextCat
     FROM CATEGORIA WHERE IDCATEGORIA LIKE 'CAT%';
-    SET p_IdGenerado = CONCAT('CAT', RIGHT(CONCAT('000', CAST(v_NextCat AS VARCHAR(3))), 3);
+    SET p_IdGenerado = CONCAT('CAT', RIGHT(CONCAT('000', CAST(v_NextCat AS CHAR(3))), 3);
 
     INSERT INTO CATEGORIA (IDCATEGORIA, NOMBRE, PORCENTAJE, ORDEN, ACTIVO)
     VALUES (
@@ -221,7 +221,7 @@ SET p_IdGenerado = NULL;
     DECLARE v_NextMat INT;
     SELECT IFNULL(MAX(CAST(REPLACE(IDMATERIA, 'MAT', '') AS INT)), 0) + 1 INTO v_NextMat
     FROM MATERIA WHERE IDMATERIA LIKE 'MAT%';
-    SET p_IdGenerado = CONCAT('MAT', RIGHT(CONCAT('000', CAST(v_NextMat AS VARCHAR(3))), 3);
+    SET p_IdGenerado = CONCAT('MAT', RIGHT(CONCAT('000', CAST(v_NextMat AS CHAR(3))), 3);
 
     INSERT INTO MATERIA (IDMATERIA, CODIGO, NOMBRE, IDCATEGORIA, ACTIVO)
     VALUES (

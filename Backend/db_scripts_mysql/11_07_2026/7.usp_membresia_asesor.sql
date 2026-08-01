@@ -224,7 +224,7 @@ IF p_IdUsuario IS NULL OR p_IdUsuario = ''
             SELECT MAX(CAST(SUBSTRING(IDMEMBRESIA, 4, 10) AS INT))
             FROM MEMBRESIA WHERE IDMEMBRESIA LIKE 'MEM%'
         ), 0) + 1;
-        SET p_Id = CONCAT('MEM', RIGHT(CONCAT('000000', CAST(v_Next AS VARCHAR(10))), 6);
+        SET p_Id = CONCAT('MEM', RIGHT(CONCAT('000000', CAST(v_Next AS CHAR(10))), 6);
     
     IF EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La membresía ya existe.'; LEAVE main; 
