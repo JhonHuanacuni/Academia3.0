@@ -1,15 +1,10 @@
--- Convertido automáticamente desde db_scripts/26_07_2026/17.mensualidad_filtro_deuda.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- Mensualidad listar: filtro por deuda (con/sin) — MySQL 8
+-- Ejecutar después de 16.usuario_estado_retirado.sql
+-- Fecha: 27/07/2026
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   Mensualidad listar: filtro por deuda (con/sin) en lugar de estado Activo/Inactivo
-   Ejecutar después de 16.usuario_estado_retirado.sql
-   Fecha: 27/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_mensualidad_listar;
 
 DROP PROCEDURE IF EXISTS usp_mensualidad_listar;
 
@@ -26,10 +21,11 @@ CREATE PROCEDURE usp_mensualidad_listar(
 )
 main: BEGIN
     DECLARE v_offset INT DEFAULT 0;
-IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
-    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
+    IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
+    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
     SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
+
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM MENSUALIDAD m
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
@@ -37,8 +33,9 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
     LEFT JOIN LATERAL (
-        SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
-        LIMIT 1
+        SELECT SUM(p.MONTO) AS PAGADO
+        FROM PAGOMENSUALIDAD p
+        WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
     ) pag ON TRUE
     WHERE m.ESTADO = 'Activo'
       AND (p_Buscar IS NULL OR p_Buscar = '' OR
@@ -78,9 +75,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         m.IDTUTOR,
         IFNULL(tut.NOMBRE, IFNULL(m.TUTORLEGACY, '')) AS TUTOR_NOMBRE,
         m.REGISTRADOPOR,
-        UPPER(TRIM(
-            CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, ''))
-        ))) AS ASESOR_NOMBRE,
+        UPPER(TRIM(CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, '')))) AS ASESOR_NOMBRE,
         m.ESTADO,
         m.FECHAREGISTRO
     FROM MENSUALIDAD m
@@ -91,8 +86,9 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = m.REGISTRADOPOR
     LEFT JOIN LATERAL (
-        SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
-        LIMIT 1
+        SELECT SUM(p.MONTO) AS PAGADO
+        FROM PAGOMENSUALIDAD p
+        WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
     ) pag ON TRUE
     WHERE m.ESTADO = 'Activo'
       AND (p_Buscar IS NULL OR p_Buscar = '' OR
