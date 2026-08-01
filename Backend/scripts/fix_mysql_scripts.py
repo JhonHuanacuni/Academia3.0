@@ -150,6 +150,7 @@ SKIP_FIX = {
     '14_07_2026/1.libro_fechassubida_libro_aula.sql',
     '17_07_2026/1.examen_tablas_plantilla.sql',
     '26_07_2026/1.plan_dias_asistencia.sql',
+    '16_07_2026/13.categoria_materia_tablas.sql',
     '12_07_2026/10.comoentero_a_usuario.sql',
     '12_07_2026/11.usp_pago_obtener_actualizar_eliminar.sql',
     '12_07_2026/12.sub_academico_biblioteca_examenes_horario_clases.sql',
