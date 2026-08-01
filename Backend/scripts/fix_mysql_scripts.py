@@ -161,6 +161,7 @@ SKIP_FIX = {
     '16_07_2026/15.usp_materia_crud.sql',
     '16_07_2026/17.materia_categoria_auto_seed.sql',
     '26_07_2026/6.plan_turno.sql',
+    '26_07_2026/7.plan_nombres_sin_turno.sql',
     '26_07_2026/8.asesor_registro_mensualidad.sql',
     '26_07_2026/10.tutor_codigo_tut.sql',
     '26_07_2026/12.plan_hora_entrada_tardanza.sql',
