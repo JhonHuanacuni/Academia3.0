@@ -1,14 +1,9 @@
--- Convertido automáticamente desde db_scripts/17_07_2026/3.usp_examen_pregunta_img_alts.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- Pregunta guardar: imágenes por alternativa A–E — MySQL 8
+-- Fecha: 17/07/2026
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   Pregunta guardar: imágenes por alternativa A–E
-   Fecha: 17/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_examen_pregunta_guardar;
 
 DROP PROCEDURE IF EXISTS usp_examen_pregunta_guardar;
 
@@ -40,10 +35,18 @@ CREATE PROCEDURE usp_examen_pregunta_guardar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAMEN = p_IdExamen) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'La pregunta no existe en este examen.'; LEAVE main;     END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM PREGUNTA
+        WHERE IDPREGUNTA = p_IdPregunta AND IDEXAMEN = p_IdExamen
+    ) THEN
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'La pregunta no existe en este examen.';
+        LEAVE main;
+    END IF;
 
-    IF p_CorrectaOrden IS NULL OR p_CorrectaOrden < 1 OR p_CorrectaOrden > 5 THEN SET p_CorrectaOrden = 1; END IF;
+    IF p_CorrectaOrden IS NULL OR p_CorrectaOrden < 1 OR p_CorrectaOrden > 5 THEN
+        SET p_CorrectaOrden = 1;
+    END IF;
 
     UPDATE PREGUNTA SET
         DESCRIPCION = p_Descripcion,
@@ -51,7 +54,7 @@ IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAM
             WHEN p_QuitarImagen = 1 THEN NULL
             WHEN p_ImageUrl IS NOT NULL AND TRIM(p_ImageUrl) <> '' THEN p_ImageUrl
             ELSE IMAGEURL
-        
+        END
     WHERE IDPREGUNTA = p_IdPregunta;
 
     UPDATE ALTERNATIVA SET
@@ -67,29 +70,35 @@ IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAM
             WHEN 1 THEN CASE
                 WHEN p_QuitarImgAlt1 = 1 THEN NULL
                 WHEN p_ImgAlt1 IS NOT NULL AND TRIM(p_ImgAlt1) <> '' THEN p_ImgAlt1
-                ELSE IMAGEURL 
+                ELSE IMAGEURL
+            END
             WHEN 2 THEN CASE
                 WHEN p_QuitarImgAlt2 = 1 THEN NULL
                 WHEN p_ImgAlt2 IS NOT NULL AND TRIM(p_ImgAlt2) <> '' THEN p_ImgAlt2
-                ELSE IMAGEURL 
+                ELSE IMAGEURL
+            END
             WHEN 3 THEN CASE
                 WHEN p_QuitarImgAlt3 = 1 THEN NULL
                 WHEN p_ImgAlt3 IS NOT NULL AND TRIM(p_ImgAlt3) <> '' THEN p_ImgAlt3
-                ELSE IMAGEURL 
+                ELSE IMAGEURL
+            END
             WHEN 4 THEN CASE
                 WHEN p_QuitarImgAlt4 = 1 THEN NULL
                 WHEN p_ImgAlt4 IS NOT NULL AND TRIM(p_ImgAlt4) <> '' THEN p_ImgAlt4
-                ELSE IMAGEURL 
+                ELSE IMAGEURL
+            END
             WHEN 5 THEN CASE
                 WHEN p_QuitarImgAlt5 = 1 THEN NULL
                 WHEN p_ImgAlt5 IS NOT NULL AND TRIM(p_ImgAlt5) <> '' THEN p_ImgAlt5
-                ELSE IMAGEURL 
+                ELSE IMAGEURL
+            END
             ELSE IMAGEURL
         END,
         ESCORRECTA = CASE WHEN ORDEN = p_CorrectaOrden THEN 1 ELSE 0 END
     WHERE IDPREGUNTA = p_IdPregunta;
 
-    SET p_Resultado = 1; SET p_Mensaje = 'Pregunta guardada.';
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Pregunta guardada.';
 END$$
 
 DELIMITER ;

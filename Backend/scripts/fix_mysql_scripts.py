@@ -180,6 +180,7 @@ SKIP_FIX = {
     '14_07_2026/4.usp_horario_crud.sql',
     '30_07_2026/7.modulos_admin_rol.sql',
     '17_07_2026/2.usp_examen_crud.sql',
+    '17_07_2026/3.usp_examen_pregunta_img_alts.sql',
     '17_07_2026/4.usp_examen_estudiante.sql',
     '31_07_2026/8.usp_examen_ranking_aula.sql',
 }
