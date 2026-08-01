@@ -124,33 +124,75 @@ ORDER = [
 ]
 
 
+def _split_on_semicolon(sql: str) -> list[str]:
+    """Divide por ; respetando strings entre comillas simples."""
+    parts: list[str] = []
+    buf: list[str] = []
+    in_str = False
+    i = 0
+    while i < len(sql):
+        ch = sql[i]
+        if ch == "'" and not in_str:
+            in_str = True
+            buf.append(ch)
+        elif ch == "'" and in_str:
+            buf.append(ch)
+            if i + 1 < len(sql) and sql[i + 1] == "'":
+                buf.append("'")
+                i += 1
+            else:
+                in_str = False
+        elif ch == ';' and not in_str:
+            stmt = ''.join(buf).strip()
+            if stmt:
+                parts.append(stmt)
+            buf = []
+        else:
+            buf.append(ch)
+        i += 1
+    tail = ''.join(buf).strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
 def split_sql(content: str):
     content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
     lines = content.splitlines()
-    chunks = []
-    buf = []
+    chunks: list[str] = []
+    buf: list[str] = []
     delimiter = ';'
 
     for line in lines:
         stripped = line.strip()
         if stripped.upper().startswith('DELIMITER '):
             if buf:
-                chunks.append('\n'.join(buf))
+                block = '\n'.join(buf)
+                if delimiter == ';':
+                    chunks.extend(_split_on_semicolon(block))
+                else:
+                    chunks.append(block)
                 buf = []
             delimiter = stripped.split(None, 1)[1]
             continue
         buf.append(line)
         if stripped.endswith(delimiter):
-            chunk = '\n'.join(buf).rstrip()
+            block = '\n'.join(buf).rstrip()
             if delimiter != ';':
-                chunk = chunk[: -len(delimiter)].rstrip()
+                block = block[: -len(delimiter)].rstrip()
             buf = []
-            if chunk.strip():
-                chunks.append(chunk)
+            if block.strip():
+                if delimiter == ';':
+                    chunks.extend(_split_on_semicolon(block))
+                else:
+                    chunks.append(block)
     if buf:
         tail = '\n'.join(buf).strip()
         if tail:
-            chunks.append(tail)
+            if delimiter == ';':
+                chunks.extend(_split_on_semicolon(tail))
+            else:
+                chunks.append(tail)
     return chunks
 
 

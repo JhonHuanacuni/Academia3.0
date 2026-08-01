@@ -25,7 +25,9 @@ CREATE PROCEDURE usp_concepto_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
+    DECLARE v_offset INT DEFAULT 0;
+
+    IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
     SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
@@ -67,7 +69,6 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'ESTADO'     AND p_Direccion = 'DESC' THEN c.ACTIVO END DESC,
         c.NOMBRE
     LIMIT p_TamanioPagina OFFSET v_offset;
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
