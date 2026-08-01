@@ -31,7 +31,8 @@ echo "Instalando dependencias ..."
 venv/bin/pip install -r requirements.txt -q
 
 echo "Importando BD MySQL ..."
-venv/bin/python scripts/setup_mysql_db.py
+sudo mysql -e "SET GLOBAL log_bin_trust_function_creators = 1;" 2>/dev/null || true
+venv/bin/python scripts/setup_mysql_db.py "$@"
 
 echo "Estáticos Django ..."
 venv/bin/python manage.py collectstatic --noinput
