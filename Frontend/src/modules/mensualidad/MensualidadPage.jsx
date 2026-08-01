@@ -9,11 +9,10 @@ import Pagination from "../../components/mantenedor/Pagination";
 import FormPage from "../../components/mantenedor/FormPage";
 import ConfirmDialog from "../../components/mantenedor/ConfirmDialog";
 import Toast from "../../components/mantenedor/feedback/Toast";
+import MensualidadEstudianteModal from "./MensualidadEstudianteModal";
+import MensualidadPagosModal from "./MensualidadPagosModal";
 import "../../styles/mantenedor.css";
-
-function normalizarEstadoMensualidad(val) {
-  return Number(val) === 3 ? "3" : "2";
-}
+import "./mensualidad.css";
 
 function mapCatalogos(data) {
   return {
@@ -27,7 +26,6 @@ function mapCatalogos(data) {
       value: m.IDMETODOPAGO,
       label: m.TITULO,
     })),
-    estadosMensualidad: data.estadosMensualidad || [],
   };
 }
 
@@ -37,7 +35,7 @@ export default function MensualidadPage() {
     entidad: cfg.entidad,
     pk: cfg.pk,
     ordenInicial: { campo: "FECHAREGISTRO", direccion: "DESC" },
-    filtrosIniciales: { estado: "Activo" },
+    filtrosIniciales: {},
   });
 
   const [vista, setVista] = useState("lista");
@@ -49,11 +47,14 @@ export default function MensualidadPage() {
     aulas: [],
     tutores: [],
     metodosPago: [],
-    estadosMensualidad: [],
   });
   const [estudianteSel, setEstudianteSel] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
   const [registradorNombre, setRegistradorNombre] = useState("");
+  const [estudianteModal, setEstudianteModal] = useState(null);
+  const [estudianteModalLoading, setEstudianteModalLoading] = useState(false);
+  const [pagosModal, setPagosModal] = useState(null);
+  const [pagosLoading, setPagosLoading] = useState(false);
   const esAdmin = (localStorage.getItem("role") || "") === "administrador";
 
   useEffect(() => {
@@ -90,10 +91,7 @@ export default function MensualidadPage() {
   const abrirVer = async (row) => {
     try {
       const data = await crud.obtener(row[cfg.pk]);
-      crud.setRegistro({
-        ...data,
-        ESTADOMIEMBRO: normalizarEstadoMensualidad(data.ESTADOMIEMBRO),
-      });
+      crud.setRegistro(data);
       setEstudianteSel({
         IDUSUARIO: data.IDUSUARIO,
         NOMBRE_COMPLETO: data.ESTUDIANTE_NOMBRE,
@@ -109,10 +107,7 @@ export default function MensualidadPage() {
   const abrirEditar = async (row) => {
     try {
       const data = await crud.obtener(row[cfg.pk]);
-      crud.setRegistro({
-        ...data,
-        ESTADOMIEMBRO: normalizarEstadoMensualidad(data.ESTADOMIEMBRO),
-      });
+      crud.setRegistro(data);
       setEstudianteSel({
         IDUSUARIO: data.IDUSUARIO,
         NOMBRE_COMPLETO: data.ESTUDIANTE_NOMBRE,
@@ -136,11 +131,66 @@ export default function MensualidadPage() {
     });
   };
 
+  const abrirMensualidadesEstudiante = async (row) => {
+    const idUsuario = row.IDUSUARIO;
+    if (!idUsuario) {
+      setToast({ mensaje: "No se encontró el estudiante de esta fila.", tipo: "error" });
+      return;
+    }
+    setEstudianteModal({
+      estudianteNombre: row.ESTUDIANTE_NOMBRE || idUsuario,
+      estudianteDni: row.ESTUDIANTE_DNI || "",
+      idUsuario,
+      items: [],
+    });
+    setEstudianteModalLoading(true);
+    try {
+      const res = await fetch(`/api/mensualidades/estudiante/${encodeURIComponent(idUsuario)}/`);
+      const data = await parseJsonResponse(res);
+      if (!res.ok) throw new Error(data.error || "No se pudieron cargar las mensualidades");
+      setEstudianteModal((prev) =>
+        prev ? { ...prev, items: data.data || [] } : prev,
+      );
+    } catch (err) {
+      setEstudianteModal(null);
+      setToast({ mensaje: err.message, tipo: "error" });
+    } finally {
+      setEstudianteModalLoading(false);
+    }
+  };
+
+  const abrirPagosDesdeEstudiante = async (mensualidad) => {
+    const id = mensualidad.IDMENSUALIDAD;
+    setPagosModal({
+      titulo: "Pagos de la mensualidad",
+      estudianteNombre: estudianteModal?.estudianteNombre || "",
+      planNombre: mensualidad.PLAN_NOMBRE || "",
+      resumen: {
+        montoTotal: mensualidad.MONTOTOTAL,
+        pagado: mensualidad.PAGADO,
+        deuda: mensualidad.DEUDA,
+      },
+      pagos: [],
+    });
+    setPagosLoading(true);
+    try {
+      const res = await fetch(`/api/mensualidades/${encodeURIComponent(id)}/pagos/`);
+      const data = await parseJsonResponse(res);
+      if (!res.ok) throw new Error(data.error || "No se pudieron cargar los pagos");
+      setPagosModal((prev) => (prev ? { ...prev, pagos: data.data || [] } : prev));
+    } catch (err) {
+      setPagosModal(null);
+      setToast({ mensaje: err.message, tipo: "error" });
+    } finally {
+      setPagosLoading(false);
+    }
+  };
+
   const handleGuardar = async (payload) => {
     const body = {
       IDUSUARIO: payload.IDUSUARIO,
       IDPLAN: payload.IDPLAN,
-      ESTADOMIEMBRO: Number(payload.ESTADOMIEMBRO || 2),
+      ESTADOMIEMBRO: 2,
       FECHAINICIO: payload.FECHAINICIO,
       FECHAFIN: payload.FECHAFIN,
       MONTOTOTAL: payload.MONTOTOTAL === "" ? null : Number(payload.MONTOTOTAL),
@@ -233,11 +283,11 @@ export default function MensualidadPage() {
           placeholder="Buscar estudiante, DNI, plan..."
           filtros={[
             {
-              key: "estado",
-              etiqueta: "Estado",
-              value: crud.filtros.estado || "Activo",
-              opciones: ["Activo", "Inactivo"],
-              onChange: (v) => crud.setFiltro("estado", v),
+              key: "deuda",
+              etiqueta: "Deuda",
+              value: crud.filtros.deuda || "",
+              opciones: ["Con deuda", "Sin deuda"],
+              onChange: (v) => crud.setFiltro("deuda", v),
             },
           ]}
         />
@@ -252,6 +302,7 @@ export default function MensualidadPage() {
           onOrden={crud.toggleOrden}
           onVer={abrirVer}
           onEditar={abrirEditar}
+          onVerMensualidades={abrirMensualidadesEstudiante}
           onEliminar={abrirEliminar}
           onReintentar={crud.listar}
           pagina={crud.pagina}
@@ -274,6 +325,27 @@ export default function MensualidadPage() {
         confirmando={confirmando}
         onCancel={() => setConfirm(null)}
         onConfirm={handleConfirmEliminar}
+      />
+
+      <MensualidadEstudianteModal
+        abierto={Boolean(estudianteModal)}
+        estudianteNombre={estudianteModal?.estudianteNombre}
+        estudianteDni={estudianteModal?.estudianteDni}
+        items={estudianteModal?.items}
+        loading={estudianteModalLoading}
+        onClose={() => setEstudianteModal(null)}
+        onVerPagos={abrirPagosDesdeEstudiante}
+      />
+
+      <MensualidadPagosModal
+        abierto={Boolean(pagosModal)}
+        titulo={pagosModal?.titulo}
+        estudianteNombre={pagosModal?.estudianteNombre}
+        planNombre={pagosModal?.planNombre}
+        resumen={pagosModal?.resumen}
+        pagos={pagosModal?.pagos}
+        loading={pagosLoading}
+        onClose={() => setPagosModal(null)}
       />
 
       {toast && (

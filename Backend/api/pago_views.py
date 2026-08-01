@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 from .pago_crud_service import (
     listar_pagos,
     mensualidades_estudiante,
@@ -85,7 +86,7 @@ def pagos_mantenedor(request, id_pago=None):
         try:
             tipo = (payload.get('TIPO') or 'abono').lower()
             if tipo == 'nueva_mensualidad':
-                ok, mensaje = insertar_mensualidad({
+                body = {
                     'IDUSUARIO': payload.get('IDUSUARIO'),
                     'IDPLAN': payload.get('IDPLAN'),
                     'ESTADOMIEMBRO': payload.get('ESTADOMIEMBRO') or 2,
@@ -98,15 +99,17 @@ def pagos_mantenedor(request, id_pago=None):
                     'IDTUTOR': payload.get('IDTUTOR'),
                     'OBSERVACIONES': payload.get('OBSERVACIONES'),
                     'REGISTRADOPOR': payload.get('REGISTRADOPOR'),
-                })
+                }
+                ok, mensaje = insertar_mensualidad(body, actor_from_request(request, body))
             else:
-                ok, mensaje = insertar_abono({
+                body = {
                     'IDMENSUALIDAD': payload.get('IDMENSUALIDAD'),
                     'MONTO': payload.get('MONTO'),
                     'IDMETODOPAGO': payload.get('IDMETODOPAGO'),
                     'OBSERVACIONES': payload.get('OBSERVACIONES'),
                     'REGISTRADOPOR': payload.get('REGISTRADOPOR'),
-                })
+                }
+                ok, mensaje = insertar_abono(body, actor_from_request(request, body))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -117,7 +120,7 @@ def pagos_mantenedor(request, id_pago=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = actualizar_pago(id_pago, payload)
+            ok, mensaje = actualizar_pago(id_pago, payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -125,7 +128,7 @@ def pagos_mantenedor(request, id_pago=None):
 
     if request.method == 'DELETE' and id_pago:
         try:
-            ok, mensaje = eliminar_pago(id_pago)
+            ok, mensaje = eliminar_pago(id_pago, actor_from_request(request))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:

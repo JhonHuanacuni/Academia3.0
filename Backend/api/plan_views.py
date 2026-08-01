@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 from .plan_crud_service import (
     listar_planes,
     obtener_plan,
@@ -64,7 +65,7 @@ def planes_mantenedor(request, id_plan=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = insertar_plan(payload)
+            ok, mensaje = insertar_plan(payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -75,7 +76,7 @@ def planes_mantenedor(request, id_plan=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = actualizar_plan(id_plan, payload)
+            ok, mensaje = actualizar_plan(id_plan, payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -83,7 +84,7 @@ def planes_mantenedor(request, id_plan=None):
 
     if request.method == 'DELETE' and id_plan:
         try:
-            ok, mensaje = eliminar_plan(id_plan)
+            ok, mensaje = eliminar_plan(id_plan, actor_from_request(request))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:

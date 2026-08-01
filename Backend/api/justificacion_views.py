@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 from .justificacion_crud_service import (
     listar_justificaciones,
     obtener_justificacion,
@@ -48,7 +49,7 @@ def justificaciones_mantenedor(request, id_justificacion=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = insertar_justificacion(payload)
+            ok, mensaje = insertar_justificacion(payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -59,7 +60,7 @@ def justificaciones_mantenedor(request, id_justificacion=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = actualizar_justificacion(id_justificacion, payload)
+            ok, mensaje = actualizar_justificacion(id_justificacion, payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -67,7 +68,7 @@ def justificaciones_mantenedor(request, id_justificacion=None):
 
     if request.method == 'DELETE' and id_justificacion:
         try:
-            ok, mensaje = eliminar_justificacion(id_justificacion)
+            ok, mensaje = eliminar_justificacion(id_justificacion, actor_from_request(request))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:

@@ -1,4 +1,5 @@
 from django.db import connection
+from .db_context import prepare_write_cursor
 
 
 def _cursor_rows(cursor):
@@ -63,8 +64,9 @@ def mensualidades_estudiante(id_usuario: str):
         return _cursor_rows(cursor)
 
 
-def insertar_abono(payload: dict):
+def insertar_abono(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -92,8 +94,9 @@ def obtener_pago(id_pago: str):
     return rows[0] if rows else None
 
 
-def actualizar_pago(id_pago: str, payload: dict):
+def actualizar_pago(id_pago: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -114,8 +117,9 @@ def actualizar_pago(id_pago: str, payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def eliminar_pago(id_pago: str):
+def eliminar_pago(id_pago: str, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

@@ -12,3 +12,7 @@
 13.mantenedores_codigo_autogenerado.sql
 14.justificacion.sql
 15.usp_justificacion_actualizar.sql
+16.usuario_estado_retirado.sql
+17.mensualidad_filtro_deuda.sql
+18.usp_usuario_resetear_contra.sql
+19.usp_mensualidad_listar_pagos.sql

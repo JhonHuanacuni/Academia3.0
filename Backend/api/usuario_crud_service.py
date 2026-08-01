@@ -1,4 +1,5 @@
 from django.db import connection
+from .db_context import prepare_write_cursor
 from .models import TipoUsuario
 
 
@@ -58,8 +59,9 @@ def obtener_usuario(id_usuario: str):
     return rows[0] if rows else None
 
 
-def insertar_usuario(payload: dict):
+def insertar_usuario(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -90,9 +92,10 @@ def insertar_usuario(payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def actualizar_usuario(id_usuario: str, payload: dict):
+def actualizar_usuario(id_usuario: str, payload: dict, id_actor=None):
     actualizar_foto = 1 if 'FOTO' in payload else 0
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_actor, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -123,12 +126,38 @@ def actualizar_usuario(id_usuario: str, payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def eliminar_usuario(id_usuario: str):
+def eliminar_usuario(id_usuario: str, id_actor=None):
+    row = obtener_usuario(id_usuario)
+    if not row:
+        return 0, 'El usuario no existe.'
+
+    estado = (row.get('ESTADO') or '').strip()
+    eliminacion_fisica = 1 if estado == 'Retirado' else 0
+
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_actor)
+        cursor.execute(
+            """
+            SET QUOTED_IDENTIFIER ON;
+            SET ANSI_NULLS ON;
+            DECLARE @R INT, @M NVARCHAR(200);
+            EXEC dbo.usp_usuario_eliminar
+                @Id=%s, @EliminacionFisica=%s,
+                @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
+            SELECT @R AS Resultado, @M AS Mensaje;
+            """,
+            [id_usuario, eliminacion_fisica],
+        )
+        return _read_sp_write_result(cursor)
+
+
+def resetear_contra_usuario(id_usuario: str, id_actor=None):
+    with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_actor)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_usuario_eliminar @Id=%s, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
+            EXEC dbo.usp_usuario_resetear_contra @Id=%s, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
             [id_usuario],

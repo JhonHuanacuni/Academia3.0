@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 from .mensualidad_crud_service import (
     listar_mensualidades,
     obtener_mensualidad,
@@ -9,6 +10,8 @@ from .mensualidad_crud_service import (
     eliminar_mensualidad,
     buscar_estudiantes,
     listar_catalogos,
+    listar_mensualidades_estudiante,
+    listar_pagos_mensualidad,
 )
 
 
@@ -46,13 +49,13 @@ def mensualidades_mantenedor(request, id_mensualidad=None):
     if request.method == 'GET' and not id_mensualidad:
         try:
             buscar = request.GET.get('buscar') or None
-            estado = request.GET.get('estado') or None
+            deuda = request.GET.get('deuda') or request.GET.get('estado') or None
             ordenar_por = request.GET.get('ordenarPor', 'FECHAREGISTRO')
             direccion = request.GET.get('direccion', 'DESC')
             pagina = int(request.GET.get('pagina', 1))
             tamanio = int(request.GET.get('tamanio', 10))
             data, total = listar_mensualidades(
-                buscar, estado, ordenar_por, direccion, pagina, tamanio,
+                buscar, deuda, ordenar_por, direccion, pagina, tamanio,
             )
             return JsonResponse({
                 'data': data,
@@ -77,7 +80,7 @@ def mensualidades_mantenedor(request, id_mensualidad=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = insertar_mensualidad(payload)
+            ok, mensaje = insertar_mensualidad(payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -88,7 +91,7 @@ def mensualidades_mantenedor(request, id_mensualidad=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = actualizar_mensualidad(id_mensualidad, payload)
+            ok, mensaje = actualizar_mensualidad(id_mensualidad, payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -97,10 +100,30 @@ def mensualidades_mantenedor(request, id_mensualidad=None):
     if request.method == 'DELETE' and id_mensualidad:
         try:
             id_usuario = request.GET.get('idusuario') or None
-            ok, mensaje = eliminar_mensualidad(id_mensualidad, id_usuario)
+            ok, mensaje = eliminar_mensualidad(id_mensualidad, actor_from_request(request) or id_usuario)
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
             return JsonResponse({'error': str(exc)}, status=500)
 
     return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+def mensualidades_por_estudiante(request, id_usuario):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        return JsonResponse({'data': listar_mensualidades_estudiante(id_usuario)})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@csrf_exempt
+def mensualidad_pagos(request, id_mensualidad):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        return JsonResponse({'data': listar_pagos_mensualidad(id_mensualidad)})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)

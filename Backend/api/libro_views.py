@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 from django.utils import timezone
 
 from .libro_crud_service import (
@@ -139,7 +140,7 @@ def libros_mantenedor(request, id_libro=None):
                 'IMGPORTADA': None,
                 'FECHASUBIDA': _fecha_hoy_db(),
             }
-            ok, mensaje, id_gen = insertar_libro(temp_payload)
+            ok, mensaje, id_gen = insertar_libro(temp_payload, actor_from_request(request, temp_payload if isinstance(temp_payload, dict) else None))
             if not ok or not id_gen:
                 return JsonResponse({'ok': False, 'mensaje': mensaje or 'No se pudo registrar.'}, status=400)
 
@@ -153,10 +154,10 @@ def libros_mantenedor(request, id_libro=None):
                 'AULAS_CSV': payload.get('AULAS_CSV') or '',
                 'URLCONTENIDO': url_pdf,
                 'IMGPORTADA': url_portada,
-            })
+            }, actor_from_request(request, payload))
             if not ok2:
                 borrar_archivos_libro(id_gen)
-                eliminar_libro(id_gen)
+                eliminar_libro(id_gen, actor_from_request(request))
                 return JsonResponse({'ok': False, 'mensaje': mensaje2}, status=400)
 
             return JsonResponse({
@@ -199,7 +200,7 @@ def libros_mantenedor(request, id_libro=None):
                 'AULAS_CSV': payload.get('AULAS_CSV') if payload.get('AULAS_CSV') is not None else '',
                 'URLCONTENIDO': url_pdf,
                 'IMGPORTADA': url_portada,
-            })
+            }, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -207,7 +208,7 @@ def libros_mantenedor(request, id_libro=None):
 
     if request.method == 'DELETE' and id_libro:
         try:
-            ok, mensaje = eliminar_libro(id_libro)
+            ok, mensaje = eliminar_libro(id_libro, actor_from_request(request))
             if ok:
                 borrar_archivos_libro(id_libro)
             status = 200 if ok else 400

@@ -15,10 +15,16 @@ def get_clientes_sp():
 
 def validate_user(username: str, password: str):
     with connection.cursor() as cursor:
-        cursor.execute(
-            "EXEC usp_validate_user @username=%s, @password=%s",
-            [username, password],
-        )
+        if connection.vendor == 'mysql':
+            cursor.execute(
+                'CALL usp_validate_user(%s, %s)',
+                [username, password],
+            )
+        else:
+            cursor.execute(
+                'EXEC usp_validate_user @username=%s, @password=%s',
+                [username, password],
+            )
         row = cursor.fetchone()
 
     if not row:

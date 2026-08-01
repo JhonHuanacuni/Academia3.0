@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.db import connection
+from .db_context import prepare_write_cursor
 from django.utils import timezone
 
 
@@ -86,6 +87,7 @@ def marcar_asistencia_por_dni(dni: str, id_registrador: str = None):
         return 0, 'Ingresa un DNI válido.', None, None
 
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_registrador)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);

@@ -342,6 +342,15 @@ button.page-breadcrumb-link:hover {
   color: var(--color-danger);
 }
 
+.btn-icon--whatsapp {
+  color: #25d366;
+}
+
+.btn-icon--whatsapp:hover {
+  color: #128c7e;
+  background: #eafff3;
+}
+
 .mantenedor-pagination {
   display: flex;
   align-items: center;

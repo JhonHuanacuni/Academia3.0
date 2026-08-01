@@ -1,4 +1,5 @@
 from django.db import connection
+from .db_context import prepare_write_cursor
 from .concepto_crud_service import listar_conceptos_activos
 
 
@@ -60,8 +61,9 @@ def obtener_pago_extra(id_pago: str):
     return rows[0] if rows else None
 
 
-def insertar_pago_extra(payload: dict):
+def insertar_pago_extra(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);
@@ -84,8 +86,9 @@ def insertar_pago_extra(payload: dict):
         return ok, mensaje, extras.get('idgenerado')
 
 
-def actualizar_pago_extra(id_pago: str, payload: dict):
+def actualizar_pago_extra(id_pago: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -107,8 +110,9 @@ def actualizar_pago_extra(id_pago: str, payload: dict):
         return ok, mensaje
 
 
-def eliminar_pago_extra(id_pago: str):
+def eliminar_pago_extra(id_pago: str, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

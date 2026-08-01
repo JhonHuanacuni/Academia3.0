@@ -395,159 +395,180 @@ export default function ExamenFormPage({
 
         <div className="ui-tabs-panel-body" role="tabpanel">
       {tab === "config" && (
-        <div className="examen-section">
-          <h3 className="examen-section-title">Configuración básica</h3>
-          <div className="examen-grid-2">
-            <div className={`examen-field ${errors.TITULO ? "has-error" : ""}`}>
-              <label>Título del examen</label>
-              <input
-                value={values.TITULO}
-                disabled={soloLectura}
-                onChange={(e) => setField("TITULO", e.target.value)}
-                placeholder="Ej: Examen de Admisión 2026"
-              />
-              {errors.TITULO && <span className="error">{errors.TITULO}</span>}
-            </div>
-            <div className="examen-field">
-              <label>Tipo de examen</label>
-              <select
-                value={values.TIPO}
-                disabled={soloLectura || Boolean(idExamen)}
-                onChange={(e) => setField("TIPO", Number(e.target.value))}
-              >
-                <option value={40}>40 preguntas</option>
-                <option value={100}>100 preguntas</option>
-              </select>
-              {idExamen && (
-                <span className="hint">El tipo no se puede cambiar después de crear el examen.</span>
-              )}
-            </div>
-            <div className="examen-field full">
-              <label>Descripción</label>
-              <textarea
-                value={values.DESCRIPCION}
-                disabled={soloLectura}
-                rows={4}
-                placeholder="Descripción general del examen..."
-                onChange={(e) => setField("DESCRIPCION", e.target.value)}
-              />
-            </div>
-            <div className={`examen-field ${errors.FECHAINICIO ? "has-error" : ""}`}>
-              <label>Fecha de inicio</label>
-              <input
-                type="date"
-                value={values.FECHAINICIO}
-                disabled={soloLectura}
-                onChange={(e) => setField("FECHAINICIO", e.target.value)}
-              />
-            </div>
-            <div className="examen-field">
-              <label>Hora de inicio</label>
-              <input
-                type="time"
-                value={values.HORAINICIO}
-                disabled={soloLectura}
-                onChange={(e) => setField("HORAINICIO", e.target.value)}
-              />
-            </div>
-            <div className={`examen-field ${errors.FECHAFIN ? "has-error" : ""}`}>
-              <label>Fecha de cierre</label>
-              <input
-                type="date"
-                value={values.FECHAFIN}
-                disabled={soloLectura}
-                onChange={(e) => setField("FECHAFIN", e.target.value)}
-              />
-            </div>
-            <div className="examen-field">
-              <label>Hora de cierre</label>
-              <input
-                type="time"
-                value={values.HORAFIN}
-                disabled={soloLectura}
-                onChange={(e) => setField("HORAFIN", e.target.value)}
-              />
-            </div>
-            <div className="examen-field">
-              <label>Tiempo límite (minutos)</label>
-              <input
-                type="number"
-                min={1}
-                value={values.DURACIONMIN}
-                disabled={soloLectura}
-                onChange={(e) => setField("DURACIONMIN", e.target.value)}
-              />
-              {minutosSugeridos != null && (
-                <span className="hint">
-                  Sugerido según fechas: {minutosSugeridos} min
-                  {!soloLectura && (
-                    <>
-                      {" · "}
-                      <button
-                        type="button"
-                        className="btn-link"
-                        onClick={() => setField("DURACIONMIN", minutosSugeridos)}
-                      >
-                        Usar
-                      </button>
-                    </>
-                  )}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="examen-field" style={{ marginTop: "1rem" }}>
-            <label>Visibilidad del examen</label>
-            <div className="examen-radios">
-              <label>
-                <input
-                  type="radio"
-                  checked={values.TODASLASULA}
-                  disabled={soloLectura}
-                  onChange={() => setField("TODASLASULA", true)}
-                />
-                Visible para todos los salones
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  checked={!values.TODASLASULA}
-                  disabled={soloLectura}
-                  onChange={() => setField("TODASLASULA", false)}
-                />
-                Visible solo para salones específicos
-              </label>
-            </div>
-            {!values.TODASLASULA && (
-              <div className={`examen-aulas ${errors.AULAS ? "has-error" : ""}`}>
-                {aulas.map((a) => (
-                  <label key={a.value}>
+        <div className="examen-config form-page">
+          <div className="examen-config-body">
+            <div className="form-section-row">
+              <section className="form-section form-section--card">
+                <h3 className="form-section-title">Datos generales</h3>
+                <div className="form-grid form-grid--half">
+                  <div className={`form-field full ${errors.TITULO ? "has-error" : ""}`}>
+                    <label>Título del examen</label>
                     <input
-                      type="checkbox"
-                      checked={(values.AULAS || []).includes(a.value)}
+                      value={values.TITULO}
                       disabled={soloLectura}
-                      onChange={() => toggleAula(a.value)}
+                      onChange={(e) => setField("TITULO", e.target.value)}
+                      placeholder="Ej: Examen de Admisión 2026"
                     />
-                    {a.label}
+                    {errors.TITULO && <span className="field-error">{errors.TITULO}</span>}
+                  </div>
+                  <div className="form-field">
+                    <label>Tipo de examen</label>
+                    <select
+                      value={values.TIPO}
+                      disabled={soloLectura || Boolean(idExamen)}
+                      onChange={(e) => setField("TIPO", Number(e.target.value))}
+                    >
+                      <option value={40}>40 preguntas</option>
+                      <option value={100}>100 preguntas</option>
+                    </select>
+                    {idExamen && (
+                      <span className="field-hint">
+                        El tipo no se puede cambiar después de crear el examen.
+                      </span>
+                    )}
+                  </div>
+                  <div className="form-field full">
+                    <label>Descripción</label>
+                    <textarea
+                      value={values.DESCRIPCION}
+                      disabled={soloLectura}
+                      rows={4}
+                      placeholder="Descripción general del examen..."
+                      onChange={(e) => setField("DESCRIPCION", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="form-section form-section--card">
+                <h3 className="form-section-title">Fechas y duración</h3>
+                <div className="form-grid form-grid--half">
+                  <div className={`form-field ${errors.FECHAINICIO ? "has-error" : ""}`}>
+                    <label>Fecha de inicio</label>
+                    <input
+                      type="date"
+                      value={values.FECHAINICIO}
+                      disabled={soloLectura}
+                      onChange={(e) => setField("FECHAINICIO", e.target.value)}
+                    />
+                    {errors.FECHAINICIO && <span className="field-error">{errors.FECHAINICIO}</span>}
+                  </div>
+                  <div className="form-field">
+                    <label>Hora de inicio</label>
+                    <input
+                      type="time"
+                      value={values.HORAINICIO}
+                      disabled={soloLectura}
+                      onChange={(e) => setField("HORAINICIO", e.target.value)}
+                    />
+                  </div>
+                  <div className={`form-field ${errors.FECHAFIN ? "has-error" : ""}`}>
+                    <label>Fecha de cierre</label>
+                    <input
+                      type="date"
+                      value={values.FECHAFIN}
+                      disabled={soloLectura}
+                      onChange={(e) => setField("FECHAFIN", e.target.value)}
+                    />
+                    {errors.FECHAFIN && <span className="field-error">{errors.FECHAFIN}</span>}
+                  </div>
+                  <div className="form-field">
+                    <label>Hora de cierre</label>
+                    <input
+                      type="time"
+                      value={values.HORAFIN}
+                      disabled={soloLectura}
+                      onChange={(e) => setField("HORAFIN", e.target.value)}
+                    />
+                  </div>
+                  <div className="form-field full">
+                    <label>Tiempo límite (minutos)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={values.DURACIONMIN}
+                      disabled={soloLectura}
+                      onChange={(e) => setField("DURACIONMIN", e.target.value)}
+                    />
+                    {minutosSugeridos != null && (
+                      <span className="field-hint">
+                        Sugerido según fechas: {minutosSugeridos} min
+                        {!soloLectura && (
+                          <>
+                            {" · "}
+                            <button
+                              type="button"
+                              className="btn-link"
+                              onClick={() => setField("DURACIONMIN", minutosSugeridos)}
+                            >
+                              Usar
+                            </button>
+                          </>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <section className="form-section form-section--card examen-config-visibilidad">
+              <h3 className="form-section-title">Visibilidad</h3>
+              <div className="form-field">
+                <label>Alcance por salón</label>
+                <div className="examen-radios">
+                  <label>
+                    <input
+                      type="radio"
+                      checked={values.TODASLASULA}
+                      disabled={soloLectura}
+                      onChange={() => setField("TODASLASULA", true)}
+                    />
+                    Visible para todos los salones
                   </label>
-                ))}
-                {errors.AULAS && <span className="error">{errors.AULAS}</span>}
+                  <label>
+                    <input
+                      type="radio"
+                      checked={!values.TODASLASULA}
+                      disabled={soloLectura}
+                      onChange={() => setField("TODASLASULA", false)}
+                    />
+                    Visible solo para salones específicos
+                  </label>
+                </div>
               </div>
-            )}
-            <label className="examen-toggle">
-              <input
-                type="checkbox"
-                checked={values.VISIBLE}
-                disabled={soloLectura}
-                onChange={(e) => setField("VISIBLE", e.target.checked)}
-              />
-              Examen visible para estudiantes
-            </label>
+
+              {!values.TODASLASULA && (
+                <div className={`examen-config-aulas ${errors.AULAS ? "has-error" : ""}`}>
+                  {aulas.map((a) => (
+                    <label key={a.value} className="examen-config-aula-check">
+                      <input
+                        type="checkbox"
+                        checked={(values.AULAS || []).includes(a.value)}
+                        disabled={soloLectura}
+                        onChange={() => toggleAula(a.value)}
+                      />
+                      {a.label}
+                    </label>
+                  ))}
+                  {errors.AULAS && <span className="field-error">{errors.AULAS}</span>}
+                </div>
+              )}
+
+              <label className="examen-config-visible">
+                <input
+                  type="checkbox"
+                  checked={values.VISIBLE}
+                  disabled={soloLectura}
+                  onChange={(e) => setField("VISIBLE", e.target.checked)}
+                />
+                Examen visible para estudiantes
+              </label>
+            </section>
           </div>
 
           {!soloLectura && (
-            <div className="examen-form-actions">
+            <div className="form-page-footer examen-config-footer">
               <button type="button" className="btn-secondary" onClick={onCancel}>
                 Cancelar
               </button>

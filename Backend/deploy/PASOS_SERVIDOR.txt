@@ -1,0 +1,50 @@
+# Academia 3.0 — Pasos en el servidor Linode (usercodex@198.58.117.160)
+# MySQL usuario: usercodex (contraseña en .env del servidor, no en git)
+
+## 1. DNS (Linode Cloud Manager)
+Registro A: academia.usercodex.com → 198.58.117.160
+
+## 2. Clonar repo
+ssh usercodex@198.58.117.160
+git clone https://github.com/JhonHuanacuni/Academia3.0.git academia_src
+
+## 3. Base de datos
+mysql -u usercodex -p <<'SQL'
+CREATE DATABASE IF NOT EXISTS AcademiaDB
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON AcademiaDB.* TO 'usercodex'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+
+## 4. Backend
+cd /home/usercodex/academia_src/Backend
+cp deploy/env.production.example .env
+chmod +x scripts/bootstrap_server.sh
+./scripts/bootstrap_server.sh
+
+## 5. Gunicorn (systemd)
+sudo cp deploy/gunicorn-academia.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable gunicorn-academia
+sudo systemctl start gunicorn-academia
+sudo systemctl status gunicorn-academia
+
+## 6. Frontend (en tu PC)
+cd Frontend
+npm run build
+# Subir dist/ por SFTP a /home/usercodex/academia_front/
+
+## 7. Apache
+sudo cp deploy/academia.usercodex.com.conf /etc/apache2/sites-available/
+sudo a2enmod proxy proxy_http rewrite
+sudo a2ensite academia.usercodex.com.conf
+sudo chown -R usercodex:www-data /home/usercodex/academia_front
+sudo chown -R usercodex:www-data /home/usercodex/academia_src/Backend/staticfiles
+sudo apache2ctl configtest && sudo systemctl reload apache2
+
+## 8. HTTPS
+sudo certbot --apache -d academia.usercodex.com
+
+## Puertos
+# Restaurante (restaurante-criolla): Gunicorn 8000
+# Academia: Gunicorn 8001

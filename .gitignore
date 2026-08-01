@@ -1,0 +1,86 @@
+# =========================
+# Academia 3.0 — monorepo
+# =========================
+
+# --- Secretos y entorno local ---
+.env
+.env.*
+!.env.example
+!**/.env.example
+!**/env.production.example
+*.local
+
+# --- Python / Django (Backend) ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+venv/
+.venv/
+ENV/
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+db.sqlite3
+*.sqlite3
+/staticfiles/
+/media/
+Backend/staticfiles/
+Backend/media/
+
+# --- Node / Vite (Frontend) ---
+node_modules/
+Frontend/node_modules/
+Frontend/dist/
+Frontend/dist-ssr/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Logs y cachés ---
+logs/
+*.log
+.cache/
+.parcel-cache/
+.vite/
+Frontend/.vite/
+coverage/
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# --- IDEs y editores ---
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# --- Sistema operativo ---
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Archivos personales / locales (Backend) ---
+*_jose.py
+*_jose.*
+*load_sqlite_data_jose*

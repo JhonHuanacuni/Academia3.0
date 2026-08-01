@@ -37,6 +37,14 @@ export const usuarioConfig = {
       titulo: "Acceso al sistema",
       campos: [
         {
+          campo: "IDUSUARIO",
+          etiqueta: "Usuario",
+          control: "text",
+          obligatorio: true,
+          soloCrear: true,
+          ayuda: "Será el nombre con el que inicia sesión (normalmente el DNI).",
+        },
+        {
           campo: "CONTRA",
           etiqueta: "Contraseña",
           control: "password",
@@ -51,6 +59,15 @@ export const usuarioConfig = {
           soloFrontend: true,
         },
         {
+          campo: "_GENERAR_CREDENCIALES",
+          etiqueta: "Generar credenciales",
+          control: "action",
+          accion: "generarDesdeDni",
+          soloCrear: true,
+          soloFrontend: true,
+          ayuda: "Usa el DNI como usuario y contraseña.",
+        },
+        {
           campo: "IDTIPOUSUARIO",
           etiqueta: "Tipo de usuario",
           control: "select",
@@ -61,7 +78,7 @@ export const usuarioConfig = {
           campo: "ESTADO",
           etiqueta: "Estado",
           control: "select",
-          opciones: ["Activo", "Inactivo"],
+          opciones: ["Activo", "Retirado"],
           obligatorio: true,
           defaultValue: "Activo",
         },

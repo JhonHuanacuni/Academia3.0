@@ -1,161 +1,78 @@
-# Django Backend
+# Backend — Academia 3.0
 
-Este backend usa Django y expone una API simple para que el frontend React pueda consumirla.
+API Django para el frontend React. La documentación maestra del proyecto está en [`../README.md`](../README.md).
 
-## Pasos de configuración
+## Setup rápido (MySQL local — recomendado)
 
-1. Crear un entorno virtual:
-   ```powershell
-   cd Backend
-   python -m venv venv
-   .\venv\Scripts\activate
-   ```
-2. Instalar dependencias:
-   ```powershell
-   pip install -r requirements.txt
-   ```
-3. Crear el archivo de configuración:
-   ```powershell
-   copy .env.example .env
-   ```
-4. Editar `.env` con los datos de tu SQL Server:
-   - `DB_ENGINE=mssql`
-   - `DB_NAME`
-   - `DB_USER`
-   - `DB_PASSWORD`
-   - `DB_HOST`
-   - `DB_PORT`
-   - `DB_DRIVER`
-5. Ejecutar migraciones para crear tablas en SQL Server:
-   ```powershell
-   python manage.py migrate
-   ```
-6. Iniciar el servidor Django:
-   ```powershell
-   python manage.py runserver
-   ```
+```powershell
+cd Backend
+.\scripts\bootstrap_local.ps1
+.\venv\Scripts\python.exe manage.py runserver
+```
 
-## Estructura limpia y escalable
+O manualmente:
 
-- `api/models.py` contiene los modelos que representan tablas en SQL Server.
-- `api/services.py` encapsula la lógica de acceso a datos y la ejecución de stored procedures.
-- `db_scripts/usp_get_clientes.sql` es un script de referencia para crear el stored procedure en SQL Server.
+```powershell
+cd Backend
+python -m venv venv
+.\venv\Scripts\pip.exe install -r requirements.txt
+copy .env.example .env
+python scripts\setup_mysql_db.py
+.\venv\Scripts\python.exe manage.py runserver
+```
 
-## Diferencia entre ORM y Stored Procedures
+## Despliegue Linode
 
-- `GET /api/clientes/` usa el ORM de Django. Esto significa que Django construye y ejecuta la consulta SQL automáticamente a partir del modelo `Cliente`.
-- `GET /api/clientes-sp/` ejecuta directamente un stored procedure en SQL Server (`usp_get_clientes`) mediante un cursor SQL.
+Ver `deploy/CONTEXTO_DESPLIEGUE.txt` y plantillas en `deploy/`:
 
-El endpoint ORM es útil para consultas sencillas y cuando quieres aprovechar validaciones, filtros y relaciones de Django.
-El endpoint con SP es útil cuando la lógica ya está definida en el servidor de base de datos, cuando necesitas optimizaciones específicas o quieres usar procedimientos almacenados existentes.
+| Recurso | Valor |
+|---------|-------|
+| Subdominio | `academia.usercodex.com` |
+| BD | `AcademiaDB` |
+| Código servidor | `/home/usercodex/academia_src` |
+| Frontend dist | `/home/usercodex/academia_front` |
+| Gunicorn | servicio `gunicorn-academia`, puerto `8001` |
 
-## Migraciones y tablas en SQL Server
+Scripts MySQL: `db_scripts_mysql/` → `python scripts/setup_mysql_db.py`
 
-Si tus tablas ya las creas manualmente en SQL Server y quieres que Django solo las use, no necesitas ejecutar `manage.py migrate` para esas tablas específicas.
-- En `api/models.py`, `Cliente` está marcado con `managed = False`, por lo que Django no intentará crear ni modificar la tabla `clientes`.
-- Aún puedes usar `migrate` para otras tablas de Django o apps que sí quieras que Django controle.
+## Setup legacy (SQL Server)
 
-## Conexión a la base de datos
+```powershell
+# DB_ENGINE=mssql en .env — ver db_scripts/ por fecha
+```
 
-La conexión a la base de datos está en `backend_project/settings.py`.
-- Lee las variables desde el archivo `.env`.
-- Si pones `DB_ENGINE=mssql` en `.env`, Django usa `mssql-django` y `pyodbc`.
-- El driver y datos de conexión se configuran con:
-  - `DB_NAME`
-  - `DB_USER`
-  - `DB_PASSWORD`
-  - `DB_HOST`
-  - `DB_PORT`
-  - `DB_DRIVER`
+## Estructura
 
-Por eso no hay un archivo de conexión separado: Django usa `settings.py` como el lugar central para la configuración de la base de datos.
+| Carpeta / archivo | Uso |
+|-------------------|-----|
+| `api/models.py` | Modelos `managed = False` ↔ tablas SQL Server |
+| `api/*_crud_service.py` | Lógica de negocio + llamadas a SPs |
+| `api/*_views.py` | Endpoints HTTP |
+| `api/menu_config.py` | Mapa módulo/submódulo → página frontend |
+| `api/urls.py` | Rutas `/api/…` |
+| `db_scripts/` | Scripts SQL por fecha; ver `ORDEN_EJECUCION.txt` en cada carpeta |
 
-## Uso del directorio db_scripts
+## Scripts SQL
 
-El archivo en `db_scripts/` no es obligatorio para la ejecución de Django.
-Está ahí para:
-- versionar el script del stored procedure en tu repositorio,
-- facilitar la creación/actualización en SQL Server,
-- compartir la definición del SP con otros desarrolladores.
+1. BD nueva: `db_scripts/22_06_2026/esquema_completo.sql` + orden en `22_06_2026/ORDEN_EJECUCION.txt`
+2. Luego carpetas incrementales en orden cronológico hasta `26_07_2026/`
 
-En producción, si el SP ya está creado en SQL Server, no necesitas ejecutar ese archivo desde Django; es solo un script de referencia.
+**No uses `manage.py migrate`** para tablas de negocio — el esquema lo definen los scripts SQL.
 
-## Requisitos adicionales
+## API
 
-- SQL Server instalado y accesible.
-- Driver ODBC apropiado (`ODBC Driver 18 for SQL Server` o equivalente).
-- `pyodbc` instalado para que `mssql-django` pueda conectar con SQL Server.
+- Swagger: `http://127.0.0.1:8000/api/docs/`
+- Health: `GET /api/status/`
+- Login: `POST /api/login/` — body `{ "username", "password" }`
 
-## API disponible
+Endpoints por módulo: ver `api/urls.py` y el README raíz.
 
-- `http://127.0.0.1:8000/api/status/`
-- `http://127.0.0.1:8000/api/clientes/`
-- `http://127.0.0.1:8000/api/clientes-sp/`
-- `http://127.0.0.1:8000/api/login/` (POST)
+## Conexión BD
 
-El frontend React está configurado para usar `/api` como proxy hacia este servidor.
+Variables en `.env` → `backend_project/settings.py`:
 
-## Login con SQL Server
+- `DB_ENGINE=mssql`
+- `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_DRIVER`
+- `DB_TRUSTED_CONNECTION=true` para auth Windows (opcional)
 
-Este proyecto ahora incluye un endpoint de login que verifica credenciales usando SQL Server.
-- El stored procedure está en: `db_scripts/06_05_2026/usp_validate_user.sql`
-- El backend llama a `usp_validate_user` desde `api/services.py`.
-- El frontend envía `username` y `password` a `POST /api/login/`.
-
-### Ejemplo de `usp_validate_user`
-
-El procedimiento almacenado valida el usuario en la tabla `USUARIO` y devuelve:
-- `is_valid = 1` si el usuario es correcto
-- `is_valid = 0` cuando no lo es
-- `role` con el tipo de acceso (`usuario`, `secretario`, `admin`)
-
-## Ejecución local
-
-### Backend
-
-1. Crear entorno virtual en `Backend`:
-   ```powershell
-   cd Backend
-   python -m venv venv
-   .\venv\Scripts\Activate.ps1
-   ```
-2. Instalar dependencias:
-   ```powershell
-   pip install -r requirements.txt
-   ```
-3. Configurar `.env` con tus datos de SQL Server:
-   ```ini
-   SECRET_KEY=django-insecure-change-me
-   DEBUG=True
-   DB_ENGINE=mssql
-   DB_NAME=<tu_base_de_datos>
-   DB_USER=<tu_usuario>
-   DB_PASSWORD=<tu_contraseña>
-   DB_HOST=localhost
-   DB_PORT=1433
-   DB_DRIVER=ODBC Driver 18 for SQL Server
-   DB_TRUSTED_CONNECTION=true
-   ```
-   - Si usas autenticación Windows, puedes dejar `DB_USER` y `DB_PASSWORD` vacíos y usar `DB_TRUSTED_CONNECTION=true`.
-4. Iniciar el servidor Django:
-   ```powershell
-   python manage.py runserver
-   ```
-
-### Frontend
-
-1. Desde la carpeta `Frontend`:
-   ```powershell
-   cd Frontend
-   npm install
-   npm run dev
-   ```
-
-### SQL Server
-
-1. Ejecutar el script `db_scripts/05_05_2026/tables.sql` para crear tablas.
-2. Cargar datos de prueba con `db_scripts/05_05_2026/data.sql`.
-3. Crear el login stored procedure:
-   - `db_scripts/06_05_2026/usp_validate_user.sql`
-
-Con eso, el backend ya puede validar el login y el frontend mostrará el formulario de acceso.
+Requiere **ODBC Driver 18 for SQL Server** (o equivalente) y `pyodbc`.

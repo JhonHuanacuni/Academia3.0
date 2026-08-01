@@ -12,6 +12,108 @@
   border-radius: 0;
 }
 
+/* Config tab — patrón form-page (como Notas / Mensualidades) */
+.examen-config {
+  display: flex;
+  flex-direction: column;
+  margin: -1rem -1.1rem -1.15rem;
+  min-height: 100%;
+}
+
+.examen-config-body {
+  padding: 1rem 1.1rem;
+  background: var(--color-bg, #f6f7fb);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  flex: 1;
+}
+
+.examen-config .form-section-row {
+  gap: 0.85rem;
+  align-items: stretch;
+}
+
+.examen-config .form-section--card {
+  height: 100%;
+}
+
+.examen-config-visibilidad .form-field {
+  margin-bottom: 0.65rem;
+}
+
+.examen-config-aulas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.45rem 0.75rem;
+  max-height: 220px;
+  overflow: auto;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--color-border, #e3e6ef);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.examen-config-aulas.has-error {
+  border-color: var(--color-danger, #d23b3b);
+}
+
+.examen-config-aula-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  color: var(--color-text, #1c2333);
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.examen-config-aula-check input {
+  margin-top: 0.15rem;
+  width: auto;
+  accent-color: var(--color-primary, #6a42e5);
+}
+
+.examen-config-visible {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: var(--color-primary-soft, #ede8fc);
+  border: 1px solid rgba(106, 66, 229, 0.2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text, #1c2333);
+  cursor: pointer;
+}
+
+.examen-config-visible input {
+  width: auto;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--color-primary, #6a42e5);
+}
+
+.examen-config-footer {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+@media (max-width: 900px) {
+  .examen-config {
+    margin: -0.85rem;
+  }
+
+  .examen-config-body {
+    padding: 0.85rem;
+  }
+}
+
 .examen-tab-count {
   font-size: 0.72rem;
   font-weight: 700;

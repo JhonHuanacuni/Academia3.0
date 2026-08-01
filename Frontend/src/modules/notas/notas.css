@@ -1,0 +1,328 @@
+/* ── Importar notas (form-page) ── */
+
+.notas-import-card {
+  margin-top: 0;
+}
+
+.notas-import-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.notas-import-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 0.85rem;
+  align-items: stretch;
+}
+
+.notas-import-left {
+  min-width: 0;
+}
+
+.notas-import-left .form-section-row {
+  gap: 0.85rem;
+  height: 100%;
+}
+
+.notas-import-file {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  height: 100%;
+}
+
+.notas-import-file .notas-file-drop {
+  flex: 1;
+  min-height: 160px;
+}
+
+.notas-file-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 1.35rem 1rem;
+  border: 2px dashed rgba(106, 66, 229, 0.35);
+  border-radius: 10px;
+  background: var(--color-primary-soft, #ede8fc);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notas-file-drop:hover,
+.notas-file-drop:focus-visible {
+  border-color: var(--color-primary, #6a42e5);
+  background: #f3efff;
+  box-shadow: 0 0 0 3px rgba(106, 66, 229, 0.12);
+  outline: none;
+}
+
+.notas-file-drop--loaded {
+  border-style: solid;
+  background: #fff;
+}
+
+.notas-file-drop-icon {
+  font-size: 1.75rem;
+  color: var(--color-primary, #6a42e5);
+  margin-bottom: 0.15rem;
+}
+
+.notas-file-drop strong {
+  font-size: 0.9rem;
+  color: var(--color-text, #1c2333);
+}
+
+.notas-file-drop span {
+  font-size: 0.78rem;
+  color: var(--color-muted, #6b7280);
+  max-width: 28rem;
+  line-height: 1.4;
+}
+
+.notas-file-input {
+  display: none;
+}
+
+.notas-file-clear {
+  margin-top: 0.5rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary, #6a42e5);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notas-file-clear:hover {
+  text-decoration: underline;
+}
+
+.notas-import-preview--bottom {
+  width: 100%;
+}
+
+.notas-import-preview-inner {
+  padding: 0.9rem 1rem 1rem;
+  background: #f8f9fc;
+  border: 1px solid var(--color-border, #e3e6ef);
+  border-radius: 8px;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+.notas-import-preview-inner .form-section-title {
+  margin-bottom: 0.75rem;
+}
+
+.notas-import-preview-inner .form-section-title svg {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.notas-preview-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 0.75rem;
+  text-align: left;
+  color: var(--color-muted, #6b7280);
+}
+
+.notas-preview-empty svg {
+  font-size: 2rem;
+  color: var(--color-primary, #6a42e5);
+  opacity: 0.45;
+}
+
+.notas-preview-empty p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  max-width: 16rem;
+}
+
+.notas-preview-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  background: var(--color-primary-soft, #ede8fc);
+  border: 1px solid rgba(106, 66, 229, 0.2);
+}
+
+.notas-preview-badge strong {
+  font-size: 1.25rem;
+  color: var(--color-primary, #6a42e5);
+  line-height: 1;
+}
+
+.notas-preview-badge span {
+  font-size: 0.82rem;
+  color: var(--color-text, #1c2333);
+}
+
+.notas-preview-table {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--color-border, #e3e6ef);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.notas-preview-table .data-table-wrap {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.notas-preview-table .data-table th {
+  background: var(--color-primary-soft, #ede8fc);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.notas-preview-table .data-table td {
+  font-size: 0.78rem;
+}
+
+.notas-preview-more {
+  margin: 0.5rem 0 0;
+  text-align: center;
+}
+
+/* ── Modal ver importación ── */
+
+.notas-ver-modal {
+  max-width: min(960px, 96vw);
+  border-top: 3px solid var(--color-primary, #6a42e5);
+}
+
+.notas-ver-header h2 {
+  color: var(--color-text, #1c2333);
+}
+
+.notas-ver-close {
+  color: var(--color-primary, #6a42e5);
+}
+
+.notas-ver-close:hover {
+  color: var(--color-primary-hover, #5a35c9);
+}
+
+.notas-ver-subtitulo {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: var(--color-primary, #6a42e5);
+  font-weight: 500;
+}
+
+.notas-ver-body {
+  background: var(--color-bg, #f6f7fb);
+}
+
+.notas-ver-resumen {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: var(--radius, 10px);
+  background: var(--color-primary-soft, #ede8fc);
+  border: 1px solid rgba(106, 66, 229, 0.22);
+}
+
+.notas-ver-resumen-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.notas-ver-resumen-main strong {
+  color: var(--color-text, #1c2333);
+  font-size: 0.92rem;
+}
+
+.notas-ver-resumen-main span {
+  color: var(--color-text, #1c2333);
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.notas-ver-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  text-align: right;
+  color: var(--color-text, #1c2333);
+}
+
+.notas-ver-meta-count {
+  font-weight: 700;
+  color: var(--color-primary, #6a42e5);
+}
+
+.notas-ver-tabla {
+  margin-top: 0;
+  border-color: var(--color-border, #e3e6ef);
+}
+
+.notas-ver-tabla .data-table th {
+  background: var(--color-primary-soft, #ede8fc);
+  color: var(--color-text, #1c2333);
+}
+
+.notas-ver-tabla .data-table tbody tr:hover {
+  background: rgba(106, 66, 229, 0.04);
+}
+
+.notas-ver-modal .modal-footer {
+  background: var(--color-surface, #fff);
+}
+
+.notas-ver-modal .modal-footer .btn-secondary {
+  color: var(--color-primary, #6a42e5);
+  border-color: rgba(106, 66, 229, 0.35);
+}
+
+.notas-ver-modal .modal-footer .btn-secondary:hover {
+  background: var(--color-primary-soft, #ede8fc);
+  border-color: var(--color-primary, #6a42e5);
+}
+
+@media (max-width: 960px) {
+  .notas-import-top {
+    grid-template-columns: 1fr;
+  }
+
+  .notas-import-file .notas-file-drop {
+    min-height: 140px;
+  }
+
+  .notas-preview-empty {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .notas-ver-meta {
+    align-items: flex-start;
+    text-align: left;
+  }
+}

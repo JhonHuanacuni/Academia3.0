@@ -29,7 +29,6 @@ export default function HorarioPage() {
   const [toast, setToast] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
   const [aulas, setAulas] = useState([]);
-  const [planes, setPlanes] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -46,18 +45,6 @@ export default function HorarioPage() {
         }
       } catch {
         /* catálogo opcional */
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/planes/?estado=Activo&tamanio=100");
-        const data = await parseJsonResponse(res);
-        if (res.ok) setPlanes(data.data || []);
-      } catch {
-        setPlanes([]);
       }
     })();
   }, []);
@@ -209,7 +196,6 @@ export default function HorarioPage() {
         abierto={Boolean(verModal)}
         titulo={verModal?.titulo}
         url={verModal?.url}
-        planes={planes}
         onClose={() => setVerModal(null)}
       />
 

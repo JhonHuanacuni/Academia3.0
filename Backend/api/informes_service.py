@@ -329,8 +329,8 @@ def _normalizar_estado_usuario(estado):
         return None
     if e.lower() == 'activo':
         return 'Activo'
-    if e.lower() == 'inactivo':
-        return 'Inactivo'
+    if e.lower() in ('inactivo', 'retirado'):
+        return 'Retirado'
     return e
 
 

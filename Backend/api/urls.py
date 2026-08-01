@@ -18,6 +18,9 @@ from . import materia_views
 from . import examen_views
 from . import examen_estudiante_views
 from . import justificacion_views
+from . import nota_import_views
+from . import auditoria_views
+from . import dashboard_views
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -38,6 +41,7 @@ urlpatterns = [
     path('usuarios/<str:id_usuario>/', usuario_views.usuarios_mantenedor, name='usuarios_mantenedor_detail'),
     path('usuarios/<str:id_usuario>/qr/', asistencia_views.usuario_qr, name='usuario_qr'),
     path('usuarios/<str:id_usuario>/carnet/', asistencia_views.usuario_carnet, name='usuario_carnet'),
+    path('usuarios/<str:id_usuario>/reset-contra/', usuario_views.usuario_resetear_contra, name='usuario_resetear_contra'),
     path('asistencias/', asistencia_views.asistencias_api, name='asistencias_api'),
     path('justificaciones/', justificacion_views.justificaciones_mantenedor, name='justificaciones_mantenedor'),
     path('justificaciones/<str:id_justificacion>/', justificacion_views.justificaciones_mantenedor, name='justificaciones_mantenedor_detail'),
@@ -49,9 +53,12 @@ urlpatterns = [
     path('planes/', plan_views.planes_mantenedor, name='planes_mantenedor'),
     path('planes/<str:id_plan>/', plan_views.planes_mantenedor, name='planes_mantenedor_detail'),
     path('informes/asistencias/', informes_views.informe_asistencias_api, name='informe_asistencias_api'),
+    path('dashboard/', dashboard_views.dashboard_api, name='dashboard_api'),
     path('mensualidades/catalogos/', mensualidad_views.mensualidades_catalogos, name='mensualidades_catalogos'),
     path('mensualidades/estudiantes/', mensualidad_views.mensualidades_estudiantes, name='mensualidades_estudiantes'),
     path('mensualidades/', mensualidad_views.mensualidades_mantenedor, name='mensualidades_mantenedor'),
+    path('mensualidades/estudiante/<str:id_usuario>/', mensualidad_views.mensualidades_por_estudiante, name='mensualidades_por_estudiante'),
+    path('mensualidades/<str:id_mensualidad>/pagos/', mensualidad_views.mensualidad_pagos, name='mensualidad_pagos'),
     path('mensualidades/<str:id_mensualidad>/', mensualidad_views.mensualidades_mantenedor, name='mensualidades_mantenedor_detail'),
     path('pagos/catalogos/', pago_views.pagos_catalogos, name='pagos_catalogos'),
     path('pagos/estudiante/<str:id_usuario>/mensualidades/', pago_views.pagos_mensualidades_estudiante, name='pagos_mensualidades_estudiante'),
@@ -112,12 +119,21 @@ urlpatterns = [
         examen_views.examenes_pregunta,
         name='examenes_pregunta',
     ),
+    path('notas-importacion/catalogos/', nota_import_views.notas_importacion_catalogos, name='notas_importacion_catalogos'),
+    path('notas-importacion/importar/', nota_import_views.notas_importacion_importar, name='notas_importacion_importar'),
+    path('notas-importacion/', nota_import_views.notas_importacion_mantenedor, name='notas_importacion_mantenedor'),
+    path('notas-importacion/<int:id_importacion>/', nota_import_views.notas_importacion_mantenedor, name='notas_importacion_mantenedor_detail'),
+    path('auditoria/catalogos/', auditoria_views.auditoria_mantenedor, {'id_auditoria': 'catalogos'}),
+    path('auditoria/', auditoria_views.auditoria_mantenedor, name='auditoria_mantenedor'),
+    path('auditoria/<str:id_auditoria>/', auditoria_views.auditoria_mantenedor, name='auditoria_mantenedor_detail'),
     path('menu-usuario/', views.menu_usuario, name='menu_usuario'),
     
     # URLs de módulos - Admin
     path('modulos-disponibles/', views.modulos_disponibles, name='modulos_disponibles'),
     path('modulos-asignados-usuario/', views.modulos_asignados_usuario, name='modulos_asignados_usuario'),
+    path('modulos-asignados-rol/', views.modulos_asignados_rol, name='modulos_asignados_rol'),
     path('submodulos-modulo-usuario/', views.submodulos_modulo_usuario, name='submodulos_modulo_usuario'),
+    path('submodulos-modulo-rol/', views.submodulos_modulo_rol, name='submodulos_modulo_rol'),
     
     # Router DRF
     path('', include(router.urls)),

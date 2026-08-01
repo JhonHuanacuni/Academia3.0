@@ -1,4 +1,5 @@
 from django.db import connection
+from .db_context import prepare_write_cursor
 
 
 def _cursor_rows(cursor):
@@ -56,8 +57,9 @@ def obtener_concepto(id_concepto: str):
     return rows[0] if rows else None
 
 
-def insertar_concepto(payload: dict):
+def insertar_concepto(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);
@@ -77,8 +79,9 @@ def insertar_concepto(payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def actualizar_concepto(id_concepto: str, payload: dict):
+def actualizar_concepto(id_concepto: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -99,8 +102,9 @@ def actualizar_concepto(id_concepto: str, payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def eliminar_concepto(id_concepto: str):
+def eliminar_concepto(id_concepto: str, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

@@ -1,6 +1,7 @@
 from pathlib import Path
 from django.conf import settings
 from django.db import connection
+from .db_context import prepare_write_cursor
 
 
 def _cursor_rows(cursor):
@@ -125,8 +126,9 @@ def distribucion_examen(tipo=None, id_examen=None):
     return {'categorias': categorias, 'materias': materias}
 
 
-def insertar_examen(payload: dict):
+def insertar_examen(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);
@@ -156,8 +158,9 @@ def insertar_examen(payload: dict):
         return ok, mensaje, extras.get('idgenerado')
 
 
-def actualizar_examen(id_examen: str, payload: dict):
+def actualizar_examen(id_examen: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -186,8 +189,9 @@ def actualizar_examen(id_examen: str, payload: dict):
         return ok, mensaje
 
 
-def eliminar_examen(id_examen: str):
+def eliminar_examen(id_examen: str, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -200,8 +204,9 @@ def eliminar_examen(id_examen: str):
         return ok, mensaje
 
 
-def guardar_pregunta(id_examen: str, id_pregunta: str, payload: dict):
+def guardar_pregunta(id_examen: str, id_pregunta: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

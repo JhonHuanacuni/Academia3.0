@@ -1,0 +1,7 @@
+1.usp_mensualidad_listar_reciente.sql
+2.auditoria_columnas_tablas.sql
+3.auditoria_tabla.sql
+4.usp_auditoria_crud.sql
+5.triggers_auditoria.sql
+6.sub_academico_auditoria.sql
+7.modulos_admin_rol.sql

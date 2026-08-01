@@ -3,7 +3,8 @@ from django.db import connection
 from django.utils import timezone
 from .models import (
     Modulo, Submodulo, UsuarioModulo, GrupoModulo,
-    UsuarioModuloExcluido, UsuarioSubmoduloExcluido, Usuario,
+    UsuarioModuloExcluido, UsuarioSubmoduloExcluido, GrupoSubmoduloExcluido,
+    Usuario, TipoUsuario,
 )
 from .menu_config import (
     MODULO_PAGE_MAP, SUBMODULO_PAGE_MAP, MODULOS_MENU_DIRECTO,
@@ -117,6 +118,25 @@ def _submodulos_excluidos_usuario(idusuario: str):
         return set()
 
 
+def _submodulos_excluidos_rol(idtipousuario: str):
+    try:
+        return set(
+            GrupoSubmoduloExcluido.objects.filter(
+                IDTIPOUSUARIO=idtipousuario,
+            ).values_list('IDSUBMODULO_id', flat=True)
+        )
+    except Exception:
+        return set()
+
+
+def _submodulos_excluidos_efectivos(idusuario: str):
+    excluidos = _submodulos_excluidos_usuario(idusuario)
+    id_tipo = get_usuario_tipo(idusuario)
+    if id_tipo:
+        excluidos |= _submodulos_excluidos_rol(id_tipo)
+    return excluidos
+
+
 def _limpiar_exclusiones_submodulos_modulo(idusuario: str, idmodulo: str):
     try:
         UsuarioSubmoduloExcluido.objects.filter(
@@ -151,7 +171,7 @@ def listar_submodulos_modulo_usuario(idusuario: str, idmodulo: str):
             for row in rows
         ]
     except Exception:
-        excluidos = _submodulos_excluidos_usuario(idusuario)
+        excluidos = _submodulos_excluidos_efectivos(idusuario)
         subs = Submodulo.objects.filter(
             IDMODULO_id=idmodulo, ACTIVO=True,
         ).order_by('ORDEN', 'NOMBRE')
@@ -190,7 +210,7 @@ def get_menu_for_user(idusuario: str):
     ).order_by('ORDEN')
 
     menu = []
-    excluidos_sub = _submodulos_excluidos_usuario(idusuario)
+    excluidos_sub = _submodulos_excluidos_efectivos(idusuario)
 
     for modulo in modulos:
         page = MODULO_PAGE_MAP.get(modulo.IDMODULO, modulo.IDMODULO.lower())
@@ -418,4 +438,237 @@ def desasignar_submodulo_usuario_orm(idusuario: str, idsubmodulo: str):
     except Exception as exc:
         raise ValueError(
             'Tabla USUARIO_SUBMODULO_EXCLUIDO no existe. Ejecuta submodulos_admin.sql'
+        ) from exc
+
+
+def get_tipos_usuario_activos():
+    return list(
+        TipoUsuario.objects.values('IDTIPOUSUARIO', 'DESCRIPCION').order_by('IDTIPOUSUARIO')
+    )
+
+
+def _permisos_por_modulo_rol(idtipousuario: str):
+    permisos = {}
+    for row in GrupoModulo.objects.filter(
+        IDTIPOUSUARIO=idtipousuario,
+    ).select_related('IDTIPOPERMISO').values(
+        'IDMODULO_id', 'IDTIPOPERMISO__DESCRIPCION',
+    ):
+        mid = row['IDMODULO_id']
+        perm = row['IDTIPOPERMISO__DESCRIPCION']
+        if perm:
+            permisos.setdefault(mid, [])
+            if perm not in permisos[mid]:
+                permisos[mid].append(perm)
+
+    if idtipousuario == '3':
+        for mid in MODULOS_PROTEGIDOS_ADMIN:
+            if mid not in permisos:
+                permisos[mid] = ['VER', 'CREAR', 'EDITAR', 'ELIMINAR']
+
+    return permisos
+
+
+def listar_modulos_efectivos_rol(idtipousuario: str):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'EXEC usp_modulos_efectivos_rol @idtipousuario=%s',
+                [idtipousuario],
+            )
+            rows = _cursor_rows(cursor)
+
+        resultado = []
+        for row in rows:
+            permisos_raw = row.get('PERMISOS') or ''
+            permisos = [p.strip() for p in permisos_raw.split(',') if p.strip()]
+            resultado.append({
+                'IDMODULO': row['IDMODULO'],
+                'NOMBRE': row['NOMBRE'],
+                'DESCRIPCION': row.get('DESCRIPCION'),
+                'ICONO': row.get('ICONO'),
+                'ORDEN': row.get('ORDEN'),
+                'PERMISOS': permisos,
+            })
+        return _enriquecer_modulos_con_submodulos_rol(idtipousuario, resultado)
+    except Exception:
+        permisos_map = _permisos_por_modulo_rol(idtipousuario)
+        modulos = Modulo.objects.filter(
+            IDMODULO__in=permisos_map.keys(), ACTIVO=True,
+        ).order_by('ORDEN')
+        resultado = [
+            {
+                'IDMODULO': m.IDMODULO,
+                'NOMBRE': m.NOMBRE,
+                'DESCRIPCION': m.DESCRIPCION,
+                'ICONO': m.ICONO,
+                'ORDEN': m.ORDEN,
+                'PERMISOS': permisos_map.get(m.IDMODULO, []),
+            }
+            for m in modulos
+        ]
+        return _enriquecer_modulos_con_submodulos_rol(idtipousuario, resultado)
+
+
+def listar_modulos_disponibles_rol(idtipousuario: str):
+    todos = listar_modulos_con_submodulos()
+    asignados = set(_permisos_por_modulo_rol(idtipousuario).keys())
+    return [m for m in todos if m['IDMODULO'] not in asignados]
+
+
+def _enriquecer_modulos_con_submodulos_rol(idtipousuario: str, modulos):
+    for mod in modulos:
+        idmodulo = mod.get('IDMODULO')
+        subs = listar_submodulos_modulo_rol(idtipousuario, idmodulo)
+        mod['submodulos'] = subs
+        mod['totalSubmodulos'] = len(subs)
+        mod['submodulosAsignados'] = sum(1 for s in subs if s.get('asignado'))
+    return modulos
+
+
+def listar_submodulos_modulo_rol(idtipousuario: str, idmodulo: str):
+    if idmodulo not in _permisos_por_modulo_rol(idtipousuario):
+        return []
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'EXEC usp_submodulos_modulo_rol @idtipousuario=%s, @idmodulo=%s',
+                [idtipousuario, idmodulo],
+            )
+            rows = _cursor_rows(cursor)
+        return [
+            {
+                'IDSUBMODULO': row['IDSUBMODULO'],
+                'NOMBRE': row['NOMBRE'],
+                'DESCRIPCION': row.get('DESCRIPCION'),
+                'ICONO': row.get('ICONO'),
+                'ORDEN': row.get('ORDEN'),
+                'asignado': bool(row.get('asignado')),
+            }
+            for row in rows
+        ]
+    except Exception:
+        excluidos = _submodulos_excluidos_rol(idtipousuario)
+        subs = Submodulo.objects.filter(
+            IDMODULO_id=idmodulo, ACTIVO=True,
+        ).order_by('ORDEN', 'NOMBRE')
+        return [
+            {
+                'IDSUBMODULO': sub.IDSUBMODULO,
+                'NOMBRE': sub.NOMBRE,
+                'DESCRIPCION': sub.DESCRIPCION,
+                'ICONO': sub.ICONO,
+                'ORDEN': sub.ORDEN,
+                'asignado': sub.IDSUBMODULO not in excluidos,
+            }
+            for sub in subs
+        ]
+
+
+def validar_desasignacion_modulo_rol(idtipousuario: str, idmodulo: str):
+    if idtipousuario == '3' and idmodulo in MODULOS_PROTEGIDOS_ADMIN:
+        raise ValueError(
+            'No se puede quitar este módulo al rol Administrador '
+            '(Dashboard y Administración de Módulos son obligatorios).'
+        )
+
+
+def asignar_modulo_rol(idtipousuario: str, idmodulo: str):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'EXEC usp_modulo_asignar_rol @idtipousuario=%s, @idmodulo=%s',
+            [idtipousuario, idmodulo],
+        )
+
+
+def desasignar_modulo_rol(idtipousuario: str, idmodulo: str):
+    validar_desasignacion_modulo_rol(idtipousuario, idmodulo)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'EXEC usp_modulo_desasignar_rol @idtipousuario=%s, @idmodulo=%s',
+            [idtipousuario, idmodulo],
+        )
+
+
+def asignar_modulo_rol_orm(idtipousuario: str, idmodulo: str):
+    for idperm in ('TP001', 'TP002', 'TP003', 'TP004'):
+        if not GrupoModulo.objects.filter(
+            IDTIPOUSUARIO=idtipousuario,
+            IDMODULO_id=idmodulo,
+            IDTIPOPERMISO_id=idperm,
+        ).exists():
+            GrupoModulo.objects.create(
+                IDGRUPOMODULO=f"GRM_{uuid.uuid4().hex[:12].upper()}",
+                IDTIPOUSUARIO=idtipousuario,
+                IDMODULO_id=idmodulo,
+                IDTIPOPERMISO_id=idperm,
+            )
+
+
+def desasignar_modulo_rol_orm(idtipousuario: str, idmodulo: str):
+    validar_desasignacion_modulo_rol(idtipousuario, idmodulo)
+    GrupoModulo.objects.filter(
+        IDTIPOUSUARIO=idtipousuario, IDMODULO_id=idmodulo,
+    ).delete()
+    try:
+        GrupoSubmoduloExcluido.objects.filter(
+            IDTIPOUSUARIO=idtipousuario,
+            IDSUBMODULO__IDMODULO_id=idmodulo,
+        ).delete()
+    except Exception:
+        pass
+
+
+def asignar_submodulo_rol(idtipousuario: str, idsubmodulo: str):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'EXEC usp_submodulo_asignar_rol @idtipousuario=%s, @idsubmodulo=%s',
+            [idtipousuario, idsubmodulo],
+        )
+
+
+def desasignar_submodulo_rol(idtipousuario: str, idsubmodulo: str):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'EXEC usp_submodulo_desasignar_rol @idtipousuario=%s, @idsubmodulo=%s',
+            [idtipousuario, idsubmodulo],
+        )
+
+
+def asignar_submodulo_rol_orm(idtipousuario: str, idsubmodulo: str):
+    sub = Submodulo.objects.filter(IDSUBMODULO=idsubmodulo, ACTIVO=True).first()
+    if not sub:
+        raise ValueError('Submódulo no encontrado o inactivo')
+    if sub.IDMODULO_id not in _permisos_por_modulo_rol(idtipousuario):
+        raise ValueError('El rol no tiene acceso al módulo padre de este submódulo')
+    try:
+        GrupoSubmoduloExcluido.objects.filter(
+            IDTIPOUSUARIO=idtipousuario, IDSUBMODULO_id=idsubmodulo,
+        ).delete()
+    except Exception as exc:
+        raise ValueError(
+            'Tabla GRUPO_SUBMODULO_EXCLUIDO no existe. Ejecuta modulos_admin_rol.sql'
+        ) from exc
+
+
+def desasignar_submodulo_rol_orm(idtipousuario: str, idsubmodulo: str):
+    sub = Submodulo.objects.filter(IDSUBMODULO=idsubmodulo, ACTIVO=True).first()
+    if not sub:
+        raise ValueError('Submódulo no encontrado o inactivo')
+    if sub.IDMODULO_id not in _permisos_por_modulo_rol(idtipousuario):
+        raise ValueError('El rol no tiene acceso al módulo padre de este submódulo')
+    try:
+        if not GrupoSubmoduloExcluido.objects.filter(
+            IDTIPOUSUARIO=idtipousuario, IDSUBMODULO_id=idsubmodulo,
+        ).exists():
+            GrupoSubmoduloExcluido.objects.create(
+                IDGRUPOEXCLSUB=f"GEXS_{uuid.uuid4().hex[:12].upper()}",
+                IDTIPOUSUARIO=idtipousuario,
+                IDSUBMODULO_id=idsubmodulo,
+                FECHAREGISTRO=_fecha_hoy(),
+            )
+    except Exception as exc:
+        raise ValueError(
+            'Tabla GRUPO_SUBMODULO_EXCLUIDO no existe. Ejecuta modulos_admin_rol.sql'
         ) from exc

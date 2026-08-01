@@ -7,12 +7,6 @@ export const mensualidadConfig = {
     { campo: "_NUMERO", etiqueta: "N°", tipo: "numero", ordenable: false },
     { campo: "ESTUDIANTE_NOMBRE", etiqueta: "Estudiante", ordenable: true },
     { campo: "PLAN_NOMBRE", etiqueta: "Plan", ordenable: false },
-    {
-      campo: "ESTADOMIEMBRO_DESCRIPCION",
-      etiqueta: "Estado",
-      tipo: "estadoMensualidad",
-      ordenable: false,
-    },
     { campo: "FECHAFIN", etiqueta: "Fin", tipo: "fecha", ordenable: true },
     {
       campo: "DIAS_RESTANTES",
@@ -47,14 +41,6 @@ export const mensualidadConfig = {
           control: "select",
           catalogo: "planes",
           obligatorio: true,
-        },
-        {
-          campo: "ESTADOMIEMBRO",
-          etiqueta: "Estado mensualidad",
-          control: "select",
-          catalogo: "estadosMensualidad",
-          obligatorio: true,
-          defaultValue: "2",
         },
         {
           campo: "FECHAREGISTRO",

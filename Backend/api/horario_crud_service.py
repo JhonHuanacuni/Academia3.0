@@ -1,6 +1,7 @@
 from pathlib import Path
 from django.conf import settings
 from django.db import connection
+from .db_context import prepare_write_cursor
 
 
 def _cursor_rows(cursor):
@@ -84,8 +85,9 @@ def obtener_horario(id_horario: str):
     return out
 
 
-def insertar_horario(payload: dict):
+def insertar_horario(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);
@@ -108,8 +110,9 @@ def insertar_horario(payload: dict):
         return ok, mensaje, extras.get('idgenerado')
 
 
-def actualizar_horario(id_horario: str, payload: dict):
+def actualizar_horario(id_horario: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -132,8 +135,9 @@ def actualizar_horario(id_horario: str, payload: dict):
         return ok, mensaje
 
 
-def eliminar_horario(id_horario: str):
+def eliminar_horario(id_horario: str, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

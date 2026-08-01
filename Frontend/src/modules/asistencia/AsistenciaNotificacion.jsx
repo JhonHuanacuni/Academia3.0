@@ -4,38 +4,44 @@ import {
   faCheckCircle,
   faExclamationTriangle,
   faTimesCircle,
-  faUser,
 } from "@fortawesome/free-solid-svg-icons";
 
-const ICONOS = {
-  success: faCheckCircle,
-  warning: faExclamationTriangle,
-  error: faTimesCircle,
+const GIFS = {
+  success: "/good-gif.webp",
+  warning: "/bad-gif.webp",
 };
 
 const TITULOS = {
   success: "Asistencia registrada",
-  warning: "Ya registrado",
-  error: "No registrado",
+  warning: "Asistencia ya registrada",
+  error: "Error",
+  invalid: "DNI inválido",
 };
 
-function iniciales(nombre) {
-  const partes = String(nombre || "").trim().split(/\s+/).filter(Boolean);
-  if (!partes.length) return "?";
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
-}
+const ICONOS = {
+  error: faTimesCircle,
+  invalid: faExclamationTriangle,
+};
+
+const TIMERS = {
+  success: 3000,
+  warning: 3000,
+  invalid: 2000,
+  error: 4000,
+};
 
 export default function AsistenciaNotificacion({ notif, onClose }) {
   useEffect(() => {
     if (!notif) return undefined;
-    const t = window.setTimeout(onClose, notif.tipo === "success" ? 4000 : 4500);
+    const ms = TIMERS[notif.tipo] || 3500;
+    const t = window.setTimeout(onClose, ms);
     return () => window.clearTimeout(t);
   }, [notif, onClose]);
 
   if (!notif) return null;
 
-  const { tipo, nombre, dni, estado, hora, mensaje, fotoUrl } = notif;
+  const { tipo, nombre, dni, estado, hora, mensaje } = notif;
+  const gifUrl = GIFS[tipo];
   const etiquetaEstado =
     estado === "tarde" || estado === "Tarde"
       ? "Tarde"
@@ -50,35 +56,75 @@ export default function AsistenciaNotificacion({ notif, onClose }) {
         onClick={(e) => e.stopPropagation()}
         role="alertdialog"
         aria-live="assertive"
+        aria-labelledby="asistencia-notif-title"
       >
         <button type="button" className="asistencia-notif-close" onClick={onClose} aria-label="Cerrar">
           ×
         </button>
 
-        <div className="asistencia-notif-avatar">
-          {fotoUrl ? (
-            <img src={fotoUrl} alt="" />
-          ) : (
-            <span className="asistencia-notif-iniciales">
-              {nombre ? iniciales(nombre) : <FontAwesomeIcon icon={faUser} />}
-            </span>
-          )}
-        </div>
+        {gifUrl ? (
+          <img
+            src={gifUrl}
+            alt=""
+            className="asistencia-notif-gif"
+            width={200}
+            height={200}
+          />
+        ) : (
+          <div className={`asistencia-notif-icon asistencia-notif-icon--${tipo}`}>
+            <FontAwesomeIcon icon={ICONOS[tipo] || faTimesCircle} />
+          </div>
+        )}
 
-        {nombre && <h2 className="asistencia-notif-nombre">{nombre}</h2>}
-        {dni && <p className="asistencia-notif-dni">DNI {dni}</p>}
+        <h2 id="asistencia-notif-title" className="asistencia-notif-titulo">
+          {TITULOS[tipo] || "Aviso"}
+        </h2>
 
-        {etiquetaEstado && (
+        {tipo === "success" && (nombre || dni) && (
+          <div className="asistencia-notif-detalle">
+            {nombre && (
+              <p>
+                <strong>Nombre:</strong> {nombre}
+              </p>
+            )}
+            {dni && (
+              <p>
+                <strong>DNI:</strong> {dni}
+              </p>
+            )}
+          </div>
+        )}
+
+        {tipo === "warning" && (
+          <div className="asistencia-notif-detalle asistencia-notif-detalle--warning">
+            <p>Este estudiante ya tiene su asistencia registrada para hoy.</p>
+            <p>
+              <strong>No se puede marcar la asistencia dos veces en el mismo día.</strong>
+            </p>
+            {nombre && (
+              <p className="asistencia-notif-extra">
+                {nombre}
+                {dni ? ` · DNI ${dni}` : ""}
+              </p>
+            )}
+          </div>
+        )}
+
+        {(tipo === "error" || tipo === "invalid") && mensaje && (
+          <p className="asistencia-notif-mensaje">{mensaje}</p>
+        )}
+
+        {tipo === "success" && etiquetaEstado && (
           <span className={`asistencia-notif-estado asistencia-notif-estado--${etiquetaEstado.toLowerCase()}`}>
-            <FontAwesomeIcon icon={ICONOS[tipo]} />
+            <FontAwesomeIcon icon={faCheckCircle} />
             {etiquetaEstado}
+            {hora ? ` · ${String(hora).slice(0, 5)}` : ""}
           </span>
         )}
 
-        <p className="asistencia-notif-mensaje">
-          {mensaje || TITULOS[tipo]}
-          {hora ? ` — ${String(hora).slice(0, 5)}` : ""}
-        </p>
+        {tipo === "success" && !etiquetaEstado && mensaje && (
+          <p className="asistencia-notif-mensaje">{mensaje}</p>
+        )}
       </div>
     </div>
   );

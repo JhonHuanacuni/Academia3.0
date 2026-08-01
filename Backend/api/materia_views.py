@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 from .materia_crud_service import (
     listar_materias,
     obtener_materia,
@@ -65,7 +66,7 @@ def materias_mantenedor(request, id_materia=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = insertar_materia(payload)
+            ok, mensaje = insertar_materia(payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -76,7 +77,7 @@ def materias_mantenedor(request, id_materia=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = actualizar_materia(id_materia, payload)
+            ok, mensaje = actualizar_materia(id_materia, payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -84,7 +85,7 @@ def materias_mantenedor(request, id_materia=None):
 
     if request.method == 'DELETE' and id_materia:
         try:
-            ok, mensaje = eliminar_materia(id_materia)
+            ok, mensaje = eliminar_materia(id_materia, actor_from_request(request))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:

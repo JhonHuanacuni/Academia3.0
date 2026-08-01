@@ -1,0 +1,121 @@
+.mens-pagos-modal {
+  width: min(960px, 96vw);
+  max-width: 96vw;
+  border-top: 3px solid var(--color-primary, #6a42e5);
+}
+
+.mens-est-modal {
+  width: min(1120px, 96vw);
+  max-width: 96vw;
+  border-top: 3px solid var(--color-primary, #6a42e5);
+}
+
+.mens-est-header h2 {
+  color: var(--color-text, #1c2333);
+}
+
+.mens-est-close {
+  color: var(--color-primary, #6a42e5);
+}
+
+.mens-est-close:hover {
+  color: var(--color-primary-hover, #5a35c9);
+}
+
+.mens-est-subtitulo {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: var(--color-primary, #6a42e5);
+  font-weight: 500;
+}
+
+.mens-est-body {
+  background: var(--color-bg, #f6f7fb);
+}
+
+.mens-est-listado {
+  padding: 0;
+  overflow: hidden;
+}
+
+.mens-est-listado .mantenedor-toolbar {
+  border-bottom: 1px solid var(--color-border, #e3e6ef);
+}
+
+.mens-est-listado .data-table-wrap {
+  overflow-x: visible;
+}
+
+.mens-est-listado .data-table th {
+  background: var(--color-primary-soft, #ede8fc);
+}
+
+.mens-est-listado .data-table tbody tr:hover {
+  background: rgba(106, 66, 229, 0.04);
+}
+
+.mens-est-listado .mantenedor-pagination {
+  border-top: 1px solid var(--color-border, #e3e6ef);
+}
+
+.mens-est-footer {
+  background: var(--color-surface, #fff);
+}
+
+.mens-est-footer .btn-secondary {
+  color: var(--color-primary, #6a42e5);
+  border-color: rgba(106, 66, 229, 0.35);
+}
+
+.mens-est-footer .btn-secondary:hover {
+  background: var(--color-primary-soft, #ede8fc);
+  border-color: var(--color-primary, #6a42e5);
+}
+
+.mens-pagos-contexto {
+  margin-bottom: 1.15rem;
+}
+
+.mens-pagos-montos {
+  align-items: flex-end;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mens-pagos-tabla {
+  margin-top: 0;
+}
+
+.mens-pagos-tabla .data-table th {
+  background: var(--color-primary-soft, #ede8fc);
+}
+
+.mens-pagos-tabla .data-table td:last-child,
+.mens-pagos-tabla .data-table th:last-child {
+  white-space: normal;
+  min-width: 140px;
+}
+
+@media (max-width: 900px) {
+  .mens-est-modal {
+    width: min(100%, 96vw);
+  }
+
+  .mens-est-listado .data-table-wrap {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .mens-pagos-contexto {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .mens-pagos-montos {
+    align-items: flex-start;
+    text-align: left;
+    white-space: normal;
+  }
+}

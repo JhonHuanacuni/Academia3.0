@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 from .concepto_crud_service import (
     listar_conceptos,
     obtener_concepto,
@@ -53,7 +54,7 @@ def conceptos_mantenedor(request, id_concepto=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = insertar_concepto(payload)
+            ok, mensaje = insertar_concepto(payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -64,7 +65,7 @@ def conceptos_mantenedor(request, id_concepto=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = actualizar_concepto(id_concepto, payload)
+            ok, mensaje = actualizar_concepto(id_concepto, payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -72,7 +73,7 @@ def conceptos_mantenedor(request, id_concepto=None):
 
     if request.method == 'DELETE' and id_concepto:
         try:
-            ok, mensaje = eliminar_concepto(id_concepto)
+            ok, mensaje = eliminar_concepto(id_concepto, actor_from_request(request))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:

@@ -67,10 +67,19 @@ export function useCrud({ entidad, pk = "ID", ordenInicial, filtrosIniciales = {
     return data.data;
   };
 
+  const actorId = () => localStorage.getItem("idusuario") || null;
+
+  const writeHeaders = () => {
+    const headers = { "Content-Type": "application/json" };
+    const actor = actorId();
+    if (actor) headers["X-IdUsuario"] = actor;
+    return headers;
+  };
+
   const insertar = async (payload) => {
     const res = await fetch(`${baseUrl}/`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: writeHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await parseJsonResponse(res);
@@ -81,7 +90,7 @@ export function useCrud({ entidad, pk = "ID", ordenInicial, filtrosIniciales = {
   const actualizar = async (id, payload) => {
     const res = await fetch(`${baseUrl}/${encodeURIComponent(id)}/`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: writeHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await parseJsonResponse(res);
@@ -90,7 +99,9 @@ export function useCrud({ entidad, pk = "ID", ordenInicial, filtrosIniciales = {
   };
 
   const eliminar = async (id, params = {}) => {
-    const qs = new URLSearchParams(params).toString();
+    const merged = { ...params };
+    if (actorId() && !merged.idusuario) merged.idusuario = actorId();
+    const qs = new URLSearchParams(merged).toString();
     const url = qs
       ? `${baseUrl}/${encodeURIComponent(id)}/?${qs}`
       : `${baseUrl}/${encodeURIComponent(id)}/`;

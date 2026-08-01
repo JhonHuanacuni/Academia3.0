@@ -1,4 +1,5 @@
 from django.db import connection
+from .db_context import prepare_write_cursor
 from .models import Aula
 
 
@@ -30,23 +31,23 @@ def _decimal_or_none(value):
 
 def listar_mensualidades(
     buscar=None,
-    estado=None,
+    deuda=None,
     ordenar_por='FECHAREGISTRO',
     direccion='DESC',
     pagina=1,
     tamanio=10,
 ):
-    estado = (estado or '').strip() or 'Activo'
+    deuda = (deuda or '').strip() or None
     with connection.cursor() as cursor:
         cursor.execute(
             """
             DECLARE @Total INT;
             EXEC dbo.usp_mensualidad_listar
-                @Buscar=%s, @Estado=%s, @OrdenarPor=%s, @Direccion=%s,
+                @Buscar=%s, @Deuda=%s, @OrdenarPor=%s, @Direccion=%s,
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
-            [buscar or None, estado, ordenar_por, direccion, pagina, tamanio],
+            [buscar or None, deuda, ordenar_por, direccion, pagina, tamanio],
         )
         data = _cursor_rows(cursor)
         total = 0
@@ -57,6 +58,15 @@ def listar_mensualidades(
     return data, total
 
 
+def listar_mensualidades_estudiante(id_usuario: str):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'EXEC dbo.usp_mensualidad_listar_estudiante @IdUsuario=%s',
+            [id_usuario],
+        )
+        return _cursor_rows(cursor)
+
+
 def obtener_mensualidad(id_mensualidad: str):
     with connection.cursor() as cursor:
         cursor.execute('EXEC dbo.usp_mensualidad_obtener @Id=%s', [id_mensualidad])
@@ -64,8 +74,18 @@ def obtener_mensualidad(id_mensualidad: str):
     return rows[0] if rows else None
 
 
-def insertar_mensualidad(payload: dict):
+def listar_pagos_mensualidad(id_mensualidad: str):
     with connection.cursor() as cursor:
+        cursor.execute(
+            'EXEC dbo.usp_mensualidad_listar_pagos @IdMensualidad=%s',
+            [id_mensualidad],
+        )
+        return _cursor_rows(cursor)
+
+
+def insertar_mensualidad(payload: dict, id_usuario=None):
+    with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -97,8 +117,9 @@ def insertar_mensualidad(payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def actualizar_mensualidad(id_mensualidad: str, payload: dict):
+def actualizar_mensualidad(id_mensualidad: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -133,6 +154,7 @@ def eliminar_mensualidad(id_mensualidad: str, id_usuario: str | None = None):
     eliminacion_fisica = 1 if es_admin else 0
 
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

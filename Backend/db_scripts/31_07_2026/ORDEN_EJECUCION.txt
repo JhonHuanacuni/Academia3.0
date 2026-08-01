@@ -1,0 +1,9 @@
+1.importar_estudiantes.sql
+2.importar_estudiantes_corregir_email.sql
+5.importar_usuarios_otros_roles.sql
+6.importar_mensualidades_vigentes.sql
+6.importar_mensualidades_corregir.sql
+7.importar_pagos_mensualidades.sql
+3.usp_usuario_eliminar_fisica.sql
+4.usp_usuario_insertar_mensajes.sql
+8.usp_examen_ranking_aula.sql

@@ -4,10 +4,14 @@ import {
   faPencil,
   faTrash,
   faDownload,
+  faKey,
+  faCommentDots,
   faSort,
   faSortUp,
   faSortDown,
   faImage,
+  faReceipt,
+  faListUl,
 } from "@fortawesome/free-solid-svg-icons";
 import { dbToView, diasRestantesDesdeDb, textoDiasRestantes, claseDiasRestantes } from "../../utils/fecha";
 import { resumenDiasAsistencia } from "../../utils/diasPlan";
@@ -102,6 +106,14 @@ function renderCell(col, row, index = 0, offset = 0) {
     if (Number.isNaN(n)) return String(value);
     return `${n.toLocaleString("es-PE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
   }
+  if (col.tipo === "accionAuditoria") {
+    const accion = String(value || "").toUpperCase();
+    const clase =
+      accion === "INSERT" ? "insert" : accion === "UPDATE" ? "update" : accion === "DELETE" ? "delete" : "";
+    const label =
+      accion === "INSERT" ? "Alta" : accion === "UPDATE" ? "Modificación" : accion === "DELETE" ? "Eliminación" : accion;
+    return <span className={`auditoria-accion auditoria-accion--${clase}`}>{label}</span>;
+  }
   return String(value);
 }
 
@@ -125,12 +137,18 @@ export default function DataTable({
   onEditar,
   onEliminar,
   onCarnet,
+  onResetContra,
+  onWhatsapp,
+  onVerPagos,
+  onVerMensualidades,
   onReintentar,
   pagina = 1,
   tamanio = 10,
   verIcono = "eye",
 }) {
-  const mostrarAcciones = Boolean(onVer || onEditar || onEliminar || onCarnet);
+  const mostrarAcciones = Boolean(
+    onVer || onEditar || onEliminar || onCarnet || onResetContra || onWhatsapp || onVerPagos || onVerMensualidades,
+  );
   const offset = Math.max(0, (pagina - 1) * tamanio);
   if (loading) {
     return (
@@ -237,6 +255,46 @@ export default function DataTable({
                       onClick={() => onCarnet(row)}
                     >
                       <FontAwesomeIcon icon={faDownload} />
+                    </button>
+                  )}
+                  {onResetContra && (
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Restablecer contraseña al DNI"
+                      onClick={() => onResetContra(row)}
+                    >
+                      <FontAwesomeIcon icon={faKey} />
+                    </button>
+                  )}
+                  {onWhatsapp && (
+                    <button
+                      type="button"
+                      className="btn-icon btn-icon--whatsapp"
+                      title="WhatsApp"
+                      onClick={() => onWhatsapp(row)}
+                    >
+                      <FontAwesomeIcon icon={faCommentDots} />
+                    </button>
+                  )}
+                  {onVerMensualidades && (
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Ver mensualidades"
+                      onClick={() => onVerMensualidades(row)}
+                    >
+                      <FontAwesomeIcon icon={faListUl} />
+                    </button>
+                  )}
+                  {onVerPagos && (
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Ver pagos"
+                      onClick={() => onVerPagos(row)}
+                    >
+                      <FontAwesomeIcon icon={faReceipt} />
                     </button>
                   )}
                   {onEliminar && (

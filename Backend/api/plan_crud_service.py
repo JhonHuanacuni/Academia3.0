@@ -1,4 +1,5 @@
 from django.db import connection
+from .db_context import prepare_write_cursor
 
 
 def _cursor_rows(cursor):
@@ -67,8 +68,9 @@ def _normalizar_hora_entrada(val):
     return s
 
 
-def insertar_plan(payload: dict):
+def insertar_plan(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -93,8 +95,9 @@ def insertar_plan(payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def actualizar_plan(id_plan: str, payload: dict):
+def actualizar_plan(id_plan: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -125,8 +128,9 @@ def listar_catalogos_plan():
         return {'turnos': _cursor_rows(cursor)}
 
 
-def eliminar_plan(id_plan: str):
+def eliminar_plan(id_plan: str, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

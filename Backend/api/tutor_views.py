@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 from .tutor_crud_service import (
     listar_tutores,
     obtener_tutor,
@@ -53,7 +54,7 @@ def tutores_mantenedor(request, id_tutor=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = insertar_tutor(payload)
+            ok, mensaje = insertar_tutor(payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -64,7 +65,7 @@ def tutores_mantenedor(request, id_tutor=None):
         if not payload:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
         try:
-            ok, mensaje = actualizar_tutor(id_tutor, payload)
+            ok, mensaje = actualizar_tutor(id_tutor, payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -72,7 +73,7 @@ def tutores_mantenedor(request, id_tutor=None):
 
     if request.method == 'DELETE' and id_tutor:
         try:
-            ok, mensaje = eliminar_tutor(id_tutor)
+            ok, mensaje = eliminar_tutor(id_tutor, actor_from_request(request))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:

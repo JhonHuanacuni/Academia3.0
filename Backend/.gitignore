@@ -10,13 +10,17 @@ media/
 
 # Virtual environments
 venv/
+.venv/
 ENV/
+env/
 .env
+.env.*
+!.env.example
 
 # VS Code
 .vscode/
 
-# Archivos personalizados (no subir uwu)
-* _jose.py
+# Archivos personalizados (no subir)
+*_jose.py
 *_jose.*
 *load_sqlite_data_jose*

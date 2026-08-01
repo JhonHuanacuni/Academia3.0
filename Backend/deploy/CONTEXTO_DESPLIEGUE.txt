@@ -1,0 +1,30 @@
+# Academia 3.0 — Contexto de despliegue (Linode / usercodex.com)
+# Copia y pega en el chat al seguir el runbook de despliegue.
+
+CONTEXTO DE MI SERVIDOR (Linode):
+- Linode Ubuntu 24.04, IP 198.58.117.160, usuario SSH "usercodex" (con sudo).
+- Apache2, MySQL 8.0, certbot ya instalados.
+- Dominio usercodex.com (DNS en Linode Cloud Manager).
+- Usuario MySQL "usercodex": permisos automáticos solo en BD usercodex_*; AcademiaDB necesita GRANT explícito.
+
+MI PROYECTO — ACADEMIA 3.0:
+- Nombre/carpeta en servidor: academia
+- Código fuente:     /home/usercodex/academia_src
+- Frontend (dist):  /home/usercodex/academia_front
+- Subdominio:        academia.usercodex.com
+- Base de datos:     AcademiaDB
+- Stack:             Django (API REST) + React/Vite + MySQL 8
+- Carga de BD:       scripts .sql en Backend/db_scripts_mysql/ (python scripts/setup_mysql_db.py)
+- Servicio Gunicorn: gunicorn-academia.service
+- Puerto Gunicorn:   127.0.0.1:8001   (Restaurante usa 8000)
+- Apache vhost:      deploy/academia.usercodex.com.conf
+
+REPO LOCAL:
+- D:\Startup\Academia3.0
+- Backend venv: Backend/venv/
+- Frontend:     npm run build → subir dist/ a academia_front/
+
+NOTAS:
+- Tablas en MAYÚSCULAS (Linux MySQL). No usar mysqldump desde Windows.
+- .env de producción solo en servidor (no en git).
+- Frontend usa rutas relativas /api/ — mismo dominio en producción, sin VITE_API_URL.

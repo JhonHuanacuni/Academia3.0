@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 
 from .examen_crud_service import (
     listar_examenes,
@@ -158,7 +159,7 @@ def examenes_mantenedor(request, id_examen=None):
             payload = _payload_examen(request)
             if not payload.get('IDUSUARIO'):
                 return JsonResponse({'ok': False, 'mensaje': 'Usuario no identificado.'}, status=400)
-            ok, mensaje, nuevo_id = insertar_examen(payload)
+            ok, mensaje, nuevo_id = insertar_examen(payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse(
                 {'ok': bool(ok), 'mensaje': mensaje, 'id': nuevo_id},
@@ -170,7 +171,7 @@ def examenes_mantenedor(request, id_examen=None):
     if request.method == 'PUT' and id_examen:
         try:
             payload = _payload_examen(request)
-            ok, mensaje = actualizar_examen(id_examen, payload)
+            ok, mensaje = actualizar_examen(id_examen, payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -178,7 +179,7 @@ def examenes_mantenedor(request, id_examen=None):
 
     if request.method == 'DELETE' and id_examen:
         try:
-            ok, mensaje = eliminar_examen(id_examen)
+            ok, mensaje = eliminar_examen(id_examen, actor_from_request(request))
             if ok:
                 borrar_archivos_examen(id_examen)
             status = 200 if ok else 400
@@ -302,7 +303,7 @@ def examenes_pregunta(request, id_examen, id_pregunta):
                 return JsonResponse({'ok': False, 'mensaje': err}, status=400)
             if payload is None:
                 return JsonResponse({'ok': False, 'mensaje': 'Payload inválido.'}, status=400)
-            ok, mensaje = guardar_pregunta(id_examen, id_pregunta, payload)
+            ok, mensaje = guardar_pregunta(id_examen, id_pregunta, payload, actor_from_request(request, payload))
             status = 200 if ok else 400
             data = obtener_pregunta(id_examen, id_pregunta) if ok else None
             return JsonResponse(

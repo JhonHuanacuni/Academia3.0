@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faKey, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import FieldRenderer from "./fields/FieldRenderer";
 import PageHeader from "./PageHeader";
 import EstudianteSearchField from "../../modules/mensualidad/EstudianteSearchField";
@@ -89,6 +89,33 @@ export default function FormPage({
     setErrors({});
   }, [modo, registro, todosLosCampos, createDefaultsKey]);
 
+  const generarDesdeDni = () => {
+    const dni = String(values.DNI ?? "").trim();
+    if (!/^\d{8}$/.test(dni)) {
+      setErrors((prev) => ({
+        ...prev,
+        DNI: "Ingresa un DNI válido (8 dígitos) antes de generar.",
+        _form: "Completa el DNI en Datos personales para generar credenciales.",
+      }));
+      return;
+    }
+    setValues((prev) => ({
+      ...prev,
+      IDUSUARIO: dni,
+      CONTRA: dni,
+      CONFIRMAR_CONTRA: dni,
+    }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.DNI;
+      delete next.IDUSUARIO;
+      delete next.CONTRA;
+      delete next.CONFIRMAR_CONTRA;
+      delete next._form;
+      return next;
+    });
+  };
+
   const validate = () => {
     const next = {};
     const camposValidar = todosLosCampos.filter((c) => filtrarCampo(c, modo) && c.control !== "action");
@@ -164,6 +191,24 @@ export default function FormPage({
   };
 
   const renderCampo = (campo) => {
+    if (campo.control === "action" && campo.accion === "generarDesdeDni") {
+      return (
+        <div key={campo.campo} className="form-field form-field--action">
+          <label>{campo.etiqueta}</label>
+          <button
+            type="button"
+            className="btn-secondary btn-generar-contra"
+            onClick={generarDesdeDni}
+            disabled={soloLectura}
+          >
+            <FontAwesomeIcon icon={faKey} />
+            Generar credenciales
+          </button>
+          {campo.ayuda && <span className="field-hint">{campo.ayuda}</span>}
+        </div>
+      );
+    }
+
     if (campo.control === "estudiante") {
       return (
         <div key={campo.campo} className={`form-field full ${errors[campo.campo] ? "has-error" : ""}`}>

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Layout from "./components/layout/Layout";
 import AdminModulos from "./components/admin/AdminModulos";
 import UsuarioPage from "./modules/usuario/UsuarioPage";
@@ -19,6 +19,9 @@ import HorarioPage from "./modules/horario/HorarioPage";
 import ExamenPage from "./modules/examen/ExamenPage";
 import ExamenEstudiantePage from "./modules/examenEstudiante/ExamenEstudiantePage";
 import InformeAsistenciasPage from "./modules/informes/InformeAsistenciasPage";
+import DashboardPage from "./modules/dashboard/DashboardPage";
+import NotasPage from "./modules/notas/NotasPage";
+import AuditoriaPage from "./modules/auditoria/AuditoriaPage";
 import "./App.css";
 
 function ExamenesPorRol({ role }) {
@@ -28,7 +31,8 @@ function ExamenesPorRol({ role }) {
 const pageContent = {
   dashboard: {
     title: "Dashboard",
-    description: "Bienvenido. Aquí se muestra el estado general del sistema.",
+    description: "Estado general del instituto.",
+    component: DashboardPage,
   },
   usuarios: {
     title: "Listado de Usuarios",
@@ -83,10 +87,6 @@ const pageContent = {
     title: "Exámenes",
     description: "Gestión de exámenes, resultados y evaluaciones.",
     component: ExamenesPorRol,
-  },
-  notas: {
-    title: "Notas",
-    description: "Visualiza notas, calificaciones y progreso académico.",
   },
   "admin-modulos": {
     title: "Administración de Módulos",
@@ -149,6 +149,16 @@ const pageContent = {
   "academico-clases": {
     title: "Clases",
     description: "Registro y administración de clases.",
+  },
+  "academico-notas": {
+    title: "Importar notas",
+    description: "Importar calificaciones desde Excel Scantron.",
+    component: NotasPage,
+  },
+  "academico-auditoria": {
+    title: "Auditoría",
+    description: "Historial de altas, modificaciones y eliminaciones en el sistema.",
+    component: AuditoriaPage,
   },
   informes: {
     title: "Informes",
@@ -213,6 +223,9 @@ function App() {
         localStorage.setItem("isAuthenticated", "true");
         localStorage.setItem("role", userRole);
         localStorage.setItem("idusuario", userId);
+        if (data.idtipousuario) {
+          localStorage.setItem("idtipousuario", String(data.idtipousuario));
+        }
         localStorage.setItem("activePage", "dashboard");
       } else {
         setLoginError("Usuario o contraseña incorrectos");
@@ -231,6 +244,7 @@ function App() {
     localStorage.removeItem("isAuthenticated");
     localStorage.removeItem("role");
     localStorage.removeItem("idusuario");
+    localStorage.removeItem("idtipousuario");
     localStorage.removeItem("activePage");
   };
 
@@ -296,7 +310,7 @@ function App() {
         page.component === ExamenesPorRol ? (
           <ExamenesPorRol role={role} />
         ) : (
-          <page.component />
+          <page.component role={role} idusuario={idusuario} onChangePage={setActivePage} />
         )
       ) : (
         <>

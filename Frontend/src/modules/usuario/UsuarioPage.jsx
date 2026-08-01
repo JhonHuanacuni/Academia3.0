@@ -9,6 +9,7 @@ import Pagination from "../../components/mantenedor/Pagination";
 import FormPage from "../../components/mantenedor/FormPage";
 import ConfirmDialog from "../../components/mantenedor/ConfirmDialog";
 import Toast from "../../components/mantenedor/feedback/Toast";
+import { telefonoContactoUsuario, whatsappUrl } from "../../utils/telefono";
 import "../../styles/mantenedor.css";
 
 export default function UsuarioPage() {
@@ -87,13 +88,40 @@ export default function UsuarioPage() {
   const abrirEliminar = (row) => {
     const nombre = `${row.NOMBRE} ${row.APELLIDO}`.trim();
     setConfirm({
+      tipo: "eliminar",
       id: row[cfg.pk],
-      mensaje: `¿Eliminar «${nombre || row[cfg.pk]}»? Esta acción se puede revertir reactivándolo.`,
+      titulo: "Confirmar eliminación",
+      mensaje: `¿Eliminar a «${nombre || row[cfg.pk]}»?`,
+      confirmLabel: "Eliminar",
+    });
+  };
+
+  const abrirResetContra = (row) => {
+    const nombre = `${row.NOMBRE} ${row.APELLIDO}`.trim();
+    setConfirm({
+      tipo: "resetContra",
+      id: row[cfg.pk],
+      titulo: "Restablecer contraseña",
+      mensaje: `¿Restablecer la contraseña de «${nombre || row[cfg.pk]}» a su DNI (${row.DNI || "—"})?`,
+      confirmLabel: "Restablecer",
     });
   };
 
   const descargarCarnet = (row) => {
     window.open(`/api/usuarios/${encodeURIComponent(row[cfg.pk])}/carnet/`, "_blank");
+  };
+
+  const abrirWhatsapp = (row) => {
+    const tel = telefonoContactoUsuario(row);
+    const url = whatsappUrl(tel);
+    if (!url) {
+      setToast({
+        mensaje: "Este usuario no tiene celular registrado (personal ni apoderado).",
+        tipo: "error",
+      });
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleGuardar = async (payload) => {
@@ -108,14 +136,26 @@ export default function UsuarioPage() {
     await crud.listar();
   };
 
-  const handleConfirmEliminar = async () => {
+  const handleConfirm = async () => {
     if (!confirm) return;
     try {
       setConfirmando(true);
-      const mensaje = await crud.eliminar(confirm.id);
-      setToast({ mensaje, tipo: "success" });
+      if (confirm.tipo === "resetContra") {
+        const res = await fetch(
+          `/api/usuarios/${encodeURIComponent(confirm.id)}/reset-contra/`,
+          { method: "POST" },
+        );
+        const data = await parseJsonResponse(res);
+        if (!res.ok || !data.ok) {
+          throw new Error(data.mensaje || data.error || "No se pudo restablecer la contraseña");
+        }
+        setToast({ mensaje: data.mensaje, tipo: "success" });
+      } else {
+        const mensaje = await crud.eliminar(confirm.id);
+        setToast({ mensaje, tipo: "success" });
+        await crud.listar();
+      }
       setConfirm(null);
-      await crud.listar();
     } catch (err) {
       setToast({ mensaje: err.message, tipo: "error" });
     } finally {
@@ -166,10 +206,11 @@ export default function UsuarioPage() {
               key: "estado",
               etiqueta: "Estado",
               value: crud.filtros.estado || "",
-              opciones: ["Activo", "Inactivo"],
+              opciones: ["Activo", "Retirado"],
               onChange: (v) => crud.setFiltro("estado", v),
             },
           ]}
+          placeholder="Buscar por nombre, DNI, email o usuario..."
         />
 
         <DataTable
@@ -184,6 +225,8 @@ export default function UsuarioPage() {
           onEditar={abrirEditar}
           onEliminar={abrirEliminar}
           onCarnet={descargarCarnet}
+          onResetContra={abrirResetContra}
+          onWhatsapp={abrirWhatsapp}
           onReintentar={crud.listar}
         />
 
@@ -197,11 +240,12 @@ export default function UsuarioPage() {
 
       <ConfirmDialog
         abierto={Boolean(confirm)}
-        titulo="Confirmar eliminación"
+        titulo={confirm?.titulo || "Confirmar"}
         mensaje={confirm?.mensaje}
         confirmando={confirmando}
+        confirmLabel={confirm?.confirmLabel || "Confirmar"}
         onCancel={() => setConfirm(null)}
-        onConfirm={handleConfirmEliminar}
+        onConfirm={handleConfirm}
       />
 
       {toast && (

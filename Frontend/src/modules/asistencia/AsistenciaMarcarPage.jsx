@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCamera, faStop } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCamera,
+  faCheckCircle,
+  faExclamationTriangle,
+  faSpinner,
+  faStop,
+} from "@fortawesome/free-solid-svg-icons";
 import { parseJsonResponse } from "../../utils/api";
 import AsistenciaNotificacion from "./AsistenciaNotificacion";
 import "../../styles/mantenedor.css";
 import "./asistencia.css";
 
 const SCANNER_ID = "asistencia-qr-reader";
-const COOLDOWN_MS = 2500;
+const COOLDOWN_MS = 2000;
+const DEBOUNCE_MS = 500;
+const DNI_LENGTH = 8;
 
 async function detenerScanner(scanner) {
   if (!scanner) return;
@@ -30,8 +38,29 @@ async function detenerScanner(scanner) {
   }
 }
 
-function normalizeDni(raw) {
-  return String(raw || "").trim().replace(/\D/g, "");
+function isValidDni(value) {
+  const clean = String(value || "").trim();
+  return clean.length === DNI_LENGTH && /^\d+$/.test(clean);
+}
+
+function hasDuplicatePattern(value) {
+  if (value.length !== DNI_LENGTH * 2) return false;
+  return value.slice(0, DNI_LENGTH) === value.slice(DNI_LENGTH);
+}
+
+function extractValidDni(raw) {
+  const clean = String(raw || "").trim().replace(/\D/g, "");
+  if (clean.length === DNI_LENGTH) return clean;
+  if (clean.length === DNI_LENGTH * 2 && hasDuplicatePattern(clean)) {
+    return clean.slice(0, DNI_LENGTH);
+  }
+  if (clean.length > DNI_LENGTH) {
+    const first = clean.slice(0, DNI_LENGTH);
+    const next = clean.slice(DNI_LENGTH, DNI_LENGTH * 2);
+    if (first === next) return first;
+    return first;
+  }
+  return null;
 }
 
 export default function AsistenciaMarcarPage() {
@@ -40,12 +69,20 @@ export default function AsistenciaMarcarPage() {
   const [camaraLista, setCamaraLista] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [notif, setNotif] = useState(null);
+  const [mensajeExito, setMensajeExito] = useState("");
   const scannerRef = useRef(null);
   const pendingScannerRef = useRef(null);
   const cooldownRef = useRef({});
+  const lastProcessedDniRef = useRef("");
+  const lastScanTimeRef = useRef(0);
+  const debounceRef = useRef(null);
+  const inputRef = useRef(null);
   const idRegistrador = localStorage.getItem("idusuario") || "";
 
-  const cerrarNotif = useCallback(() => setNotif(null), []);
+  const cerrarNotif = useCallback(() => {
+    setNotif(null);
+    window.setTimeout(() => inputRef.current?.focus(), 150);
+  }, []);
 
   const mostrarNotif = useCallback((payload) => {
     setNotif(payload);
@@ -54,15 +91,34 @@ export default function AsistenciaMarcarPage() {
   const procesandoRef = useRef(false);
 
   const registrar = useCallback(async (dniRaw) => {
-    const dni = normalizeDni(dniRaw);
-    if (!dni || dni.length < 8) return;
+    if (procesandoRef.current) return;
 
     const now = Date.now();
-    const last = cooldownRef.current[dni] || 0;
-    if (now - last < COOLDOWN_MS) return;
-    cooldownRef.current[dni] = now;
+    const validDni = extractValidDni(dniRaw);
 
-    if (procesandoRef.current) return;
+    if (!validDni || !isValidDni(validDni)) {
+      mostrarNotif({
+        tipo: "invalid",
+        mensaje: `El DNI debe tener exactamente ${DNI_LENGTH} dígitos numéricos.`,
+      });
+      setDniManual("");
+      return;
+    }
+
+    if (
+      validDni === lastProcessedDniRef.current &&
+      now - lastScanTimeRef.current < COOLDOWN_MS
+    ) {
+      return;
+    }
+
+    const last = cooldownRef.current[validDni] || 0;
+    if (now - last < COOLDOWN_MS) return;
+
+    cooldownRef.current[validDni] = now;
+    lastProcessedDniRef.current = validDni;
+    lastScanTimeRef.current = now;
+
     procesandoRef.current = true;
     setProcesando(true);
 
@@ -70,50 +126,64 @@ export default function AsistenciaMarcarPage() {
       const res = await fetch("/api/asistencias/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dni, idRegistrador }),
+        body: JSON.stringify({ dni: validDni, idRegistrador }),
       });
       const data = await parseJsonResponse(res);
+      const nombre = `${data.nombres || data.NOMBRE || ""} ${data.apellidos || data.APELLIDO || ""}`.trim();
 
       if (!res.ok) {
-        const nombre = `${data.nombres || data.NOMBRE || ""} ${data.apellidos || data.APELLIDO || ""}`.trim();
-        if (data.type === "duplicate_attendance") {
+        const detail = data.detail || data.error || "";
+        const esDuplicado =
+          data.type === "duplicate_attendance" ||
+          detail.includes("Ya existe una asistencia registrada") ||
+          detail.includes("asistencia registrada para este estudiante") ||
+          detail.includes("No se puede marcar la asistencia dos veces");
+
+        if (esDuplicado) {
           mostrarNotif({
             tipo: "warning",
             nombre: nombre || undefined,
-            dni: data.dni || dni,
-            mensaje: data.detail || "Este estudiante ya marcó asistencia hoy.",
-            fotoUrl: data.fotoUrl || null,
+            dni: data.dni || validDni,
           });
         } else {
           mostrarNotif({
             tipo: "error",
             nombre: nombre || undefined,
-            dni,
-            mensaje: data.detail || data.error || "Error al marcar asistencia.",
+            dni: validDni,
+            mensaje: detail || "Error al registrar la asistencia",
           });
         }
+        setDniManual("");
         return;
       }
 
-      const nombre = `${data.nombres || ""} ${data.apellidos || ""}`.trim();
+      const nombreOk = `${data.nombres || ""} ${data.apellidos || ""}`.trim();
       mostrarNotif({
         tipo: "success",
-        nombre: nombre || dni,
-        dni: data.dni,
+        nombre: nombreOk || validDni,
+        dni: data.dni || validDni,
         estado: data.estado,
         hora: data.hora,
         mensaje: "Registrado correctamente",
-        fotoUrl: data.fotoUrl || null,
       });
+      setMensajeExito(
+        `Asistencia registrada: ${nombreOk || "Estudiante"} - DNI: ${data.dni || validDni}`,
+      );
+      window.setTimeout(() => setMensajeExito(""), 3000);
+      setDniManual("");
     } catch (err) {
       mostrarNotif({
         tipo: "error",
-        dni,
+        dni: validDni,
         mensaje: err.message || "No se pudo conectar con el servidor.",
       });
+      setDniManual("");
     } finally {
       procesandoRef.current = false;
       setProcesando(false);
+      window.setTimeout(() => {
+        lastProcessedDniRef.current = "";
+      }, COOLDOWN_MS);
     }
   }, [idRegistrador, mostrarNotif]);
 
@@ -126,7 +196,7 @@ export default function AsistenciaMarcarPage() {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 260, height: 260 }, aspectRatio: 1 },
         (decoded) => registrar(decoded),
-        () => {}
+        () => {},
       );
       pendingScannerRef.current = null;
       if (signal?.aborted) {
@@ -166,18 +236,29 @@ export default function AsistenciaMarcarPage() {
     };
   }, [camaraActiva, iniciarCamara, detenerCamara]);
 
-  const toggleCamara = () => {
-    if (camaraActiva) {
-      setCamaraActiva(false);
-    } else {
-      setCamaraActiva(true);
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
+
+  const handleDniChange = (e) => {
+    const numeric = e.target.value.replace(/\D/g, "");
+    setDniManual(numeric);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (isValidDni(numeric)) {
+      debounceRef.current = setTimeout(() => registrar(numeric), DEBOUNCE_MS);
+    } else if (numeric.length > DNI_LENGTH) {
+      debounceRef.current = setTimeout(() => registrar(numeric), 100);
     }
+  };
+
+  const toggleCamara = () => {
+    setCamaraActiva((prev) => !prev);
   };
 
   const handleManual = (e) => {
     e.preventDefault();
     registrar(dniManual);
-    setDniManual("");
   };
 
   return (
@@ -187,29 +268,66 @@ export default function AsistenciaMarcarPage() {
           <form className="dni-form" onSubmit={handleManual}>
             <label htmlFor="dni-input">Número de DNI</label>
             <input
+              ref={inputRef}
               id="dni-input"
               type="text"
               inputMode="numeric"
-              maxLength={8}
-              placeholder="Ingrese su DNI"
+              maxLength={DNI_LENGTH * 2}
+              placeholder={`Ingrese DNI (${DNI_LENGTH} dígitos)`}
               value={dniManual}
-              onChange={(e) => setDniManual(e.target.value.replace(/\D/g, ""))}
+              onChange={handleDniChange}
+              disabled={procesando}
               autoFocus
             />
             <button
               type="submit"
-              className="btn-primary"
-              disabled={procesando || dniManual.length < 8}
+              className="btn-primary asistencia-submit-btn"
+              disabled={procesando || !isValidDni(dniManual)}
             >
-              Registrar asistencia
+              {procesando ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} spin />
+                  Procesando...
+                </>
+              ) : (
+                "Registrar asistencia"
+              )}
             </button>
           </form>
+
+          {dniManual && (
+            <div className="asistencia-dni-hint">
+              {isValidDni(dniManual) ? (
+                <span className="asistencia-dni-hint--ok">
+                  <FontAwesomeIcon icon={faCheckCircle} />
+                  DNI válido ({dniManual.length} dígitos) — se enviará automáticamente
+                </span>
+              ) : dniManual.length > DNI_LENGTH ? (
+                <span className="asistencia-dni-hint--warn">
+                  <FontAwesomeIcon icon={faExclamationTriangle} />
+                  DNI con duplicado detectado — extrayendo DNI válido...
+                </span>
+              ) : (
+                <span className="asistencia-dni-hint--muted">
+                  Ingresando... ({dniManual.length}/{DNI_LENGTH} dígitos)
+                </span>
+              )}
+            </div>
+          )}
+
+          {mensajeExito && (
+            <div className="asistencia-exito-banner" role="status">
+              <FontAwesomeIcon icon={faCheckCircle} />
+              {mensajeExito}
+            </div>
+          )}
 
           <div className="asistencia-camara-actions">
             <button
               type="button"
               className={camaraActiva ? "btn-secondary" : "btn-primary"}
               onClick={toggleCamara}
+              disabled={procesando}
             >
               <FontAwesomeIcon icon={camaraActiva ? faStop : faCamera} />
               {camaraActiva ? "Desactivar cámara" : "Activar cámara"}
@@ -226,6 +344,16 @@ export default function AsistenciaMarcarPage() {
               </p>
             </div>
           )}
+
+          <div className="asistencia-scanner-info">
+            <h4>Información del scanner</h4>
+            <ul>
+              <li>El DNI se envía automáticamente al completar {DNI_LENGTH} dígitos</li>
+              <li>Se detectan y corrigen duplicados del scanner</li>
+              <li>Se previenen registros duplicados en menos de {COOLDOWN_MS / 1000} segundos</li>
+              <li>Solo se aceptan DNI con exactamente {DNI_LENGTH} dígitos numéricos</li>
+            </ul>
+          </div>
         </div>
       </div>
 

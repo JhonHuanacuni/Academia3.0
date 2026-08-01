@@ -1,0 +1,19 @@
+[Unit]
+Description=Gunicorn — Academia 3.0 API
+After=network.target mysql.service
+
+[Service]
+User=usercodex
+Group=www-data
+WorkingDirectory=/home/usercodex/academia_src/Backend
+EnvironmentFile=/home/usercodex/academia_src/Backend/.env
+ExecStart=/home/usercodex/academia_src/Backend/venv/bin/gunicorn \
+    --workers 3 \
+    --bind 127.0.0.1:8001 \
+    --timeout 120 \
+    backend_project.wsgi:application
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

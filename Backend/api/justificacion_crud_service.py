@@ -1,4 +1,5 @@
 from django.db import connection
+from .db_context import prepare_write_cursor
 
 
 def _cursor_rows(cursor):
@@ -52,8 +53,9 @@ def obtener_justificacion(id_justificacion: str):
     return rows[0] if rows else None
 
 
-def insertar_justificacion(payload: dict):
+def insertar_justificacion(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -72,8 +74,9 @@ def insertar_justificacion(payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def actualizar_justificacion(id_justificacion: str, payload: dict):
+def actualizar_justificacion(id_justificacion: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario, payload)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -92,8 +95,9 @@ def actualizar_justificacion(id_justificacion: str, payload: dict):
         return _read_sp_write_result(cursor)
 
 
-def eliminar_justificacion(id_justificacion: str):
+def eliminar_justificacion(id_justificacion: str, id_usuario=None):
     with connection.cursor() as cursor:
+        prepare_write_cursor(cursor, id_usuario)
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);

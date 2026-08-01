@@ -1,0 +1,4 @@
+1.notas_importacion_tablas.sql
+2.sub_academico_importar_notas.sql
+3.notas_modulo_academico.sql
+4.fix_sub026_importar_notas.sql

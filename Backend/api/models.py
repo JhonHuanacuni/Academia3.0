@@ -144,6 +144,18 @@ class UsuarioSubmoduloExcluido(models.Model):
         unique_together = ('IDUSUARIO', 'IDSUBMODULO')
 
 
+class GrupoSubmoduloExcluido(models.Model):
+    IDGRUPOEXCLSUB = models.CharField(max_length=50, primary_key=True)
+    IDTIPOUSUARIO = models.CharField(max_length=50)
+    IDSUBMODULO = models.ForeignKey(Submodulo, on_delete=models.CASCADE, db_column='IDSUBMODULO')
+    FECHAREGISTRO = models.CharField(max_length=8, blank=True, null=True)
+
+    class Meta:
+        db_table = 'GRUPO_SUBMODULO_EXCLUIDO'
+        managed = False
+        unique_together = ('IDTIPOUSUARIO', 'IDSUBMODULO')
+
+
 class Aula(models.Model):
     IDAULA = models.CharField(max_length=50, primary_key=True)
     NOMBRE = models.CharField(max_length=100)

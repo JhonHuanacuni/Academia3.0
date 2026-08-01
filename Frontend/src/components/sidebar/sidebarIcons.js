@@ -20,6 +20,7 @@ import {
   faTags,
   faLayerGroup,
   faBookOpen,
+  faFileImport,
 } from "@fortawesome/free-solid-svg-icons";
 
 const ICON_MAP = {
@@ -44,6 +45,7 @@ const ICON_MAP = {
   faTags: faTags,
   faLayerGroup: faLayerGroup,
   faBookOpen: faBookOpen,
+  faFileImport: faFileImport,
 };
 
 export function resolveSidebarIcon(iconName) {

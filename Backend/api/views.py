@@ -8,6 +8,8 @@ from .modulos_services import (
     get_usuarios_activos,
     listar_modulos_con_submodulos,
     listar_modulos_efectivos_usuario,
+    listar_modulos_disponibles_rol,
+    listar_modulos_efectivos_rol,
     get_effective_modulos,
     get_menu_for_user,
     asignar_modulo_usuario,
@@ -19,6 +21,15 @@ from .modulos_services import (
     desasignar_submodulo_usuario,
     asignar_submodulo_usuario_orm,
     desasignar_submodulo_usuario_orm,
+    asignar_modulo_rol,
+    desasignar_modulo_rol,
+    asignar_modulo_rol_orm,
+    desasignar_modulo_rol_orm,
+    listar_submodulos_modulo_rol,
+    asignar_submodulo_rol,
+    desasignar_submodulo_rol,
+    asignar_submodulo_rol_orm,
+    desasignar_submodulo_rol_orm,
 )
 from .models import Modulo, Submodulo, UsuarioModulo, GrupoModulo
 from .serializers import (
@@ -61,6 +72,10 @@ def login(request):
 
     try:
         valid, role = validate_user(username, password)
+        idtipousuario = None
+        if valid:
+            from .modulos_services import get_usuario_tipo
+            idtipousuario = get_usuario_tipo(username)
     except Exception as exc:
         return JsonResponse({'error': str(exc)}, status=500)
 
@@ -68,6 +83,7 @@ def login(request):
         'valid': valid,
         'role': role,
         'idusuario': username if valid else None,
+        'idtipousuario': idtipousuario,
     })
 
 
@@ -128,9 +144,12 @@ def modulos_disponibles(request):
 
     try:
         idusuario = request.GET.get('idusuario')
+        idtipousuario = request.GET.get('idtipousuario')
         todos = listar_modulos_con_submodulos()
 
-        if idusuario:
+        if idtipousuario:
+            modulos_list = listar_modulos_disponibles_rol(idtipousuario)
+        elif idusuario:
             efectivos = set(get_effective_modulos(idusuario).keys())
             modulos_list = [m for m in todos if m['IDMODULO'] not in efectivos]
         else:
@@ -253,12 +272,114 @@ def submodulos_modulo_usuario(request):
                     asignar_submodulo_usuario_orm(idusuario, idsubmodulo)
                 return JsonResponse({'success': True, 'message': 'Submódulo asignado'})
 
+        except ValueError as exc:
+            return JsonResponse({'error': str(exc)}, status=400)
+        except Exception as exc:
+            return JsonResponse({'error': str(exc)}, status=500)
+
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+def modulos_asignados_rol(request):
+    if request.method == 'GET':
+        idtipousuario = request.GET.get('idtipousuario')
+        if not idtipousuario:
+            return JsonResponse({'error': 'idtipousuario es requerido'}, status=400)
+
+        try:
+            asignados = listar_modulos_efectivos_rol(idtipousuario)
+            return JsonResponse({'success': True, 'asignados': asignados})
+        except Exception as exc:
+            return JsonResponse({'error': str(exc)}, status=500)
+
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+        idtipousuario = payload.get('idtipousuario')
+        idmodulo = payload.get('idmodulo')
+        accion = payload.get('accion')
+
+        if not idtipousuario or not idmodulo or not accion:
+            return JsonResponse({'error': 'Faltan parámetros requeridos'}, status=400)
+
+        try:
+            if accion == 'asignar':
+                try:
+                    asignar_modulo_rol(idtipousuario, idmodulo)
+                except Exception:
+                    asignar_modulo_rol_orm(idtipousuario, idmodulo)
+                return JsonResponse({'success': True, 'message': 'Módulo asignado al rol'})
+
             if accion == 'desasignar':
                 try:
-                    desasignar_submodulo_usuario(idusuario, idsubmodulo)
+                    desasignar_modulo_rol(idtipousuario, idmodulo)
+                except ValueError as exc:
+                    return JsonResponse({'error': str(exc)}, status=400)
                 except Exception:
-                    desasignar_submodulo_usuario_orm(idusuario, idsubmodulo)
-                return JsonResponse({'success': True, 'message': 'Submódulo desasignado'})
+                    try:
+                        desasignar_modulo_rol_orm(idtipousuario, idmodulo)
+                    except ValueError as exc:
+                        return JsonResponse({'error': str(exc)}, status=400)
+                return JsonResponse({'success': True, 'message': 'Módulo desasignado del rol'})
+
+            return JsonResponse({'error': 'accion inválida'}, status=400)
+        except Exception as exc:
+            return JsonResponse({'error': str(exc)}, status=500)
+
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+def submodulos_modulo_rol(request):
+    if request.method == 'GET':
+        idtipousuario = request.GET.get('idtipousuario')
+        idmodulo = request.GET.get('idmodulo')
+        if not idtipousuario or not idmodulo:
+            return JsonResponse({'error': 'idtipousuario e idmodulo son requeridos'}, status=400)
+        try:
+            submodulos = listar_submodulos_modulo_rol(idtipousuario, idmodulo)
+            asignados = [s for s in submodulos if s.get('asignado')]
+            disponibles = [s for s in submodulos if not s.get('asignado')]
+            return JsonResponse({
+                'success': True,
+                'submodulos': submodulos,
+                'asignados': asignados,
+                'disponibles': disponibles,
+            })
+        except Exception as exc:
+            return JsonResponse({'error': str(exc)}, status=500)
+
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+        idtipousuario = payload.get('idtipousuario')
+        idsubmodulo = payload.get('idsubmodulo')
+        accion = payload.get('accion')
+
+        if not idtipousuario or not idsubmodulo or not accion:
+            return JsonResponse({'error': 'Faltan parámetros requeridos'}, status=400)
+
+        try:
+            if accion == 'asignar':
+                try:
+                    asignar_submodulo_rol(idtipousuario, idsubmodulo)
+                except Exception:
+                    asignar_submodulo_rol_orm(idtipousuario, idsubmodulo)
+                return JsonResponse({'success': True, 'message': 'Submódulo asignado al rol'})
+
+            if accion == 'desasignar':
+                try:
+                    desasignar_submodulo_rol(idtipousuario, idsubmodulo)
+                except Exception:
+                    desasignar_submodulo_rol_orm(idtipousuario, idsubmodulo)
+                return JsonResponse({'success': True, 'message': 'Submódulo desasignado del rol'})
 
             return JsonResponse({'error': 'accion inválida'}, status=400)
         except ValueError as exc:

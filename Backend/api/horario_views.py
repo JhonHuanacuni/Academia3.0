@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .db_context import actor_from_request
 from django.utils import timezone
 
 from .horario_crud_service import (
@@ -139,7 +140,7 @@ def horarios_mantenedor(request, id_horario=None):
                 'URLIMAGEN': 'pending',
                 'FECHASUBIDA': _fecha_hoy_db(),
             }
-            ok, mensaje, id_gen = insertar_horario(temp_payload)
+            ok, mensaje, id_gen = insertar_horario(temp_payload, actor_from_request(request, temp_payload if isinstance(temp_payload, dict) else None))
             if not ok or not id_gen:
                 return JsonResponse({'ok': False, 'mensaje': mensaje or 'No se pudo registrar.'}, status=400)
 
@@ -150,10 +151,10 @@ def horarios_mantenedor(request, id_horario=None):
                 'ESTADO': payload.get('ESTADO', 'Activo'),
                 'AULAS_CSV': payload.get('AULAS_CSV') or '',
                 'URLIMAGEN': url_img,
-            })
+            }, actor_from_request(request, payload))
             if not ok2:
                 borrar_archivos_horario(id_gen)
-                eliminar_horario(id_gen)
+                eliminar_horario(id_gen, actor_from_request(request))
                 return JsonResponse({'ok': False, 'mensaje': mensaje2}, status=400)
 
             return JsonResponse({
@@ -191,7 +192,7 @@ def horarios_mantenedor(request, id_horario=None):
                 'ESTADO': payload.get('ESTADO', 'Activo'),
                 'AULAS_CSV': payload.get('AULAS_CSV') if payload.get('AULAS_CSV') is not None else '',
                 'URLIMAGEN': url_img,
-            })
+            }, actor_from_request(request, payload))
             status = 200 if ok else 400
             return JsonResponse({'ok': bool(ok), 'mensaje': mensaje}, status=status)
         except Exception as exc:
@@ -199,7 +200,7 @@ def horarios_mantenedor(request, id_horario=None):
 
     if request.method == 'DELETE' and id_horario:
         try:
-            ok, mensaje = eliminar_horario(id_horario)
+            ok, mensaje = eliminar_horario(id_horario, actor_from_request(request))
             if ok:
                 borrar_archivos_horario(id_horario)
             status = 200 if ok else 400

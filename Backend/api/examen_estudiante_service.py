@@ -157,3 +157,40 @@ def finalizar_intento(id_intento: str, id_usuario: str):
                 resumen = rows[0]
 
     return ok, mensaje, resumen
+
+
+def ranking_aula_ultimo_examen(id_usuario: str):
+    """Último examen finalizado en el aula del estudiante + ranking del salón."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'EXEC dbo.usp_examen_ranking_aula @IdUsuario=%s',
+            [id_usuario],
+        )
+        examen_rows = _cursor_rows(cursor)
+        ranking = []
+        if cursor.nextset() and cursor.description:
+            ranking = _cursor_rows(cursor)
+
+    examen = examen_rows[0] if examen_rows else None
+    if examen and not examen.get('IDEXAMEN'):
+        examen = None
+
+    mi_fila = next((r for r in ranking if r.get('ES_YO') in (1, True, '1')), None)
+
+    for row in ranking:
+        for key in ('PUNTAJEOBTENIDO', 'PCT_CORRECTAS', 'PCT_ERRORES', 'PCT_BLANCO'):
+            if row.get(key) is not None:
+                row[key] = float(row[key])
+        for key in ('POSICION', 'CANTCORRECTAS', 'CANTINCORRECTAS', 'CANTSINRESPONDER', 'ES_YO', 'APROBADO'):
+            if row.get(key) is not None:
+                try:
+                    row[key] = int(row[key])
+                except (TypeError, ValueError):
+                    pass
+
+    return {
+        'examen': examen,
+        'ranking': ranking,
+        'miPosicion': mi_fila.get('POSICION') if mi_fila else None,
+        'miPuntaje': float(mi_fila['PUNTAJEOBTENIDO']) if mi_fila and mi_fila.get('PUNTAJEOBTENIDO') is not None else None,
+    }

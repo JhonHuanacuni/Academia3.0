@@ -6,25 +6,22 @@ Documento maestro para que una IA (o un desarrollador nuevo) entienda **qué exi
 
 ## 1. Resumen ejecutivo
 
-**Academia 3.0** es la reescritura moderna del sistema de gestión de **Academia VITA** (academia de preparación / instituto). Reemplaza una versión anterior (Academia 2.0) con:
+**Academia 3.0** es la reescritura moderna del sistema de gestión de **Academia VITA** (instituto / academia de preparación). Reemplaza Academia 2.0 con:
 
 - **Frontend:** React 19 + Vite 8
 - **Backend:** Django 5 + Django REST Framework
-- **Base de datos:** SQL Server (esquema definido por scripts SQL, no por migraciones Django)
-- **Patrón de referencia:** El proyecto hermano `D:\Startup\Restaurante` ya implementó el mismo patrón (menú dinámico desde BD, módulos, permisos). Academia debe replicar ese enfoque adaptado a SQL Server.
+- **Base de datos:** SQL Server (esquema DB-first vía scripts SQL, modelos Django `managed = False`)
+- **Patrón de referencia:** `D:\Startup\Restaurante` (menú dinámico, módulos, permisos)
 
-### Objetivo principal en curso
+### Estado actual (julio 2026)
 
-Sistema de **módulos dinámicos**: los ítems del sidebar y los permisos de acceso viven en tablas SQL (`MODULO`, `SUBMODULO`, `USUARIO_MODULO`, `GRUPO_MODULO`), con una pantalla de administración para asignar módulos a usuarios.
+El sistema ya tiene **módulos funcionales** conectados a API y stored procedures: usuarios, asistencias, justificaciones, mensualidades, pagos, pagos extraordinarios, planes, aulas, tutores, biblioteca, horarios, exámenes (admin + estudiante), informes de asistencias y mantenedores académicos (categorías, materias, conceptos).
+
+El **sidebar es dinámico**: consume `GET /api/menu-usuario/?idusuario=…` según permisos en BD. Las pantallas de mantenimiento siguen un patrón común reutilizable (`DataTable`, `FormPage`, `Toolbar`, etc.).
 
 ### Decisión de arquitectura (confirmada)
 
-**Mantener Django** — no reescribir el backend. Razones:
-
-- Ya configurado para SQL Server (`mssql-django` + `pyodbc`)
-- Modelos con `managed = False` respetan el enfoque DB-first
-- Mismo stack que Restaurante (menos curva de aprendizaje)
-- Mezcla ORM + stored procedures ya funciona (`usp_validate_user`)
+**Mantener Django** — ORM + stored procedures (`connection.cursor()`), sin migraciones Django para tablas de negocio.
 
 ---
 
@@ -32,56 +29,45 @@ Sistema de **módulos dinámicos**: los ítems del sidebar y los permisos de acc
 
 ```
 Academia3.0/
-├── README.md                    ← Este archivo (contexto maestro)
-├── IMPLEMENTACION_MODULOS.md    ← Doc detallada del sistema de módulos (parcialmente desactualizada)
-├── CHECKLIST_IMPLEMENTACION.txt ← Checklist paso a paso para implementar módulos
-├── COMIENZA_AQUI.txt            ← Guía de inicio rápido
-├── GUIA_RAPIDA.txt
-├── INDICE_ARCHIVOS.txt
-├── RESUMEN_CAMBIOS.txt
-│
+├── README.md                         ← Este archivo (contexto maestro)
 ├── Backend/
-│   ├── backend_project/         ← settings, urls, wsgi
-│   ├── api/                     ← models, views, services, serializers, urls
-│   ├── db_scripts/              ← Scripts SQL Server (fuente de verdad del esquema)
-│   ├── requirements.txt
-│   ├── .env.example
+│   ├── backend_project/              ← settings, urls, wsgi
+│   ├── api/                          ← models, views, *_crud_service.py, menu_config.py, urls.py
+│   ├── db_scripts/                   ← Scripts SQL por fecha (fuente de verdad del esquema)
+│   │   ├── 22_06_2026/               ← Esquema base + módulos admin
+│   │   ├── 06_07_2026/ … 17_07_2026/ ← Incrementales por feature
+│   │   └── 26_07_2026/               ← Último lote (mensualidad, justificación, planes, etc.)
+│   ├── media/                        ← Archivos subidos (exámenes, horarios, biblioteca)
 │   └── manage.py
-│
 └── Frontend/
     ├── src/
-    │   ├── App.jsx              ← Router por estado (no react-router)
-    │   ├── App.css              ← Estilos globales + sidebar + layout
-    │   ├── index.css            ← Reset mínimo + font-size base
+    │   ├── App.jsx                   ← Router por estado (no react-router)
     │   ├── components/
-    │   │   ├── admin/           ← AdminModulos (asignación drag-and-drop)
-    │   │   ├── layout/          ← Layout shell
-    │   │   ├── navbar/          ← Navbar superior
-    │   │   ├── sidebar/         ← Sidebar (menú HARDCODEADO por rol)
-    │   │   ├── header/          ← Header alternativo (no usado en Layout actual)
-    │   │   └── footer/
-    │   └── main.jsx
-    ├── vite.config.js           ← Proxy /api → Django :8000
-    └── package.json
+    │   │   ├── admin/                ← AdminModulos
+    │   │   ├── layout/, navbar/, sidebar/
+    │   │   └── mantenedor/           ← DataTable, FormPage, FormModal, Toolbar, …
+    │   ├── modules/                  ← Una carpeta por módulo de negocio
+    │   │   ├── usuario/, mensualidad/, pago/, asistencia/, informes/, examen/, …
+    │   │   └── *.config.js           ← columnas, campos, entidad API
+    │   ├── hooks/useCrud.js
+    │   ├── styles/mantenedor.css     ← Estilos compartidos + tabs UI
+    │   └── utils/
+    └── vite.config.js                ← Proxy /api → Django :8000
 ```
 
 ---
 
 ## 3. Stack tecnológico
 
-| Capa | Tecnología | Versión / notas |
-|------|------------|-----------------|
-| Frontend | React | 19.x |
-| Build | Vite | 8.x, React Compiler habilitado |
+| Capa | Tecnología | Notas |
+|------|------------|-------|
+| Frontend | React 19 + Vite 8 | React Compiler habilitado |
 | Iconos | Font Awesome | `@fortawesome/react-fontawesome` |
-| Backend | Django | 5.x |
-| API | djangorestframework | ViewSets + endpoints custom |
-| Docs API | drf-spectacular | Swagger en `/api/docs/` |
-| CORS | django-cors-headers | `CORS_ALLOW_ALL_ORIGINS = True` |
-| BD | SQL Server | vía `mssql-django` + `pyodbc` |
-| Config | python-dotenv | `.env` en `Backend/` |
+| Backend | Django 5 + DRF | Endpoints custom + algunos ViewSets |
+| BD | SQL Server | `mssql-django` + `pyodbc` |
+| Docs API | drf-spectacular | `/api/docs/` |
 
-**No hay:** react-router, Redux, TypeScript, tests automatizados, CI/CD configurado.
+**No hay:** react-router, Redux, TypeScript, tests automatizados, CI/CD.
 
 ---
 
@@ -109,280 +95,151 @@ npm install
 npm run dev
 ```
 
-Vite proxyea `/api/*` hacia Django (`vite.config.js`).
+Vite proxyea `/api/*` hacia Django.
 
 ### SQL Server — orden de scripts
 
-**Esquema canónico (recomendado):** `db_scripts/22_06_2026/esquema_completo.sql`  
-Crea todas las tablas, datos seed y `usp_validate_user`. **Destructivo** (hace DROP antes de crear).
+**BD nueva (recomendado):**
 
-Scripts anteriores (históricos / parciales):
+1. `Backend/db_scripts/22_06_2026/esquema_completo.sql` — esquema base (**destructivo**)
+2. Scripts de `22_06_2026/ORDEN_EJECUCION.txt` (modulos_admin, usuario CRUD, asistencia, …)
+3. Carpetas incrementales **en orden cronológico**, respetando el `ORDEN_EJECUCION.txt` de cada una:
+   - `29_06_2026`, `06_07_2026`, `08_07_2026`, `11_07_2026`, `12_07_2026`, `14_07_2026`, `16_07_2026`, `17_07_2026`, **`26_07_2026`**
 
-| Orden | Archivo | Qué hace |
-|-------|---------|----------|
-| — | `db_scripts/22_06_2026/esquema_completo.sql` | **Esquema completo actual** (usar este en BD nueva) |
-| 1 | `db_scripts/05_05_2026/tables.sql` | Crea `TIPOUSUARIO`, `USUARIO` (legacy) |
-| 3 | `db_scripts/05_05_2026/Sps.sql` | `usp_validate_user` (versión camelCase) |
-| 4 | `db_scripts/07_05_2026/script.sql` | Renombra columnas a MAYÚSCULAS (`IDUSUARIO`, `IDTIPOUSUARIO`, etc.) |
-| 5 | `db_scripts/07_05_2026/SPs.sql` | Actualiza `usp_validate_user` a columnas en MAYÚSCULAS |
-| 6 | `db_scripts/modulos_structure.sql` | Crea tablas `MODULO`, `SUBMODULO`, `TIPO_PERMISO`, `USUARIO_MODULO`, `GRUPO_MODULO` |
-| 7 | `db_scripts/modulos_data_initial.sql` | Datos iniciales de módulos y permisos por rol |
-| 8 | `db_scripts/modulos_verify.sql` | Verificación de instalación |
+**Último lote (`26_07_2026/ORDEN_EJECUCION.txt`):**
 
-**Importante:** `modulos_structure.sql` hace `DROP TABLE` si existen las tablas de módulos. Requiere que `USUARIO` y `TIPOUSUARIO` ya existan con FKs compatibles (`IDUSUARIO`, `IDTIPOUSUARIO`).
+| # | Script | Descripción |
+|---|--------|-------------|
+| 1–3 | plan_dias_asistencia, plan_catalogo, aula_catalogo | Días de asistencia por plan, catálogos |
+| 4–5 | rename mensualidad/tutor, menu_mensualidad_tutor | Renombre membresía → mensualidad |
+| 6–8 | plan_turno, plan_nombres, asesor_registro_mensualidad | Turnos y registro de mensualidad |
+| 9–10 | menu_tutores_asesores, tutor_codigo_tut | Menú y códigos tutor |
+| 12–13 | plan_hora_entrada_tardanza, mantenedores_codigo_autogenerado | Tardanza e IDs autogenerados |
+| 14–15 | justificacion, usp_justificacion_actualizar | Módulo justificaciones + editar |
+| 16 | usuario_estado_retirado | Estado Retirado (antes Inactivo) |
+| 17 | mensualidad_filtro_deuda | Filtro por deuda en listado mensualidades |
+| 18 | usp_usuario_resetear_contra | Restablecer contraseña al DNI |
+| 19 | usp_mensualidad_listar_pagos | Pagos de una mensualidad (modal) |
+
+**Usuarios de prueba** (tras esquema base):
+
+| IDUSUARIO | CONTRA | Rol |
+|-----------|--------|-----|
+| 1 | 1234 | estudiante |
+| 2 | 1234 | docente |
+| 3 | 1234 | administrador |
 
 ---
 
-## 5. Base de datos
+## 5. Base de datos — convenciones
 
-### 5.1 Tablas core (usuarios)
+- Tablas y columnas en **MAYÚSCULAS** (`IDUSUARIO`, `MENSUALIDAD`, …)
+- IDs de negocio: `NVARCHAR(50)` con prefijos (`MOD`, `SUB`, `PLN`, `MEN`, …)
+- Fechas en BD: `NVARCHAR` formato `YYYYMMDD` o `YYYYMMDD HH:MM:SS`
+- Modelos Django: **`managed = False`** — Django no altera tablas
+- Lógica compleja: **stored procedures** en `db_scripts/`, llamados desde `*_crud_service.py`
 
-Definidas en `05_05_2026/tables.sql`, renombradas en `07_05_2026/script.sql`:
-
-| Tabla | PK | Campos relevantes |
-|-------|-----|-------------------|
-| `TIPOUSUARIO` | `IDTIPOUSUARIO` | `DESCRIPCION` |
-| `USUARIO` | `IDUSUARIO` | `CONTRA`, `NOMBRE`, `APELLIDO`, `ESTADO`, `IDTIPOUSUARIO` (FK) |
-
-### 5.2 Mapeo de roles
-
-El SP `usp_validate_user` traduce `IDTIPOUSUARIO` → rol string para el frontend:
+### Roles (`usp_validate_user`)
 
 | IDTIPOUSUARIO | Rol API / frontend |
 |---------------|-------------------|
-| `1` | `usuario` |
-| `2` | `secretario` |
-| `3` | `admin` |
+| 1 | `estudiante` (legacy: `usuario`) |
+| 2 | `docente` (legacy: `secretario`) |
+| 3 | `administrador` (legacy: `admin`) |
 
-Login valida: `IDUSUARIO = @username`, `CONTRA = @password`, `ESTADO = 'Activo'`.
+### Menú dinámico
 
-### 5.3 Tablas de módulos
-
-Definidas en `modulos_structure.sql`:
-
-| Tabla | Propósito |
-|-------|-----------|
-| `MODULO` | Módulos del menú (Dashboard, Usuarios, etc.) |
-| `SUBMODULO` | Hijos de cada módulo (ej. "Registrar usuario") |
-| `TIPO_PERMISO` | Catálogo: read, write, delete, admin |
-| `USUARIO_MODULO` | Módulos asignados a un usuario concreto |
-| `GRUPO_MODULO` | Módulos asignados por rol (`IDGRUPO` = `IDTIPOUSUARIO`) |
-
-**Convenciones de IDs:**
-
-- Módulos: `MOD001`, `MOD002`, …
-- Submódulos: `SUB001`, `SUB002`, …
-- Permisos: `PER001`–`PER004`
-- Asignación usuario: `USR_MOD_<uuid>`
-- Asignación grupo: `GRM001`, …
-
-**Campo `PERMISOS`:** JSON en `NVARCHAR(MAX)`, ej. `["read","write","delete","admin"]`.
-
-**Campo `ICONO`:** Nombre de ícono FontAwesome sin prefijo `fa`, ej. `faGauge` → en frontend se usa con `@fortawesome/free-solid-svg-icons`.
-
-### 5.4 Módulos iniciales (datos seed)
-
-| ID | Nombre | Orden |
-|----|--------|-------|
-| MOD001 | Dashboard | 1 |
-| MOD002 | Usuarios | 2 |
-| MOD003 | Asistencias | 3 |
-| MOD004 | Membresías | 4 |
-| MOD005 | Biblioteca | 5 |
-| MOD006 | Exámenes | 6 |
-| MOD007 | Notas | 7 |
-| MOD008 | Administración de Módulos | 99 |
-
-### 5.5 Modelo Django ↔ SQL Server
-
-Todos los modelos de negocio usan **`managed = False`** — Django **no crea ni altera** esas tablas.
-
-Archivo: `Backend/api/models.py`
-
-| Modelo Django | Tabla SQL | Notas |
-|---------------|-----------|-------|
-| `Cliente` | `clientes` | Ejemplo/demo ORM, posiblemente no existe en BD real |
-| `TipoPermiso` | `TIPO_PERMISO` | |
-| `Modulo` | `MODULO` | PK `IDMODULO` |
-| `Submodulo` | `SUBMODULO` | FK `IDMODULO` |
-| `UsuarioModulo` | `USUARIO_MODULO` | `IDUSUARIO` es CharField, no FK Django |
-| `GrupoModulo` | `GRUPO_MODULO` | `IDGRUPO` referencia `IDTIPOUSUARIO` |
-
-Fechas en BD son `NVARCHAR(20)` con formato `YYYYMMDD HH:MM:SS`, no `DateTimeField` Django.
+Tablas: `MODULO`, `SUBMODULO`, `GRUPO_MODULO`, `USUARIO_MODULO`, exclusiones por usuario.  
+Mapeo módulo → página React: `Backend/api/menu_config.py` (`MODULO_PAGE_MAP`, `SUBMODULO_PAGE_MAP`).
 
 ---
 
 ## 6. Backend — API
 
-Base URL: `/api/`
+Base: `/api/` — Swagger: `/api/docs/`
 
-Documentación interactiva: `/api/docs/` (Swagger), `/api/redoc/`
+### Endpoints principales (implementados)
 
-### 6.1 Endpoints implementados
+| Área | Rutas |
+|------|-------|
+| Auth | `POST /api/login/` |
+| Menú | `GET /api/menu-usuario/?idusuario=` |
+| Usuarios | `GET/POST /api/usuarios/`, `GET/PUT/DELETE /api/usuarios/{id}/`, `POST …/reset-contra/` |
+| Asistencias | `GET/POST /api/asistencias/` |
+| Justificaciones | `GET/POST /api/justificaciones/`, `GET/PUT/DELETE /api/justificaciones/{id}/` |
+| Mensualidades | `GET/POST /api/mensualidades/`, `GET/PUT/DELETE …/{id}/`, `GET …/{id}/pagos/` |
+| Pagos | `GET/POST /api/pagos/`, `GET/PUT/DELETE /api/pagos/{id}/`, prefills por estudiante |
+| Pagos extra | `GET/POST /api/pagos-extraordinarios/`, conceptos por estudiante |
+| Planes, aulas, tutores | CRUD en `/api/planes/`, `/api/aulas/`, `/api/tutores/` |
+| Biblioteca, horarios | CRUD en `/api/libros/`, `/api/horarios/` |
+| Conceptos, categorías, materias | CRUD mantenedores |
+| Exámenes | CRUD admin + flujo estudiante (`/api/examenes/estudiante/…`) |
+| Informes | `GET /api/informes/asistencias/` |
+| Admin módulos | `/api/modulos-disponibles/`, `/api/modulos-asignados-usuario/`, submódulos |
 
-| Método | Ruta | Estado | Descripción |
-|--------|------|--------|-------------|
-| GET | `/api/status/` | ✅ | Health check JSON |
-| GET | `/api/clientes/` | ✅ Demo | ORM sobre tabla `clientes` |
-| GET | `/api/clientes-sp/` | ⚠️ | Requiere SP `usp_get_clientes` en BD |
-| POST | `/api/login/` | ✅ | Body: `{username, password}` → `{valid, role}` vía `usp_validate_user` |
-| GET | `/api/modulos-disponibles/` | ✅ Parcial | Lista módulos activos con submódulos |
-| GET/POST | `/api/modulos-asignados-usuario/` | ✅ Parcial | GET por `?idusuario=`, POST asignar/desasignar |
-| GET | `/api/modulos/` | ⚠️ | DRF ViewSet, requiere `IsAuthenticated` (no hay auth JWT/session real) |
-| GET | `/api/submodulos/` | ⚠️ | Igual |
-| * | `/api/usuario-modulos/` | ⚠️ | ViewSet CRUD |
-| * | `/api/grupo-modulos/` | ⚠️ | ViewSet CRUD |
+Lista completa: `Backend/api/urls.py`.
 
-### 6.2 Servicios
+### Autenticación
 
-Archivo: `Backend/api/services.py`
-
-```python
-get_clientes()           # ORM Cliente
-get_clientes_sp()        # EXEC usp_get_clientes
-validate_user(u, p)      # EXEC usp_validate_user → (bool, role)
-```
-
-**No existe aún en Academia** (sí en Restaurante):
-
-- `get_menu_for_user(idusuario)`
-- `get_effective_modulos(idusuario)` — merge rol + asignaciones usuario
-- `menu_config.py` — mapa `IDMODULO` → página React
-
-### 6.3 Configuración BD
-
-`Backend/backend_project/settings.py`:
-
-- `DB_ENGINE=mssql` → SQL Server
-- `DB_ENGINE` distinto → SQLite local (`db.sqlite3`) para desarrollo sin BD
-- Variables: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_DRIVER`, `DB_TRUSTED_CONNECTION`
-
-### 6.4 Autenticación — estado actual
-
-- Login valida contra SQL Server pero **no hay sesión Django ni JWT**.
-- Endpoints DRF usan `permission_classes = [IsAuthenticated]` pero el frontend **no envía tokens**.
-- El frontend guarda en `localStorage`: `isAuthenticated`, `role`, `activePage`.
-- **El rol no se valida en backend** en los endpoints de módulos; es solo estado del cliente.
+- Login valida contra SQL Server; **no hay JWT/sesión Django** en producción.
+- Frontend guarda en `localStorage`: `isAuthenticated`, `role`, `idusuario`, `activePage`.
+- Endpoints usan `@csrf_exempt`; el rol no se revalida en cada request.
 
 ---
 
 ## 7. Frontend
 
-### 7.1 Navegación
+### Navegación
 
-**No usa react-router.** La página activa es estado React:
+Sin react-router. `App.jsx` mapea `activePage` → componente (`pageContent`). El sidebar carga menú desde API según `idusuario`.
 
-- `activePage` — string: `dashboard`, `usuarios`, `admin-modulos`, etc.
-- `pageContent` en `App.jsx` mapea página → título/descripción/componente
-- Solo `admin-modulos` tiene componente real (`AdminModulos`); el resto muestra placeholder
+### Patrón mantenedor
 
-### 7.2 Layout
+Cada módulo CRUD suele tener:
 
-```
-┌─────────────┬──────────────────────────────────┐
-│   Sidebar   │  Navbar (ACADEMIA VITA + usuario) │
-│   (220px)   ├──────────────────────────────────┤
-│             │  Content (página activa)          │
-│             ├──────────────────────────────────┤
-│             │  Footer                           │
-└─────────────┴──────────────────────────────────┘
-```
+- `{Modulo}Page.jsx` — listado + formulario full-page o modal
+- `{modulo}.config.js` — columnas, campos, `entidad` (nombre API), `pk`
+- `useCrud` hook — listar, paginar, buscar, filtros, insertar, actualizar, eliminar
+- Componentes compartidos: `PageHeader`, `Toolbar`, `DataTable`, `Pagination`, `FormPage`, `FormModal`, `ConfirmDialog`, `Toast`
 
-Componentes:
+Estilos: `Frontend/src/styles/mantenedor.css` (incluye tabs UI canónicos — ver `.cursor/rules/ui-tabs.mdc`).
 
-- `Layout.jsx` — ensambla Sidebar + Navbar + children + Footer
-- `Sidebar.jsx` — menú **hardcodeado** en `sidebarConfig` por rol (`admin`, `secretario`, `usuario`)
-- `Navbar.jsx` — hamburger, marca, notificaciones (vacías), rol, menú usuario
-- `Header.jsx` — existe pero **no se usa** en Layout actual
+### Módulos frontend (`App.jsx`)
 
-### 7.3 Sidebar — configuración actual (hardcoded)
+| Página | Componente | Notas |
+|--------|------------|-------|
+| `usuarios` | UsuarioPage | WhatsApp, restablecer contraseña, carnet |
+| `mensualidades` | MensualidadPage | Filtro deuda; modal ver pagos |
+| `pagos` | PagoPage | Abono / nueva mensualidad |
+| `pagos-extraordinarios` | PagoExtraPage | |
+| `asistencias-marcar` | AsistenciaMarcarPage | QR / DNI |
+| `asistencias-listado` | AsistenciaListadoPage | |
+| `asistencias-justificacion` | JustificacionPage | Crear, ver, editar |
+| `informes-asistencias` | InformeAsistenciasPage | Filtros, export Excel |
+| `mantenedores-*` | Plan, Aula, Tutor, Concepto, Categoría, Materia | |
+| `academico-*` | Biblioteca, Horario, Exámenes, Importar notas | |
+| `examenes` | ExamenPage / ExamenEstudiantePage | Según rol |
+| `admin-modulos` | AdminModulos | Asignación módulos/submódulos |
 
-Archivo: `Frontend/src/components/sidebar/Sidebar.jsx`
+### UI
 
-El menú **no lee la BD**. Está duplicado por rol en `sidebarConfig`. Incluye secciones colapsables (`SidebarSection`, `SidebarSubLink`).
-
-Páginas referenciadas: `dashboard`, `usuarios`, `asistencias`, `membresias`, `pagos`, `biblioteca`, `examenes`, `notas`, `horario`, `admin-modulos`.
-
-Comportamiento responsive:
-
-- `< 900px` → sidebar móvil overlay
-- `< 1100px` → sidebar colapsado automático
-- Ancho: 220px (colapsado: 60px)
-
-### 7.4 AdminModulos — pantalla de asignación
-
-Archivo: `Frontend/src/components/admin/AdminModulos.jsx`
-
-UI de dos paneles con drag-and-drop:
-
-- Izquierda: módulos disponibles
-- Derecha: módulos asignados al usuario seleccionado
-
-**Limitaciones actuales:**
-
-| Aspecto | Estado |
-|---------|--------|
-| Lista de usuarios | **Mock hardcoded** (Juan, María, Carlos) — no llama API real |
-| Carga módulos | Llama `/api/modulos-disponibles/` y `/api/modulos-asignados-usuario/` |
-| Asignar/desasignar | POST a `/api/modulos-asignados-usuario/` |
-| CRUD de módulos (alta/edición) | **No implementado** — solo asignación |
-| Permisos granulares en UI | Muestra badges pero asigna `["read","write"]` fijo |
-
-### 7.5 Login
-
-- Formulario en `App.jsx` cuando `isAuthenticated === false`
-- POST `/api/login/` con username/password
-- Sin recordar `idUsuario` en localStorage (solo rol) — **pendiente** para menú dinámico por usuario
-
-### 7.6 Estilos y UI (última revisión)
-
-- Fuente base: **15px** (`index.css` + `App.css`)
-- `color-scheme: light` forzado (evita selects con texto blanco en modo oscuro del SO)
-- Sidebar compacto, sin mensajes de debug ("Django backend conectado", "Actualización a Academia 3.0")
 - Marca: **ACADEMIA VITA**
-- Colores primarios: púrpura `#3d348b` / `#4b3d90`
+- Color primario: `#6a42e5` (`--color-primary` en `mantenedor.css`)
+- Fuente base: 15px
 
 ---
 
-## 8. Flujo objetivo vs flujo actual
+## 8. Mensualidades — ver pagos (última feature)
 
-### Objetivo (como Restaurante)
+En el listado de mensualidades, acción **Ver pagos** (icono recibo) abre un modal con el historial de pagos de esa mensualidad.
 
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant F as Frontend
-    participant B as Django API
-    participant DB as SQL Server
+| Capa | Archivo / endpoint |
+|------|-------------------|
+| SQL | `26_07_2026/19.usp_mensualidad_listar_pagos.sql` |
+| Backend | `GET /api/mensualidades/{id}/pagos/` → `listar_pagos_mensualidad()` |
+| Frontend | `MensualidadPagosModal.jsx`, acción `onVerPagos` en `DataTable` |
 
-    U->>F: Login
-    F->>B: POST /api/login/
-    B->>DB: usp_validate_user
-    DB-->>B: valid, role, idUsuario
-    B-->>F: credenciales OK
-    F->>B: GET /api/menu-usuario/?idusuario=X
-    B->>DB: MODULO + SUBMODULO + USUARIO_MODULO + GRUPO_MODULO
-    B-->>F: menú filtrado con páginas
-    F->>F: Renderiza Sidebar dinámico
-```
-
-### Actual
-
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant F as Frontend
-    participant B as Django API
-    participant DB as SQL Server
-
-    U->>F: Login
-    F->>B: POST /api/login/
-    B->>DB: usp_validate_user
-    B-->>F: valid, role (sin idUsuario)
-    F->>F: Sidebar hardcoded por role
-    Note over F: AdminModulos usa usuarios mock
-    F->>B: GET modulos-disponibles (si entra a admin-modulos)
-```
+El modal reutiliza estilos del sistema (`pago-abono-info`, `mantenedor-card`, `data-table`).
 
 ---
 
@@ -390,200 +247,68 @@ sequenceDiagram
 
 ### ✅ Hecho
 
-- [x] Proyecto Django + React configurado
-- [x] Conexión SQL Server en settings
-- [x] Scripts SQL de tablas base, migración a MAYÚSCULAS, módulos, datos seed, verificación
-- [x] Modelos Django `managed=False` para módulos
-- [x] Serializers DRF
-- [x] Login vía stored procedure
-- [x] Endpoints básicos de módulos (disponibles, asignados)
-- [x] UI shell: login, layout, sidebar, navbar, footer
-- [x] Pantalla AdminModulos (asignación UI, parcialmente conectada)
-- [x] Proxy Vite → Django
-- [x] Documentación auxiliar (IMPLEMENTACION_MODULOS.md, checklists)
+- [x] Login, menú dinámico por usuario, admin de módulos/submódulos
+- [x] Mantenedor usuarios (CRUD, foto, carnet, QR, WhatsApp, reset contraseña)
+- [x] Asistencias: marcar, listado, informe con filtros y export Excel
+- [x] Justificaciones: crear, listar, editar
+- [x] Mensualidades: CRUD, filtro por deuda, modal pagos
+- [x] Pagos y pagos extraordinarios
+- [x] Planes (turno, días asistencia, hora tardanza), aulas, tutores
+- [x] Biblioteca, horarios, exámenes (admin + estudiante)
+- [x] Mantenedores: conceptos, categorías, materias
+- [x] Patrón mantenedor frontend reutilizable
+- [x] Scripts SQL incrementales versionados por fecha
 
-### ❌ Pendiente (prioridad sugerida)
+### ❌ Pendiente / parcial
 
-1. **Conectar SQL Server en `.env` real** y ejecutar scripts en BD de desarrollo
-2. **Endpoint `GET /api/menu-usuario/`** — portar lógica de `Restaurante/Backend/api/services.py`
-3. **`menu_config.py`** — mapa `MOD001` → `dashboard`, `SUB003` → página, íconos FA
-4. **Sidebar dinámico** — reemplazar `sidebarConfig` hardcoded por fetch al menú del usuario logueado
-5. **Guardar `idUsuario` en login** — localStorage/session para identificar usuario en API
-6. **API listar usuarios reales** — reemplazar mock en AdminModulos
-7. **Autenticación real en API** — sesión, JWT o al menos quitar `IsAuthenticated` en dev / usar `@csrf_exempt` consistente
-8. **CRUD mantenimiento de módulos** — alta/edición/desactivación de `MODULO` y `SUBMODULO`
-9. **Módulos funcionales** — Usuarios, Asistencias, Membresías, etc. (solo placeholders hoy)
-10. **Alinear `usp_validate_user`** en SP antiguo (`idUsuario`) vs nuevo (`IDUSUARIO`) según scripts ejecutados
-11. **Tabla `clientes` / `usp_get_clientes`** — demo legacy, limpiar o documentar si no aplica
+- [ ] Autenticación real en API (JWT o sesión); hoy confía en `localStorage`
+- [ ] Módulo **Notas** — placeholder
+- [ ] Módulo **Clases** (`academico-clases`) — placeholder
+- [ ] Dashboard con métricas reales
+- [ ] Tests automatizados y CI/CD
+- [ ] Limpiar endpoints demo (`/api/clientes/`, `clientes-sp`)
+- [ ] TypeScript / react-router (opcional, no planificado)
 
 ---
 
-## 10. Referencia: proyecto Restaurante
+## 10. Convenciones de código
 
-Ruta: `D:\Startup\Restaurante`
+### Backend
 
-Archivos clave a portar/adaptar:
+- Servicios CRUD: `{entidad}_crud_service.py` + `{entidad}_views.py`
+- SPs nuevos en `db_scripts/DD_MM_YYYY/` + entrada en `ORDEN_EJECUCION.txt`
+- URLs kebab-case; rutas específicas **antes** de rutas con `{id}/` (ej. `…/pagos/` antes de `…/{id}/`)
 
-| Archivo Restaurante | Qué hace | Estado en Academia |
-|---------------------|----------|-------------------|
-| `api/menu_config.py` | `MODULO_PAGE_MAP`, `SUBMODULO_PAGE_MAP`, dashboard por rol | ❌ No existe |
-| `api/services.py` | `get_menu_for_user`, `get_effective_modulos`, asignaciones | ❌ Parcial |
-| `api/views.py` | `menu_usuario`, modulos admin completos | ❌ Parcial |
-| `Frontend Sidebar` | Consume menú API | ❌ Hardcoded |
+### Frontend
 
-Restaurante usa **MySQL**; Academia usa **SQL Server** — la lógica es la misma, cambian detalles de SQL/tipos.
-
----
-
-## 11. Endpoints — detalle de contratos
-
-### POST `/api/login/`
-
-```json
-// Request
-{ "username": "admin01", "password": "****" }
-
-// Response 200
-{ "valid": true, "role": "admin" }
-
-// Response 200 (fallo credenciales)
-{ "valid": false, "role": "usuario" }
-```
-
-### GET `/api/modulos-disponibles/`
-
-```json
-{
-  "success": true,
-  "modulos": [
-    {
-      "IDMODULO": "MOD001",
-      "NOMBRE": "Dashboard",
-      "DESCRIPCION": "...",
-      "ICONO": "faGauge",
-      "ORDEN": 1,
-      "submodulos": [
-        { "IDSUBMODULO": "SUB001", "NOMBRE": "Estadísticas", "ICONO": "faChartBar", "ORDEN": 1 }
-      ]
-    }
-  ]
-}
-```
-
-### GET `/api/modulos-asignados-usuario/?idusuario=user1`
-
-```json
-{
-  "success": true,
-  "asignados": [
-    {
-      "IDUSUARIO_MODULO": "USR_MOD_ABC123",
-      "IDMODULO_id": "MOD002",
-      "IDMODULO__NOMBRE": "Usuarios",
-      "IDMODULO__ICONO": "faUsers",
-      "PERMISOS": "[\"read\",\"write\"]"
-    }
-  ]
-}
-```
-
-### POST `/api/modulos-asignados-usuario/`
-
-```json
-// Asignar
-{
-  "idusuario": "user1",
-  "idmodulo": "MOD003",
-  "accion": "asignar",
-  "permisos": ["read", "write"]
-}
-
-// Desasignar
-{
-  "idusuario": "user1",
-  "idmodulo": "MOD003",
-  "accion": "desasignar"
-}
-```
-
----
-
-## 12. Problemas conocidos / inconsistencias
-
-1. **FK en `modulos_structure.sql`:** referencia `TIPOUSUARIO(IDTIPOUSUARIO)` — requiere script `07_05_2026/script.sql` ejecutado antes.
-2. **Dos versiones de `usp_validate_user`:** `05_05_2026/Sps.sql` (camelCase) vs `07_05_2026/SPs.sql` (MAYÚSCULAS). Usar la que coincida con columnas reales de la BD.
-3. **ViewSets DRF con `IsAuthenticated`:** el frontend no autentica requests → endpoints del router fallan con 403.
-4. **`PERMISOS` en BD es NVARCHAR** pero modelo Django usa `JSONField` — funciona en lectura/escritura vía Django pero el SP directo debe enviar JSON válido.
-5. **`AdminModulos`:** race condition al cargar disponibles vs asignados (usa `modulosAsignados` del render anterior en el primer fetch).
-6. **`Header.jsx`:** componente huérfano; Layout usa `Navbar.jsx`.
-7. **Docs en raíz** (`IMPLEMENTACION_MODULOS.md`, etc.) pueden estar desincronizados con el código — **este README tiene prioridad** para contexto de IA.
-
----
-
-## 13. Convenciones de código
-
-### Backend (Python/Django)
-
-- Modelos de BD legacy: campos en MAYÚSCULAS como en SQL Server
-- Tablas externas: `managed = False`
-- Lógica de BD compleja: stored procedures en `db_scripts/`, llamados desde `services.py` con `connection.cursor()`
-- URLs de API: kebab-case (`modulos-disponibles/`)
-- CSRF: endpoints custom usan `@csrf_exempt` (SPA sin token CSRF configurado)
-
-### Frontend (React)
-
-- Componentes en `PascalCase`, archivos `.jsx`
-- Estilos globales en `App.css`; estilos de módulo en CSS junto al componente (ej. `AdminModulos.css`)
-- Sin TypeScript
-- Estado local con `useState` / `useEffect`; sin store global
-- Font Awesome para iconos del sidebar
+- Config por módulo: `{modulo}.config.js`
+- CSS de módulo junto al componente; estilos globales en `mantenedor.css`
+- Tabs: usar clases `ui-tabs` / `ui-tab` (regla en `.cursor/rules/ui-tabs.mdc`)
 
 ### SQL
 
-- IDs de negocio como `NVARCHAR(50)` con prefijos semánticos (`MOD`, `SUB`, `GRM`, `USR_MOD_`)
-- Fechas como string `NVARCHAR(20)` formato `YYYYMMDD HH:MM:SS`
-- Scripts idempotentes donde sea posible; `modulos_structure.sql` hace DROP (destructivo)
+- Scripts idempotentes cuando sea posible; documentar dependencias en `ORDEN_EJECUCION.txt`
 
 ---
 
-## 14. Archivos de documentación adicionales
+## 11. Problemas conocidos
 
-| Archivo | Uso |
-|---------|-----|
-| `IMPLEMENTACION_MODULOS.md` | Guía extensa del sistema de módulos |
-| `CHECKLIST_IMPLEMENTACION.txt` | Checklist operativo para implementar módulos |
-| `COMIENZA_AQUI.txt` | Punto de entrada para desarrolladores |
-| `GUIA_RAPIDA.txt` | Referencia rápida |
-| `Backend/db_scripts/ejemplos_uso.sql` | Queries de ejemplo para módulos y permisos |
-| `Backend/README.md` | Setup backend (parcialmente desactualizado) |
+1. **Sin auth en API:** cualquier cliente puede llamar endpoints si conoce la URL.
+2. **ViewSets DRF** (`/api/modulos/`, etc.) requieren `IsAuthenticated` — el SPA no envía token → 403.
+3. **Docs auxiliares** en raíz (`IMPLEMENTACION_MODULOS.md`, …) pueden estar desactualizados — **este README tiene prioridad**.
+4. Ejecutar scripts SQL fuera de orden puede romper FKs o SPs obsoletos.
 
 ---
 
-## 15. Próximos pasos recomendados (para pedir a la IA)
-
-Cuando continúes el desarrollo, puedes pedir cosas como:
-
-1. *"Porta `get_menu_for_user` de Restaurante y crea `/api/menu-usuario/`"*
-2. *"Conecta el Sidebar a la API de menú"*
-3. *"Crea endpoint GET `/api/usuarios/` desde tabla USUARIO"*
-4. *"Reemplaza usuarios mock en AdminModulos"*
-5. *"Implementa CRUD de módulos (mantenimiento)"*
-6. *"Implementa módulo de Usuarios (listado + registro)"*
-
-Indica siempre si la BD ya tiene los scripts ejecutados o hay que asumir BD vacía.
-
----
-
-## 16. Historial de decisiones
+## 12. Historial de decisiones
 
 | Fecha | Decisión |
 |-------|----------|
-| 2026-05 | Inicio Academia 3.0 sobre Django + React + SQL Server |
-| 2026-05-09 | Diseño sistema de módulos dinámicos (tablas + AdminModulos) |
-| 2026-06 | Confirmado: mantener Django (no reescribir backend) |
-| 2026-06 | UI: sidebar compacto, fuente 15px, eliminados mensajes de debug |
-| 2026-06 | Patrón de referencia: `D:\Startup\Restaurante` para menú dinámico |
+| 2026-05 | Inicio Academia 3.0 — Django + React + SQL Server |
+| 2026-06 | Esquema base, menú dinámico, patrón Restaurante |
+| 2026-07 | Mantenedores CRUD, mensualidades/pagos, exámenes, informes |
+| 2026-07-26 | Renombre membresía→mensualidad; justificaciones; filtro deuda; modal pagos mensualidad; usuario Retirado; reset contraseña |
 
 ---
 
-*Última actualización: 2026-06-22 — Generado para contexto de IA y continuidad del desarrollo.*
+*Última actualización: 2026-07-27 — Incluye modal de pagos por mensualidad y lote de scripts `26_07_2026`.*

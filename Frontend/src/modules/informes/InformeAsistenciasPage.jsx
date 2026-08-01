@@ -367,7 +367,7 @@ export default function InformeAsistenciasPage() {
             Estado
             <select value={estado} onChange={(e) => setEstado(e.target.value)}>
               <option value="Activo">Activos</option>
-              <option value="Inactivo">Inactivos</option>
+              <option value="Retirado">Retirados</option>
               <option value="">Todos</option>
             </select>
           </label>
