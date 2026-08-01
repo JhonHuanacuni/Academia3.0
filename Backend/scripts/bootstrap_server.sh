@@ -32,7 +32,8 @@ venv/bin/pip install -r requirements.txt -q
 
 echo "Importando BD MySQL ..."
 sudo mysql -e "SET GLOBAL log_bin_trust_function_creators = 1;" 2>/dev/null || true
-venv/bin/python scripts/fix_procedure_syntax.py 2>/dev/null || true
+echo "Corrigiendo sintaxis procedures ..."
+venv/bin/python scripts/fix_procedure_syntax.py
 venv/bin/python scripts/setup_mysql_db.py "$@"
 
 echo "Estáticos Django ..."

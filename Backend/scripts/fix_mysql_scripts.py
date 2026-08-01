@@ -327,7 +327,7 @@ def fix_if_not_exists_seed_insert(text: str) -> str:
 
 
 def fix_limit_offset(text: str) -> str:
-    """MySQL no permite expresiones en OFFSET; usar variable v_offset."""
+    """MySQL no permite expresiones en OFFSET; usar @v_offset (variable de sesión)."""
     if 'OFFSET ((p_Pagina - 1) * p_TamanioPagina)' not in text:
         return text
 
@@ -338,31 +338,27 @@ def fix_limit_offset(text: str) -> str:
             part.startswith('CREATE PROCEDURE')
             and 'OFFSET ((p_Pagina - 1) * p_TamanioPagina)' in part
         ):
-            if 'DECLARE v_offset' not in part:
-                part = re.sub(
-                    r'(main:\s*BEGIN\s*\n)',
-                    r'\1    DECLARE v_offset INT DEFAULT 0;\n',
-                    part,
-                    count=1,
-                )
-            if 'SET v_offset' not in part:
+            if 'SET @v_offset' not in part and 'SET v_offset' not in part:
                 part = re.sub(
                     r'(IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = \d+; END IF;\s*\n)',
-                    r'\1    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;\n',
+                    r'\1    SET @v_offset = (p_Pagina - 1) * p_TamanioPagina;\n',
                     part,
                     count=1,
                 )
-            if 'SET v_offset' not in part:
+            if 'SET @v_offset' not in part and 'SET v_offset' not in part:
                 part = re.sub(
-                    r'(main:\s*BEGIN\s*\n(?:\s*DECLARE v_offset[^\n]+\n)?)',
-                    r'\1    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;\n',
+                    r'(main:\s*BEGIN\s*\n)',
+                    r'\1    SET @v_offset = (p_Pagina - 1) * p_TamanioPagina;\n',
                     part,
                     count=1,
                 )
             part = part.replace(
                 'LIMIT p_TamanioPagina OFFSET ((p_Pagina - 1) * p_TamanioPagina)',
-                'LIMIT p_TamanioPagina OFFSET v_offset',
+                'LIMIT p_TamanioPagina OFFSET @v_offset',
             )
+            part = re.sub(r'^\s*DECLARE v_offset INT DEFAULT 0;\s*\n', '', part, flags=re.M)
+            part = part.replace('SET v_offset =', 'SET @v_offset =')
+            part = part.replace('OFFSET v_offset', 'OFFSET @v_offset')
         fixed_parts.append(part)
     return ''.join(fixed_parts)
 
