@@ -115,15 +115,10 @@ END$$
 
 DELIMITER ;
 
--- Seed materias (por CODIGO; no duplica si ya existen)
-SET @v_base := (
-    SELECT IFNULL(MAX(CAST(REPLACE(IDMATERIA, 'MAT', '') AS UNSIGNED)), 0)
-    FROM MATERIA WHERE IDMATERIA LIKE 'MAT%'
-);
-
+-- Seed materias por CODIGO (no duplica si ya existen)
 INSERT INTO MATERIA (IDMATERIA, CODIGO, NOMBRE, IDCATEGORIA, ACTIVO)
 SELECT
-    CONCAT('MAT', LPAD(CAST(@v_base + s.rn AS CHAR), 3, '0')),
+    CONCAT('MAT', LPAD(CAST(seed_base.max_num + s.rn AS CHAR), 3, '0')),
     s.CODIGO,
     s.NOMBRE,
     c.IDCATEGORIA,
@@ -161,6 +156,11 @@ FROM (
     ) v
 ) s
 INNER JOIN CATEGORIA c ON c.NOMBRE = s.CATEGORIA_NOMBRE
+CROSS JOIN (
+    SELECT IFNULL(MAX(CAST(REPLACE(IDMATERIA, 'MAT', '') AS UNSIGNED)), 0) AS max_num
+    FROM MATERIA
+    WHERE IDMATERIA LIKE 'MAT%'
+) seed_base
 WHERE NOT EXISTS (
     SELECT 1 FROM MATERIA m
     WHERE m.CODIGO = s.CODIGO OR m.NOMBRE = s.NOMBRE
