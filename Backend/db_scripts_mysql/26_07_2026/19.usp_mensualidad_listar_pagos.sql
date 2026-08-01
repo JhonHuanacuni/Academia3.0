@@ -1,28 +1,22 @@
--- Convertido automáticamente desde db_scripts/26_07_2026/19.usp_mensualidad_listar_pagos.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- usp_mensualidad_listar_pagos — MySQL 8
+-- Ejecutar después de 18.usp_usuario_resetear_contra.sql
+-- Fecha: 27/07/2026
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   usp_mensualidad_listar_pagos
-   Ejecutar después de 18.usp_usuario_resetear_contra.sql
-   Fecha: 27/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_mensualidad_listar_pagos;
 
 DROP PROCEDURE IF EXISTS usp_mensualidad_listar_pagos;
 
 DELIMITER $$
 
-CREATE PROCEDURE usp_mensualidad_listar_pagos(
-    IN p_IdMensualidad VARCHAR(50)
-)
+CREATE PROCEDURE usp_mensualidad_listar_pagos(IN p_IdMensualidad VARCHAR(50))
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = p_IdMensualidad) THEN
+    IF NOT EXISTS (SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = p_IdMensualidad) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La mensualidad no existe.';
         LEAVE main;
-    
+    END IF;
+
     SELECT
         p.IDPAGOMENSUALIDAD,
         p.MONTO,
@@ -30,9 +24,7 @@ IF NOT EXISTS (SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = p_IdMensualidad) 
         p.HORAPAGO,
         p.OBSERVACIONES,
         IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
-        UPPER(TRIM(
-            CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, ''))
-        ))) AS REGISTRADO_POR
+        UPPER(TRIM(CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, '')))) AS REGISTRADO_POR
     FROM PAGOMENSUALIDAD p
     LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = p.IDUSUARIO
