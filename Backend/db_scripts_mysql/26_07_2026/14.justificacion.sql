@@ -4,7 +4,7 @@
 USE `AcademiaDB`;
 
 /* ============================================================================
-   Justificación de asistencias — tabla + SPs CRUD
+   Justificación de asistencias — CONCAT(tabla, SPs) CRUD
    Ejecutar después de 13.mantenedores_codigo_autogenerado.sql
    Fecha: 26/07/2026
    ============================================================================ */
@@ -123,12 +123,18 @@ CREATE PROCEDURE usp_justificacion_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario)) = ''
+IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un estudiante.'; LEAVE main; 
-    IF p_Fecha IS NULL OR TRIM(p_Fecha)) = ''
+    END IF;
+
+    IF p_Fecha IS NULL OR TRIM(p_Fecha) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Selecciona la fecha a justificar.'; LEAVE main; 
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND ESTADO = 'Activo')
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe o está inactivo.'; LEAVE main; 
+    END IF;
+
     IF EXISTS (SELECT 1 FROM JUSTIFICACION WHERE IDUSUARIO = p_IdUsuario AND FECHA = p_Fecha)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una justificación para ese estudiante en esa fecha.'; LEAVE main; 
     DECLARE v_Id VARCHAR(50);
@@ -136,21 +142,19 @@ IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario)) = ''
         SELECT MAX(CAST(REPLACE(IDJUSTIFICACION, 'JUS', '') AS INT))
         FROM JUSTIFICACION WHERE IDJUSTIFICACION LIKE 'JUS%'
     ), 0) + 1;
-    SET v_Id = CONCAT('JUS', RIGHT('000' + CAST(v_Next AS VARCHAR(10)), 3);
+    SET v_Id = CONCAT('JUS', RIGHT(CONCAT('000CONCAT(', CAST(v_Next AS VARCHAR(10))), 3);
 
-    DECLARE v_Hora CHAR(8) = CONVERT(CHAR(8), CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'SA Pacific Standard Time' AS TIME), 108);
+    DECLARE v_Hora CHAR(8) = TIME_FORMAT(CONVERT_TZ(NOW(), ', 00):00', '-05:00'), '%H:%i:%s');
 
     INSERT INTO JUSTIFICACION (IDJUSTIFICACION, IDUSUARIO, FECHA, HORAREGISTRO, IDREGISTRADOR, OBSERVACION)
-    VALUES (v_Id, p_IdUsuario, p_Fecha, v_Hora, NULLIF(TRIM(p_IdRegistrador)), ''), NULLIF(TRIM(p_Observacion)), ''));
+    VALUES (v_Id, p_IdUsuario, p_Fecha, v_Hora, NULLIF(TRIM(p_IdRegistrador), ''), NULLIF(TRIM(p_Observacion), ''));
 
-    IF EXISTS (SELECT 1 FROM ASISTENCIA WHERE IDUSUARIO = p_IdUsuario AND FECHAREGISTRO = p_Fecha)
-    BEGIN
+    IF EXISTS (SELECT 1 FROM ASISTENCIA WHERE IDUSUARIO = p_IdUsuario AND FECHAREGISTRO = p_Fecha) THEN
         UPDATE ASISTENCIA SET JUSTIFICADO = 1 WHERE IDUSUARIO = p_IdUsuario AND FECHAREGISTRO = p_Fecha;
     
-    ELSE
-    BEGIN
+ELSE
         INSERT INTO ASISTENCIA (IDASISTENCIA, FECHAREGISTRO, HORAINICIO, ESTADO, JUSTIFICADO, IDUSUARIO)
-        VALUES ('AS_' + REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), p_Fecha, v_Hora, 'Falta', 1, p_IdUsuario);
+        VALUES (CONCAT('AS_', REPLACE(UUID()), '-', ''), p_Fecha, v_Hora, 'Falta', 1, p_IdUsuario);
     
     SET p_Resultado = 1; SET p_Mensaje = 'Justificación registrada.';
     SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
@@ -187,13 +191,11 @@ IF NOT EXISTS (SELECT 1 FROM JUSTIFICACION WHERE IDJUSTIFICACION = p_Id)
 END;
 
 -- Submódulo menú (visible si el usuario tiene acceso a MOD003 Asistencias)
-IF NOT EXISTS (SELECT 1 FROM SUBMODULO WHERE IDSUBMODULO = 'SUB025')
-BEGIN
+IF NOT EXISTS (SELECT 1 FROM SUBMODULO WHERE IDSUBMODULO = 'SUB025') THEN
     INSERT INTO SUBMODULO (IDSUBMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, IDMODULO)
     VALUES ('SUB025', 'Justificación', 'Justificar inasistencias o tardanzas', 'faFilePen', 3, 1, 'MOD003');
 
 ELSE
-BEGIN
     UPDATE SUBMODULO SET
         NOMBRE = 'Justificación',
         DESCRIPCION = 'Justificar inasistencias o tardanzas',

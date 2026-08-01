@@ -13,7 +13,7 @@ USE `AcademiaDB`;
 UPDATE MODULO SET ACTIVO = 0 WHERE IDMODULO = 'MOD007';
 UPDATE SUBMODULO SET ACTIVO = 0 WHERE IDMODULO = 'MOD007';
 
--- SUB026: Importar notas bajo Académico (listado + importación Excel)
+-- SUB026: Importar notas bajo Académico (CONCAT(listado, importaci)ón Excel)
 UPDATE SUBMODULO
 SET NOMBRE = 'Importar notas',
     DESCRIPCION = 'Importar calificaciones desde Excel Scantron',

@@ -1,32 +1,17 @@
--- Convertido automáticamente desde db_scripts/30_07_2026/6.sub_academico_auditoria.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- Submódulo Académico: Auditoría del sistema — MySQL 8
+-- ============================================================================
 
 USE `AcademiaDB`;
 
-/* ============================================================================
-   Submódulo Académico: Auditoría del sistema
-   Ejecutar después de 3.usp_auditoria_crud.sql
-   Fecha: 31/07/2026
-   Nota: NCHAR evita corrupción de tildes al ejecutar con sqlcmd en Windows.
-   ============================================================================ */
+INSERT INTO SUBMODULO (IDSUBMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, IDMODULO)
+VALUES ('SUB027', 'Auditoría', 'Historial de altas, modificaciones y eliminaciones en el sistema', 'faClipboardList', 6, 1, 'MOD009')
+ON DUPLICATE KEY UPDATE
+    NOMBRE = 'Auditoría',
+    DESCRIPCION = 'Historial de altas, modificaciones y eliminaciones en el sistema',
+    ICONO = 'faClipboardList',
+    ORDEN = 6,
+    ACTIVO = 1,
+    IDMODULO = 'MOD009';
 
-DECLARE @NombreAuditoria VARCHAR(100) = N'Auditor' + NCHAR(237) + N'a';
-DECLARE @DescAuditoria VARCHAR(255) = N'Historial de altas, modificaciones y eliminaciones en el sistema';
-
-IF NOT EXISTS (SELECT 1 FROM SUBMODULO WHERE IDSUBMODULO = 'SUB027')
-BEGIN
-    INSERT INTO SUBMODULO (IDSUBMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, IDMODULO)
-    VALUES ('SUB027', @NombreAuditoria, @DescAuditoria, 'faClipboardList', 6, 1, 'MOD009');
-
-ELSE
-BEGIN
-    UPDATE SUBMODULO
-    SET NOMBRE = @NombreAuditoria,
-        DESCRIPCION = @DescAuditoria,
-        ICONO = 'faClipboardList',
-        ORDEN = 6,
-        ACTIVO = 1,
-        IDMODULO = 'MOD009'
-    WHERE IDSUBMODULO = 'SUB027';
-
-SELECT 'SUB027 Auditoria listo (visible para roles con acceso a MOD009 Academico).';
+SELECT 'SUB027 Auditoría listo (visible para roles con acceso a MOD009 Académico).' AS info;

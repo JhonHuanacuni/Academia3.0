@@ -13,7 +13,7 @@ USE `AcademiaDB`;
 -- Si se crearon antes con SUB020/SUB021 bajo Mantenedores, se migran a SUB022/SUB023
 IF EXISTS (
     SELECT 1 FROM SUBMODULO
-    WHERE IDSUBMODULO = 'SUB020' AND IDMODULO = 'MOD011' AND NOMBRE LIKE N'Categor%'
+    WHERE IDSUBMODULO = 'SUB020' AND IDMODULO = 'MOD011' AND NOMBRE LIKE 'Categor%'
 )
    AND NOT EXISTS (SELECT 1 FROM SUBMODULO WHERE IDSUBMODULO = 'SUB022')
 BEGIN
@@ -24,7 +24,7 @@ BEGIN
 
 IF EXISTS (
     SELECT 1 FROM SUBMODULO
-    WHERE IDSUBMODULO = 'SUB021' AND IDMODULO = 'MOD011' AND NOMBRE = N'Materias'
+    WHERE IDSUBMODULO = 'SUB021' AND IDMODULO = 'MOD011' AND NOMBRE = 'Materias'
 )
    AND NOT EXISTS (SELECT 1 FROM SUBMODULO WHERE IDSUBMODULO = 'SUB023')
 BEGIN
@@ -38,8 +38,8 @@ BEGIN
     INSERT INTO SUBMODULO (IDSUBMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, IDMODULO)
     VALUES (
         'SUB022',
-        N'Categorías',
-        N'Categorías de materias para exámenes (Habilidades, Matemática, etc.)',
+        'Categorías',
+        'Categorías de materias para exámenes (Habilidades, Matemática, etc.)',
         'faLayerGroup',
         5,
         1,
@@ -50,8 +50,8 @@ BEGIN
 ELSE
 BEGIN
     UPDATE SUBMODULO SET
-        NOMBRE = N'Categorías',
-        DESCRIPCION = N'Categorías de materias para exámenes (Habilidades, Matemática, etc.)',
+        NOMBRE = 'Categorías',
+        DESCRIPCION = 'Categorías de materias para exámenes (Habilidades, Matemática, etc.)',
         ICONO = 'faLayerGroup',
         ORDEN = 5,
         ACTIVO = 1,
@@ -64,8 +64,8 @@ BEGIN
     INSERT INTO SUBMODULO (IDSUBMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, IDMODULO)
     VALUES (
         'SUB023',
-        N'Materias',
-        N'Materias / cursos vinculados a categoría',
+        'Materias',
+        'Materias / cursos vinculados a categoría',
         'faBookOpen',
         6,
         1,
@@ -76,8 +76,8 @@ BEGIN
 ELSE
 BEGIN
     UPDATE SUBMODULO SET
-        NOMBRE = N'Materias',
-        DESCRIPCION = N'Materias / cursos vinculados a categoría',
+        NOMBRE = 'Materias',
+        DESCRIPCION = 'Materias / cursos vinculados a categoría',
         ICONO = 'faBookOpen',
         ORDEN = 6,
         ACTIVO = 1,

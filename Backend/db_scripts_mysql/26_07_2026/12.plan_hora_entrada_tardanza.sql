@@ -4,32 +4,34 @@
 USE `AcademiaDB`;
 
 /* ============================================================================
-   PLAN: hora de entrada + tiempo extra (tolerancia) para tardanza al marcar asistencia
+   PLAN: hora de CONCAT(entrada, tiempo) extra (tolerancia) para tardanza al marcar asistencia
    Ejecutar después de 11.quitar_mantenedor_asesor.sql
    Fecha: 26/07/2026
    ============================================================================ */
 
--- TODO MySQL: add column if missing on PLAN.HORAENTRADA
-BEGIN
-    ALTER TABLE [PLAN] ADD HORAENTRADA TIME NOT NULL
-        CONSTRAINT DF_PLAN_HORAENTRADA DEFAULT ('08:00:00');
-    SELECT 'Columna PLAN.HORAENTRADA agregada.';
-
--- TODO MySQL: add column if missing on PLAN.TIEMPOEXTRA
-BEGIN
-    ALTER TABLE [PLAN] ADD TIEMPOEXTRA INT NOT NULL
-        CONSTRAINT DF_PLAN_TIEMPOEXTRA DEFAULT (0);
-    SELECT 'Columna PLAN.TIEMPOEXTRA agregada.';
-
-UPDATE [PLAN]
+SET @col_PLAN_HORAENTRADA := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PLAN' AND COLUMN_NAME = 'HORAENTRADA'
+);
+SET @sql_PLAN_HORAENTRADA := IF(@col_PLAN_HORAENTRADA = 0, 'ALTER TABLE `PLAN` ADD HORAENTRADA TIME NOT NULL
+        CONSTRAINT DF_PLAN_HORAENTRADA DEFAULT (''08:00:00'')', 'SELECT 1');
+PREPARE stmt FROM @sql_PLAN_HORAENTRADA; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @col_PLAN_TIEMPOEXTRA := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PLAN' AND COLUMN_NAME = 'TIEMPOEXTRA'
+);
+SET @sql_PLAN_TIEMPOEXTRA := IF(@col_PLAN_TIEMPOEXTRA = 0, 'ALTER TABLE `PLAN` ADD TIEMPOEXTRA INT NOT NULL
+        CONSTRAINT DF_PLAN_TIEMPOEXTRA DEFAULT (0)', 'SELECT 1');
+PREPARE stmt FROM @sql_PLAN_TIEMPOEXTRA; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+UPDATE `PLAN`
 SET HORAENTRADA = IFNULL(HORAENTRADA, CAST('08:00:00' AS TIME)),
     TIEMPOEXTRA  = IFNULL(TIEMPOEXTRA, 0);
 
-/* Turno mañana: 8:00 + 15 min | Turno tarde: 14:00 + 15 min */
-UPDATE [PLAN] SET HORAENTRADA = CAST('08:00:00' AS TIME), TIEMPOEXTRA = 15
+/* Turno mañana: 8:CONCAT(00, 15) min | Turno tarde: 14:CONCAT(00, 15) min */
+UPDATE `PLAN` SET HORAENTRADA = CAST('08:00:00' AS TIME), TIEMPOEXTRA = 15
 WHERE IDTURNO = 'TUR001' OR IDTURNO IS NULL;
 
-UPDATE [PLAN] SET HORAENTRADA = CAST('14:00:00' AS TIME), TIEMPOEXTRA = 15
+UPDATE `PLAN` SET HORAENTRADA = CAST('14:00:00' AS TIME), TIEMPOEXTRA = 15
 WHERE IDTURNO = 'TUR002';
 
 /* ---- usp_plan_* con HORAENTRADA y TIEMPOEXTRA ---- */
@@ -54,7 +56,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
     SELECT COUNT(*) INTO p_TotalRegistros
-    FROM [PLAN] p
+    FROM `PLAN` p
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
            p.IDPLAN      LIKE CONCAT('%', p_Buscar, '%') OR
            p.NOMBRE      LIKE CONCAT('%', p_Buscar, '%') OR
@@ -70,11 +72,11 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         p.COSTOMENSUAL,
         p.DIASASISTENCIA,
         p.IDTURNO,
-        CONVERT(VARCHAR(5), p.HORAENTRADA, 108) AS HORAENTRADA,
+        TIME_FORMAT(p.HORAENTRADA, '%H:%i') AS HORAENTRADA,
         p.TIEMPOEXTRA,
         IFNULL(tu.DESCRIPCION, '') AS TURNO_DESCRIPCION,
         CASE WHEN p.ACTIVO = 1 THEN 'Activo' ELSE 'Inactivo' END AS ESTADO
-    FROM [PLAN] p
+    FROM `PLAN` p
     LEFT JOIN TURNO tu ON tu.IDTURNO = p.IDTURNO
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
            p.IDPLAN      LIKE CONCAT('%', p_Buscar, '%') OR
@@ -116,11 +118,11 @@ SELECT
         p.COSTOMENSUAL,
         p.DIASASISTENCIA,
         p.IDTURNO,
-        CONVERT(VARCHAR(5), p.HORAENTRADA, 108) AS HORAENTRADA,
+        TIME_FORMAT(p.HORAENTRADA, '%H:%i') AS HORAENTRADA,
         p.TIEMPOEXTRA,
         IFNULL(tu.DESCRIPCION, '') AS TURNO_DESCRIPCION,
         CASE WHEN p.ACTIVO = 1 THEN 'Activo' ELSE 'Inactivo' END AS ESTADO
-    FROM [PLAN] p
+    FROM `PLAN` p
     LEFT JOIN TURNO tu ON tu.IDTURNO = p.IDTURNO
     WHERE p.IDPLAN = p_Id;
 END$$
@@ -147,12 +149,18 @@ CREATE PROCEDURE usp_plan_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id)) = ''
+IF p_Id IS NULL OR TRIM(p_Id) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del plan.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
+    END IF;
+
     IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main; 
+    END IF;
+
     IF p_DiasAsistencia IS NULL OR p_DiasAsistencia = 0 THEN SET p_DiasAsistencia = 63; END IF;
 
     IF p_HoraEntrada IS NULL THEN SET p_HoraEntrada = CAST('08:00:00' AS TIME); END IF;
@@ -162,11 +170,15 @@ IF p_Id IS NULL OR TRIM(p_Id)) = ''
     IF p_IdTurno IS NOT NULL AND p_IdTurno <> ''
        AND NOT EXISTS (SELECT 1 FROM TURNO WHERE IDTURNO = p_IdTurno)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El turno seleccionado no es válido.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_Id)
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM [PLAN] WHERE NOMBRE = p_Nombre)
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
-    INSERT INTO [PLAN] (IDPLAN, NOMBRE, DESCRIPCION, COSTOMENSUAL, DIASASISTENCIA, IDTURNO, HORAENTRADA, TIEMPOEXTRA, ACTIVO)
+    INSERT INTO `PLAN` (IDPLAN, NOMBRE, DESCRIPCION, COSTOMENSUAL, DIASASISTENCIA, IDTURNO, HORAENTRADA, TIEMPOEXTRA, ACTIVO)
     VALUES (
         p_Id,
         p_Nombre,
@@ -176,8 +188,7 @@ IF p_Id IS NULL OR TRIM(p_Id)) = ''
         NULLIF(p_IdTurno, ''),
         p_HoraEntrada,
         p_TiempoExtra,
-        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
-    );
+        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Plan registrado.';
     SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
@@ -205,12 +216,18 @@ CREATE PROCEDURE usp_plan_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_Id)
+IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
+    END IF;
+
     IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main; 
+    END IF;
+
     IF p_DiasAsistencia IS NULL OR p_DiasAsistencia = 0 THEN SET p_DiasAsistencia = 63; END IF;
 
     IF p_HoraEntrada IS NULL THEN SET p_HoraEntrada = CAST('08:00:00' AS TIME); END IF;
@@ -220,9 +237,11 @@ IF NOT EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_Id)
     IF p_IdTurno IS NOT NULL AND p_IdTurno <> ''
        AND NOT EXISTS (SELECT 1 FROM TURNO WHERE IDTURNO = p_IdTurno)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El turno seleccionado no es válido.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM [PLAN] WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id)
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
-    UPDATE [PLAN] SET
+    UPDATE `PLAN` SET
         NOMBRE          = p_Nombre,
         DESCRIPCION     = p_Descripcion,
         COSTOMENSUAL    = p_CostoMensual,
@@ -230,7 +249,7 @@ IF NOT EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_Id)
         IDTURNO         = NULLIF(p_IdTurno, ''),
         HORAENTRADA     = p_HoraEntrada,
         TIEMPOEXTRA     = p_TiempoExtra,
-        ACTIVO          = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
+        ACTIVO          = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
     WHERE IDPLAN = p_Id;
 
     UPDATE m
@@ -275,13 +294,14 @@ DECLARE v_IdUsuario VARCHAR(50);
     FROM USUARIO
     WHERE DNI = p_Dni AND ESTADO = 'Activo';
 
-    IF v_IdUsuario IS NULL
-    BEGIN
+    IF v_IdUsuario IS NULL THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'Usuario no encontrado con ese DNI.';
         SET p_IdAsistencia = NULL;
         LEAVE main;
     
+    END IF;
+
     IF EXISTS (
         SELECT 1 FROM ASISTENCIA
         WHERE IDUSUARIO = v_IdUsuario AND FECHAREGISTRO = v_FechaHoy
@@ -296,30 +316,30 @@ DECLARE v_IdUsuario VARCHAR(50);
         v_HoraEntrada = IFNULL(p.HORAENTRADA, CAST('08:00:00' AS TIME)),
         v_TiempoExtra = IFNULL(p.TIEMPOEXTRA, 0)
     FROM MENSUALIDAD m
-    INNER JOIN [PLAN] p ON p.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` p ON p.IDPLAN = m.IDPLAN
     WHERE m.IDUSUARIO = v_IdUsuario
       AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
       AND (
           m.FECHAINICIO IS NULL OR m.FECHAINICIO = '' OR
-          CONVERT(DATE,
-              SUBSTRING(m.FECHAINICIO, 5, 4) + '-' +
-              SUBSTRING(m.FECHAINICIO, 3, 2) + '-' +
+          CONCAT(CONVERT(DATE,
+              SUBSTRING(m.FECHAINICIO, 5, 4), '-') +
+              CONCAT(SUBSTRING(m.FECHAINICIO, 3, 2), '-') +
               SUBSTRING(m.FECHAINICIO, 1, 2)
-          ) <= CONVERT(DATE,
-              SUBSTRING(v_FechaHoy, 5, 4) + '-' +
-              SUBSTRING(v_FechaHoy, 3, 2) + '-' +
+          ) <= CONCAT(CONVERT(DATE,
+              SUBSTRING(v_FechaHoy, 5, 4), '-') +
+              CONCAT(SUBSTRING(v_FechaHoy, 3, 2), '-') +
               SUBSTRING(v_FechaHoy, 1, 2)
           )
       )
       AND (
           m.FECHAFIN IS NULL OR m.FECHAFIN = '' OR
-          CONVERT(DATE,
-              SUBSTRING(m.FECHAFIN, 5, 4) + '-' +
-              SUBSTRING(m.FECHAFIN, 3, 2) + '-' +
+          CONCAT(CONVERT(DATE,
+              SUBSTRING(m.FECHAFIN, 5, 4), '-') +
+              CONCAT(SUBSTRING(m.FECHAFIN, 3, 2), '-') +
               SUBSTRING(m.FECHAFIN, 1, 2)
-          ) >= CONVERT(DATE,
-              SUBSTRING(v_FechaHoy, 5, 4) + '-' +
-              SUBSTRING(v_FechaHoy, 3, 2) + '-' +
+          ) >= CONCAT(CONVERT(DATE,
+              SUBSTRING(v_FechaHoy, 5, 4), '-') +
+              CONCAT(SUBSTRING(v_FechaHoy, 3, 2), '-') +
               SUBSTRING(v_FechaHoy, 1, 2)
           )
       )
@@ -328,10 +348,10 @@ DECLARE v_IdUsuario VARCHAR(50);
     SET v_HoraLimite = CAST(DATEADD(MINUTE, v_TiempoExtra, CAST(v_HoraEntrada AS DATETIME)) AS TIME);
 
     IF v_HoraAhora <= v_HoraLimite THEN SET v_Estado = 'Presente'; END IF;
-    ELSE
+ELSE
         SET v_Estado = 'Tarde';
 
-    SET p_IdAsistencia = 'AS_' + REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', '');
+    SET p_IdAsistencia = CONCAT('AS_', REPLACE(UUID()), '-', '');
 
     INSERT INTO ASISTENCIA (
         IDASISTENCIA, FECHAREGISTRO, HORAINICIO, ESTADO, JUSTIFICADO, IDUSUARIO

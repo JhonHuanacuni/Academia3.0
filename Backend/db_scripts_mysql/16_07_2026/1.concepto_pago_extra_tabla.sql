@@ -4,7 +4,7 @@
 USE `AcademiaDB`;
 
 /* ============================================================================
-   CONCEPTOPAGOEXTRA — catálogo de conceptos (nombre + costo)
+   CONCEPTOPAGOEXTRA — catálogo de conceptos (CONCAT(nombre, costo))
    Fecha: 16/07/2026
    ============================================================================ */
 

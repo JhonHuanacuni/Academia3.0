@@ -22,14 +22,14 @@ CREATE PROCEDURE usp_membresia_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'La membresía no existe.';
         LEAVE main;
     
-    IF p_EliminacionFisica = 1
-    BEGIN
+    END IF;
+
+    IF p_EliminacionFisica = 1 THEN
         DELETE FROM NOTIFICACIONMEMBRESIA WHERE IDMEMBRESIA = p_Id;
         DELETE FROM PAGOMEMBRESIA WHERE IDMEMBRESIA = p_Id;
         DELETE FROM MEMBRESIA WHERE IDMEMBRESIA = p_Id;

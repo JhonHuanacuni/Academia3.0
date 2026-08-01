@@ -113,35 +113,38 @@ CREATE PROCEDURE usp_concepto_insertar(
 main: BEGIN
 SET p_IdGenerado = NULL;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
-    BEGIN
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del concepto.';
         LEAVE main;
     
-    IF p_Costo IS NULL OR p_Costo < 0
-    BEGIN
+    END IF;
+
+    IF p_Costo IS NULL OR p_Costo < 0 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa un costo válido.';
         LEAVE main;
     
-    IF p_FechaInicio IS NULL OR LEN(p_FechaInicio) <> 8
-    BEGIN
+    END IF;
+
+    IF p_FechaInicio IS NULL OR LEN(p_FechaInicio) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha de inicio.';
         LEAVE main;
     
-    IF p_FechaFin IS NULL OR LEN(p_FechaFin) <> 8
-    BEGIN
+    END IF;
+
+    IF p_FechaFin IS NULL OR LEN(p_FechaFin) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha final.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE NOMBRE = p_Nombre)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE NOMBRE = p_Nombre) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un concepto con ese nombre.';
         LEAVE main;
     
     DECLARE v_NextNum INT;
     SELECT IFNULL(MAX(CAST(REPLACE(IDCONCEPTO, 'CON', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM CONCEPTOPAGOEXTRA;
-    SET p_IdGenerado = CONCAT('CON', RIGHT('000' + CAST(v_NextNum AS VARCHAR(3)), 3);
+    SET p_IdGenerado = CONCAT('CON', RIGHT(CONCAT('000', CAST(v_NextNum AS VARCHAR(3))), 3);
 
     INSERT INTO CONCEPTOPAGOEXTRA (IDCONCEPTO, NOMBRE, COSTO, FECHAINICIO, FECHAFIN, ACTIVO)
     VALUES (
@@ -150,8 +153,7 @@ SET p_IdGenerado = NULL;
         p_Costo,
         p_FechaInicio,
         p_FechaFin,
-        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
-    );
+        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Concepto registrado.';
     SELECT p_IdGenerado AS IdGenerado, p_Resultado AS Resultado, p_Mensaje AS Mensaje
@@ -176,33 +178,37 @@ CREATE PROCEDURE usp_concepto_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El concepto no existe.';
         LEAVE main;
     
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
-    BEGIN
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del concepto.';
         LEAVE main;
     
-    IF p_Costo IS NULL OR p_Costo < 0
-    BEGIN
+    END IF;
+
+    IF p_Costo IS NULL OR p_Costo < 0 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa un costo válido.';
         LEAVE main;
     
-    IF p_FechaInicio IS NULL OR LEN(p_FechaInicio) <> 8
-    BEGIN
+    END IF;
+
+    IF p_FechaInicio IS NULL OR LEN(p_FechaInicio) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha de inicio.';
         LEAVE main;
     
-    IF p_FechaFin IS NULL OR LEN(p_FechaFin) <> 8
-    BEGIN
+    END IF;
+
+    IF p_FechaFin IS NULL OR LEN(p_FechaFin) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha final.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE NOMBRE = p_Nombre AND IDCONCEPTO <> p_Id)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE NOMBRE = p_Nombre AND IDCONCEPTO <> p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un concepto con ese nombre.';
         LEAVE main;
     
@@ -211,7 +217,7 @@ IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id)
         COSTO = p_Costo,
         FECHAINICIO = p_FechaInicio,
         FECHAFIN = p_FechaFin,
-        ACTIVO = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
+        ACTIVO = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
     WHERE IDCONCEPTO = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Concepto actualizado.';
@@ -232,11 +238,12 @@ CREATE PROCEDURE usp_concepto_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El concepto no existe.';
         LEAVE main;
     
+    END IF;
+
     IF OBJECT_ID('PAGOEXTRAORDINARIO', 'U') IS NOT NULL
        AND EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDCONCEPTO = p_Id)
     BEGIN

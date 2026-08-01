@@ -42,14 +42,15 @@ CREATE PROCEDURE usp_usuario_insertar(
 main: BEGIN
 DECLARE v_EstEx VARCHAR(50);
 
-    IF p_Dni IS NULL OR TRIM(p_Dni)) = ''
+    IF p_Dni IS NULL OR TRIM(p_Dni) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el DNI.'; LEAVE main; 
-    IF p_Id IS NULL OR TRIM(p_Id)) = '' THEN SET p_Id = TRIM(p_Dni)); END IF;
+    END IF;
 
-    IF p_Contra IS NULL OR TRIM(p_Contra)) = '' THEN SET p_Contra = p_Id; END IF;
+    IF p_Id IS NULL OR TRIM(p_Id) = '' THEN SET p_Id = TRIM(p_Dni); END IF;
 
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
-    BEGIN
+    IF p_Contra IS NULL OR TRIM(p_Contra) = '' THEN SET p_Contra = p_Id; END IF;
+
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SELECT ESTADO FROM USUARIO WHERE IDUSUARIO = p_Id INTO v_EstEx;
         SET p_Resultado = 0;
         SET p_Mensaje = CASE
@@ -59,8 +60,9 @@ DECLARE v_EstEx VARCHAR(50);
         END;
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni) THEN
         SELECT ESTADO FROM USUARIO WHERE DNI = p_Dni INTO v_EstEx;
         SET p_Resultado = 0;
         SET p_Mensaje = CASE
@@ -70,8 +72,9 @@ DECLARE v_EstEx VARCHAR(50);
         END;
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email) THEN
         SELECT ESTADO FROM USUARIO WHERE EMAIL = p_Email INTO v_EstEx;
         SET p_Resultado = 0;
         SET p_Mensaje = CASE
@@ -81,6 +84,8 @@ DECLARE v_EstEx VARCHAR(50);
         END;
         LEAVE main;
     
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.'; LEAVE main; 
     INSERT INTO USUARIO (

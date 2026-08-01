@@ -181,6 +181,9 @@ def run_file(cursor, path: Path):
             print(f'ERROR en {path.name}: {exc.args[1][:200]}', file=sys.stderr)
             raise
         except pymysql.err.OperationalError as exc:
+            # Índice/columna ya existe en reimport parcial
+            if exc.args[0] in (1060, 1061, 1826):
+                continue
             print(f'ERROR en {path.name}: {exc.args[1][:200]}', file=sys.stderr)
             raise
 

@@ -13,47 +13,47 @@ USE `AcademiaDB`;
    ============================================================================ */
 
 /* PLAN.IDTURNO — requerido por usp_mensualidad_* (script 6) */
--- TODO MySQL: add column if missing on PLAN.IDTURNO
-BEGIN
-    ALTER TABLE [PLAN] ADD IDTURNO VARCHAR(50) NULL;
-    SELECT 'Columna PLAN.IDTURNO agregada.';
-
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_PLAN_TURNO')
-BEGIN
-    ALTER TABLE [PLAN] ADD CONSTRAINT FK_PLAN_TURNO
-        FOREIGN KEY (IDTURNO) REFERENCES TURNO(IDTURNO);
-    SELECT 'FK PLAN.IDTURNO creada.';
-
-UPDATE [PLAN] SET IDTURNO = 'TUR002' WHERE IDPLAN IN ('PLN002', 'PLN006') AND IDTURNO IS NULL;
-UPDATE [PLAN] SET IDTURNO = 'TUR001' WHERE IDTURNO IS NULL;
+SET @col_PLAN_IDTURNO := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PLAN' AND COLUMN_NAME = 'IDTURNO'
+);
+SET @sql_PLAN_IDTURNO := IF(@col_PLAN_IDTURNO = 0, 'ALTER TABLE `PLAN` ADD IDTURNO VARCHAR(50) NULL', 'SELECT 1');
+PREPARE stmt FROM @sql_PLAN_IDTURNO; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @fk_FK_PLAN_TURNO := (
+    SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'FK_PLAN_TURNO'
+);
+SET @sql_FK_PLAN_TURNO := IF(@fk_FK_PLAN_TURNO = 0, 'ALTER TABLE `PLAN` ADD CONSTRAINT FK_PLAN_TURNO
+        FOREIGN KEY (IDTURNO) REFERENCES TURNO(IDTURNO)', 'SELECT 1');
+PREPARE stmt FROM @sql_FK_PLAN_TURNO; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+UPDATE `PLAN` SET IDTURNO = 'TUR002' WHERE IDPLAN IN ('PLN002', 'PLN006') AND IDTURNO IS NULL;
+UPDATE `PLAN` SET IDTURNO = 'TUR001' WHERE IDTURNO IS NULL;
 
 -- create if missing ASESOR
     CREATE TABLE IF NOT EXISTS ASESOR (
         IDASESOR    VARCHAR(50)   NOT NULL PRIMARY KEY,
         NOMBRE      VARCHAR(150)  NOT NULL,
         IDUSUARIO   VARCHAR(50)   NULL,
-        ACTIVO      TINYINT(1)            NOT NULL CONSTRAINT DF_ASESOR_REG_ACTIVO DEFAULT (1)
+        ACTIVO      TINYINT(1)            NOT NULL DEFAULT 1
     );
     SELECT 'Tabla ASESOR creada.';
 
--- TODO MySQL: add column if missing on ASESOR.IDUSUARIO
-BEGIN
-    ALTER TABLE ASESOR ADD IDUSUARIO VARCHAR(50) NULL;
-    SELECT 'Columna ASESOR.IDUSUARIO agregada.';
-
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ASESOR_USUARIO')
-BEGIN
-    ALTER TABLE ASESOR ADD CONSTRAINT FK_ASESOR_USUARIO
-        FOREIGN KEY (IDUSUARIO) REFERENCES USUARIO(IDUSUARIO);
-    SELECT 'FK ASESOR.IDUSUARIO → USUARIO creada.';
-
-IF NOT EXISTS (SELECT 1 FROM ASESOR)
-BEGIN
-    INSERT INTO ASESOR (IDASESOR, NOMBRE, ACTIVO) VALUES
+SET @col_ASESOR_IDUSUARIO := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ASESOR' AND COLUMN_NAME = 'IDUSUARIO'
+);
+SET @sql_ASESOR_IDUSUARIO := IF(@col_ASESOR_IDUSUARIO = 0, 'ALTER TABLE ASESOR ADD IDUSUARIO VARCHAR(50) NULL', 'SELECT 1');
+PREPARE stmt FROM @sql_ASESOR_IDUSUARIO; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @fk_FK_ASESOR_USUARIO := (
+    SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'FK_ASESOR_USUARIO'
+);
+SET @sql_FK_ASESOR_USUARIO := IF(@fk_FK_ASESOR_USUARIO = 0, 'ALTER TABLE ASESOR ADD CONSTRAINT FK_ASESOR_USUARIO
+        FOREIGN KEY (IDUSUARIO) REFERENCES USUARIO(IDUSUARIO)', 'SELECT 1');
+PREPARE stmt FROM @sql_FK_ASESOR_USUARIO; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+INSERT IGNORE INTO ASESOR (IDASESOR, NOMBRE, ACTIVO) VALUES
     ('ASE001', 'Asesor 1', 1),
     ('ASE002', 'Asesor 2', 1);
-    SELECT 'Asesores iniciales insertados.';
-
 /* ---- usp_asesor_* ---- */
 
 DROP PROCEDURE IF EXISTS usp_asesor_listar;
@@ -90,7 +90,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         a.IDASESOR,
         a.NOMBRE,
         a.IDUSUARIO,
-        IFNULL(u.NOMBRE, '') + CASE WHEN u.APELLIDO IS NOT NULL THEN ' ' + u.APELLIDO ELSE '' END AS USUARIO_NOMBRE,
+        CONCAT(IFNULL(u.NOMBRE, ''), CASE WHEN u.APELLIDO IS NOT NULL THEN CONCAT(' ', u.APELLIDO) ELSE '' END) AS USUARIO_NOMBRE,
         CASE WHEN a.ACTIVO = 1 THEN 'Activo' ELSE 'Inactivo' END AS ESTADO
     FROM ASESOR a
     LEFT JOIN USUARIO u ON u.IDUSUARIO = a.IDUSUARIO
@@ -149,17 +149,27 @@ CREATE PROCEDURE usp_asesor_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id)) = ''
+IF p_Id IS NULL OR TRIM(p_Id) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del asesor.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del asesor.'; LEAVE main; 
+    END IF;
+
     IF p_IdUsuario IS NOT NULL AND p_IdUsuario <> ''
        AND NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El usuario vinculado no existe.'; LEAVE main; 
+    END IF;
+
     IF EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de asesor ya existe.'; LEAVE main; 
+    END IF;
+
     IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.'; LEAVE main; 
+    END IF;
+
     IF p_IdUsuario IS NOT NULL AND p_IdUsuario <> ''
        AND EXISTS (SELECT 1 FROM ASESOR WHERE IDUSUARIO = p_IdUsuario AND ACTIVO = 1)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ese usuario ya está vinculado a otro asesor activo.'; LEAVE main; 
@@ -189,20 +199,28 @@ CREATE PROCEDURE usp_asesor_actualizar(
 main: BEGIN
 IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El asesor no existe.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del asesor.'; LEAVE main; 
+    END IF;
+
     IF p_IdUsuario IS NOT NULL AND p_IdUsuario <> ''
        AND NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El usuario vinculado no existe.'; LEAVE main; 
+    END IF;
+
     IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre AND IDASESOR <> p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.'; LEAVE main; 
+    END IF;
+
     IF p_IdUsuario IS NOT NULL AND p_IdUsuario <> ''
        AND EXISTS (SELECT 1 FROM ASESOR WHERE IDUSUARIO = p_IdUsuario AND IDASESOR <> p_Id AND ACTIVO = 1)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ese usuario ya está vinculado a otro asesor activo.'; LEAVE main; 
     UPDATE ASESOR SET
         NOMBRE    = p_Nombre,
         IDUSUARIO = NULLIF(p_IdUsuario, ''),
-        ACTIVO    = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
+        ACTIVO    = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
     WHERE IDASESOR = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Asesor actualizado.';
@@ -258,7 +276,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM MENSUALIDAD m
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
     WHERE m.ESTADO = p_Estado
@@ -301,7 +319,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         m.FECHAREGISTRO
     FROM MENSUALIDAD m
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN TURNO tu ON tu.IDTURNO = IFNULL(pl.IDTURNO, m.IDTURNO)
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
@@ -368,7 +386,7 @@ SELECT
         pag.IDMETODOPAGO
     FROM MENSUALIDAD m
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN TURNO tu ON tu.IDTURNO = IFNULL(pl.IDTURNO, m.IDTURNO)
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
@@ -383,8 +401,7 @@ SELECT
 END;
 
 /* Menú mantenedor asesores */
-IF NOT EXISTS (SELECT 1 FROM SUBMODULO WHERE IDSUBMODULO = 'SUB024')
-BEGIN
+IF NOT EXISTS (SELECT 1 FROM SUBMODULO WHERE IDSUBMODULO = 'SUB024') THEN
     INSERT INTO SUBMODULO (IDSUBMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, IDMODULO)
     VALUES ('SUB024', 'Asesores', 'Personal que registra mensualidades', 'faIdBadge', 4, 1, 'MOD011');
     SELECT 'SUB024 (Asesores) creado.';

@@ -4,7 +4,7 @@
 USE `AcademiaDB`;
 
 /* ============================================================================
-   CRUD EXAMEN + preguntas + distribución
+   CRUD CONCAT(EXAMEN, preguntas) distribución
    Ejecutar después de 1.examen_tablas_plantilla.sql
    Fecha: 17/07/2026
    ============================================================================ */
@@ -173,8 +173,7 @@ CREATE PROCEDURE usp_examen_distribucion(
     IN p_IdExamen VARCHAR(50)
 )
 main: BEGIN
-IF p_IdExamen IS NOT NULL AND TRIM(p_IdExamen)) <> ''
-    BEGIN
+IF p_IdExamen IS NOT NULL AND TRIM(p_IdExamen) <> '' THEN
         SELECT
             c.IDCATEGORIA,
             c.NOMBRE AS CATEGORIA_NOMBRE,
@@ -203,6 +202,8 @@ IF p_IdExamen IS NOT NULL AND TRIM(p_IdExamen)) <> ''
         ORDER BY c.ORDEN, m.CODIGO;
         LEAVE main;
     
+    END IF;
+
     IF p_Tipo IS NULL THEN SET p_Tipo = 40; END IF;
 
     SELECT
@@ -260,14 +261,20 @@ CREATE PROCEDURE usp_examen_insertar(
 main: BEGIN
 SET p_IdGenerado = NULL;
 
-    IF p_Titulo IS NULL OR TRIM(p_Titulo)) = ''
+    IF p_Titulo IS NULL OR TRIM(p_Titulo) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el título del examen.'; LEAVE main; 
-    IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario)) = ''
+    END IF;
+
+    IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Usuario creador no válido.'; LEAVE main; 
+    END IF;
+
     IF p_Tipo NOT IN (40, 100) THEN SET p_Tipo = 40; END IF;
 
     IF NOT EXISTS (SELECT 1 FROM EXAMEN_PLANTILLA WHERE TIPO = p_Tipo)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'No hay plantilla de distribución para ese tipo.'; LEAVE main; 
+    END IF;
+
     IF EXISTS (
         SELECT 1 FROM EXAMEN_PLANTILLA pl
         WHERE pl.TIPO = p_Tipo
@@ -277,7 +284,7 @@ SET p_IdGenerado = NULL;
     DECLARE v_NextNum INT;
     SELECT IFNULL(MAX(CAST(REPLACE(IDEXAMEN, 'EXA', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM EXAMEN WHERE IDEXAMEN LIKE 'EXA%';
-    SET p_IdGenerado = CONCAT('EXA', RIGHT('000' + CAST(v_NextNum AS VARCHAR(3)), 3);
+    SET p_IdGenerado = CONCAT('EXA', RIGHT(CONCAT('000', CAST(v_NextNum AS VARCHAR(3))), 3);
 
     INSERT INTO EXAMEN (
         IDEXAMEN, TITULO, DESCRIPCION, TIPO, DURACIONMIN,
@@ -290,11 +297,10 @@ SET p_IdGenerado = NULL;
         1, p_Visible, p_TodasLasAula, p_IdUsuario
     );
 
-    IF p_TodasLasAula = 0 AND p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv)) <> ''
-    BEGIN
+    IF p_TodasLasAula = 0 AND p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv) <> '' THEN
         INSERT INTO EXAMEN_AULA (IDEXAMENAULA, IDEXAMEN, IDAULA)
         SELECT
-            'EXAUL' + REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''),
+            CONCAT('EXAUL', REPLACE(UUID()), '-', ''),
             p_IdGenerado,
             TRIM(value))
         FROM STRING_SPLIT(p_AulasCsv, ',')
@@ -320,13 +326,13 @@ SET p_IdGenerado = NULL;
         SET v_i = 1;
         WHILE v_i <= @Cant
         BEGIN
-            SET v_Orden = v_Orden + 1;
-            SET @IdPreg = CONCAT(p_IdGenerado, '_P') + RIGHT('000' + CAST(v_Orden AS VARCHAR(3)), 3);
+            SET v_Orden = CONCAT(v_Orden, 1);
+            SET @IdPreg = CONCAT(p_IdGenerado, '_P') RIGHT('000', CAST(v_Orden AS VARCHAR(3)), 3);
 
             INSERT INTO PREGUNTA (IDPREGUNTA, TITULO, DESCRIPCION, PUNTAJE, ORDEN, IMAGEURL, IDEXAMEN, IDMATERIA)
             VALUES (
                 @IdPreg,
-                N'Pregunta ' + CAST(v_Orden AS VARCHAR(10)),
+                CONCAT('Pregunta ', CAST(v_Orden AS VARCHAR(10))),
                 NULL,
                 1,
                 v_Orden,
@@ -338,19 +344,19 @@ SET p_IdGenerado = NULL;
             SET v_AltOrd = 1;
             WHILE v_AltOrd <= 5
             BEGIN
-                SET @Letra = CHAR(64 + v_AltOrd); -- A=65
+                SET @Letra = CHAR(CONCAT(64, v_AltOrd)); -- A=65
                 INSERT INTO ALTERNATIVA (IDALTERNATIVA, DESCRIPCION, ESCORRECTA, ORDEN, IMAGEURL, IDPREGUNTA)
                 VALUES (
-                    CONCAT(@IdPreg, '_A') + CAST(v_AltOrd AS VARCHAR(1)),
-                    N'',
+                    CONCAT(@IdPreg, '_A') CAST(v_AltOrd AS VARCHAR(1)),
+                    '',
                     CASE WHEN v_AltOrd = 1 THEN 1 ELSE 0 END,
                     v_AltOrd,
                     NULL,
                     @IdPreg
                 );
-                SET v_AltOrd = v_AltOrd + 1;
+                SET v_AltOrd = CONCAT(v_AltOrd, 1);
             
-            SET v_i = v_i + 1;
+            SET v_i = CONCAT(v_i, 1);
         
         FETCH NEXT FROM cur INTO v_Codigo, @Cant, @IdMateria;
     
@@ -358,7 +364,7 @@ SET p_IdGenerado = NULL;
     DEALLOCATE cur;
 
     SET p_Resultado = 1;
-    SET p_Mensaje = 'Examen creado con ' + CAST(v_Orden AS VARCHAR(10)) + ' preguntas.';
+    SET p_Mensaje = CONCAT('Examen creado con ', CAST(v_Orden AS VARCHAR(10))) + ' preguntas.';
     SELECT p_IdGenerado AS IdGenerado, p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
@@ -388,7 +394,9 @@ CREATE PROCEDURE usp_examen_actualizar(
 main: BEGIN
 IF NOT EXISTS (SELECT 1 FROM EXAMEN WHERE IDEXAMEN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El examen no existe.'; LEAVE main; 
-    IF p_Titulo IS NULL OR TRIM(p_Titulo)) = ''
+    END IF;
+
+    IF p_Titulo IS NULL OR TRIM(p_Titulo) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el título del examen.'; LEAVE main; 
     UPDATE EXAMEN SET
         TITULO = p_Titulo,
@@ -404,11 +412,10 @@ IF NOT EXISTS (SELECT 1 FROM EXAMEN WHERE IDEXAMEN = p_Id)
 
     DELETE FROM EXAMEN_AULA WHERE IDEXAMEN = p_Id;
 
-    IF p_TodasLasAula = 0 AND p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv)) <> ''
-    BEGIN
+    IF p_TodasLasAula = 0 AND p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv) <> '' THEN
         INSERT INTO EXAMEN_AULA (IDEXAMENAULA, IDEXAMEN, IDAULA)
         SELECT
-            'EXAUL' + REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''),
+            CONCAT('EXAUL', REPLACE(UUID()), '-', ''),
             p_Id,
             TRIM(value))
         FROM STRING_SPLIT(p_AulasCsv, ',')
@@ -434,8 +441,9 @@ CREATE PROCEDURE usp_examen_eliminar(
 main: BEGIN
 IF NOT EXISTS (SELECT 1 FROM EXAMEN WHERE IDEXAMEN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El examen no existe.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM INTENTO_EXAMEN WHERE IDEXAMEN = p_Id)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM INTENTO_EXAMEN WHERE IDEXAMEN = p_Id) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'No se puede eliminar: hay intentos de estudiantes.';
         LEAVE main;
@@ -477,27 +485,29 @@ CREATE PROCEDURE usp_examen_pregunta_guardar(
 main: BEGIN
 IF NOT EXISTS (SELECT 1 FROM PREGUNTA WHERE IDPREGUNTA = p_IdPregunta AND IDEXAMEN = p_IdExamen)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La pregunta no existe en este examen.'; LEAVE main; 
+    END IF;
+
     IF p_CorrectaOrden IS NULL OR p_CorrectaOrden < 1 OR p_CorrectaOrden > 5 THEN SET p_CorrectaOrden = 1; END IF;
 
     UPDATE PREGUNTA SET
         DESCRIPCION = p_Descripcion,
         IMAGEURL = CASE
             WHEN p_QuitarImagen = 1 THEN NULL
-            WHEN p_ImageUrl IS NOT NULL AND TRIM(p_ImageUrl)) <> '' THEN p_ImageUrl
+            WHEN p_ImageUrl IS NOT NULL AND TRIM(p_ImageUrl) <> '' THEN p_ImageUrl
             ELSE IMAGEURL
         
     WHERE IDPREGUNTA = p_IdPregunta;
 
     UPDATE ALTERNATIVA SET
         DESCRIPCION = CASE ORDEN
-            WHEN 1 THEN IFNULL(p_Alt1, N'')
-            WHEN 2 THEN IFNULL(p_Alt2, N'')
-            WHEN 3 THEN IFNULL(p_Alt3, N'')
-            WHEN 4 THEN IFNULL(p_Alt4, N'')
-            WHEN 5 THEN IFNULL(p_Alt5, N'')
+            WHEN 1 THEN IFNULL(p_Alt1, '')
+            WHEN 2 THEN IFNULL(p_Alt2, '')
+            WHEN 3 THEN IFNULL(p_Alt3, '')
+            WHEN 4 THEN IFNULL(p_Alt4, '')
+            WHEN 5 THEN IFNULL(p_Alt5, '')
             ELSE DESCRIPCION
         END,
-        ESCORRECTA = CASE WHEN ORDEN = p_CorrectaOrden THEN 1 ELSE 0 
+        ESCORRECTA = CASE WHEN ORDEN = p_CorrectaOrden THEN 1 ELSE 0 END
     WHERE IDPREGUNTA = p_IdPregunta;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Pregunta guardada.';

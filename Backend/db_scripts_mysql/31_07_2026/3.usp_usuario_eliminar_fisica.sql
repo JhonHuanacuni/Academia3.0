@@ -22,25 +22,28 @@ CREATE PROCEDURE usp_usuario_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
     
-    IF p_EliminacionFisica = 0
-    BEGIN
+    END IF;
+
+    IF p_EliminacionFisica = 0 THEN
         UPDATE USUARIO SET ESTADO = 'Retirado' WHERE IDUSUARIO = p_Id;
         SET p_Resultado = 1;
         SET p_Mensaje = 'Usuario retirado.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id AND IDTIPOUSUARIO = '3')
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id AND IDTIPOUSUARIO = '3') THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'No se puede eliminar permanentemente a un administrador.';
         LEAVE main;
     
+    END IF;
+
     IF OBJECT_ID('EXAMEN', 'U') IS NOT NULL
        AND EXISTS (SELECT 1 FROM EXAMEN WHERE IDUSUARIO = p_Id)
     BEGIN
@@ -57,8 +60,7 @@ IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
         IF OBJECT_ID('PAGOMENSUALIDAD', 'U') IS NOT NULL
             UPDATE PAGOMENSUALIDAD SET IDUSUARIO = NULL WHERE IDUSUARIO = p_Id;
 
-        IF OBJECT_ID('JUSTIFICACION', 'U') IS NOT NULL
-        BEGIN
+        IF OBJECT_ID('JUSTIFICACION', 'U') IS NOT NULL THEN
             DELETE FROM JUSTIFICACION WHERE IDUSUARIO = p_Id;
             UPDATE JUSTIFICACION SET IDREGISTRADOR = NULL WHERE IDREGISTRADOR = p_Id;
         
@@ -78,8 +80,7 @@ IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
         IF OBJECT_ID('NOTA_IMPORTADA', 'U') IS NOT NULL
             DELETE FROM NOTA_IMPORTADA WHERE IDUSUARIO = p_Id;
 
-        IF OBJECT_ID('MENSUALIDAD', 'U') IS NOT NULL
-        BEGIN
+        IF OBJECT_ID('MENSUALIDAD', 'U') IS NOT NULL THEN
             IF OBJECT_ID('NOTIFICACIONMENSUALIDAD', 'U') IS NOT NULL
                 DELETE n
                 FROM NOTIFICACIONMENSUALIDAD n

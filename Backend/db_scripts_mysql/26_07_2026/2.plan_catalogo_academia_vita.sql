@@ -18,9 +18,9 @@ USE `AcademiaDB`;
 
 UPDATE MEMBRESIA SET IDPLAN = 'PLN001' WHERE IDPLAN IS NOT NULL;
 
-DELETE FROM [PLAN] WHERE IDPLAN <> 'PLN001';
+DELETE FROM `PLAN` WHERE IDPLAN <> 'PLN001';
 
-UPDATE [PLAN] SET
+UPDATE `PLAN` SET
     NOMBRE         = 'Plan Anual 1 (Mañana)',
     DESCRIPCION    = 'Plan anual — turno mañana',
     COSTOMENSUAL   = NULL,
@@ -28,7 +28,7 @@ UPDATE [PLAN] SET
     ACTIVO         = 1
 WHERE IDPLAN = 'PLN001';
 
-INSERT INTO [PLAN] (IDPLAN, NOMBRE, DESCRIPCION, COSTOMENSUAL, DIASASISTENCIA, ACTIVO) VALUES
+INSERT INTO `PLAN` (IDPLAN, NOMBRE, DESCRIPCION, COSTOMENSUAL, DIASASISTENCIA, ACTIVO) VALUES
 ('PLN002', 'Plan Anual 2 (Tarde)',                 'Plan anual — turno tarde',               NULL, 63, 1),
 ('PLN003', 'Plan Anual 3 (Mañana)',                'Plan anual — turno mañana',              NULL, 63, 1),
 ('PLN004', 'Plan Anual Virtual (Mañana)',          'Plan anual virtual — turno mañana',      NULL, 63, 1),

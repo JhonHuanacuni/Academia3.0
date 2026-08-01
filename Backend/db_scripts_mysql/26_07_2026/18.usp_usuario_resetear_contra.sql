@@ -21,8 +21,7 @@ CREATE PROCEDURE usp_usuario_resetear_contra(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
     

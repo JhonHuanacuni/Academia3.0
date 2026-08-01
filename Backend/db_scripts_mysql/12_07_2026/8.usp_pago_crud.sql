@@ -31,7 +31,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     FROM PAGOMEMBRESIA p
     INNER JOIN MEMBRESIA m ON m.IDMEMBRESIA = p.IDMEMBRESIA
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
            p.IDPAGOMEMBRESIA LIKE CONCAT('%', p_Buscar, '%') OR
@@ -57,7 +57,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     FROM PAGOMEMBRESIA p
     INNER JOIN MEMBRESIA m ON m.IDMEMBRESIA = p.IDMEMBRESIA
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
            p.IDPAGOMEMBRESIA LIKE CONCAT('%', p_Buscar, '%') OR
@@ -114,7 +114,7 @@ SELECT TOP 3
         m.ESTADO,
         m.FECHAREGISTRO
     FROM MEMBRESIA m
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     OUTER APPLY (
         SELECT SUM(p.MONTO) AS PAGADO
         FROM PAGOMEMBRESIA p
@@ -145,12 +145,20 @@ CREATE PROCEDURE usp_pago_insertar_abono(
 main: BEGIN
 IF p_IdMembresia IS NULL OR p_IdMembresia = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Debe seleccionar una membresía.'; LEAVE main; 
+    END IF;
+
     IF p_Monto IS NULL OR p_Monto <= 0
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingrese un monto válido.'; LEAVE main; 
+    END IF;
+
     IF p_IdMetodoPago IS NULL OR p_IdMetodoPago = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago.'; LEAVE main; 
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDMEMBRESIA = p_IdMembresia AND ESTADO = 'Activo')
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La membresía no existe o está inactiva.'; LEAVE main; 
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM METODO_PAGO WHERE IDMETODOPAGO = p_IdMetodoPago AND ACTIVO = 1)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El método de pago no es válido.'; LEAVE main; 
     DECLARE v_MontoTotal DECIMAL(10,2);
@@ -164,10 +172,12 @@ IF p_IdMembresia IS NULL OR p_IdMembresia = ''
 
     IF v_Deuda <= 0
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Esta membresía no tiene deuda pendiente.'; LEAVE main; 
+    END IF;
+
     IF p_Monto > v_Deuda
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El abono no puede superar la deuda (S/ ' + CAST(v_Deuda AS VARCHAR(20)) + ').'; LEAVE main; 
-    DECLARE v_IdPago VARCHAR(50) = CONCAT('PAG', RIGHT('000000' + CAST((
-        IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMEMBRESIA, 4, 10) AS INT))
+    BEGIN SET p_Resultado = 0; SET p_Mensaje = CONCAT('El abono no puede superar la deuda (S/ ', CAST(v_Deuda AS VARCHAR(20))) + ').'; LEAVE main; 
+    DECLARE v_IdPago VARCHAR(50) = CONCAT('PAG', RIGHT(CONCAT('000000', CAST((
+        IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMEMBRESIA, 4, 10)) AS INT))
                 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA LIKE 'PAG%'), 0) + 1
     ) AS VARCHAR(10)), 6);
 

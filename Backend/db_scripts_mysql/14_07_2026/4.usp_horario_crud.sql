@@ -113,16 +113,17 @@ CREATE PROCEDURE usp_horario_insertar(
 main: BEGIN
 SET p_IdGenerado = NULL;
 
-    IF p_Titulo IS NULL OR TRIM(p_Titulo)) = ''
-    BEGIN
+    IF p_Titulo IS NULL OR TRIM(p_Titulo) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el título del horario.';
         LEAVE main;
     
-    IF p_Estado IS NULL OR TRIM(p_Estado)) = '' THEN SET p_Estado = 'Activo'; END IF;
+    END IF;
 
-    IF p_FechaSubida IS NULL OR TRIM(p_FechaSubida)) = '' OR LEN(p_FechaSubida) <> 8 THEN SET p_FechaSubida =
-            RIGHT('0' + CAST(DAY(NOW()) AS VARCHAR(2)), 2) +
-            RIGHT('0' + CAST(MONTH(NOW()) AS VARCHAR(2)), 2) +
+    IF p_Estado IS NULL OR TRIM(p_Estado) = '' THEN SET p_Estado = 'Activo'; END IF;
+
+    IF p_FechaSubida IS NULL OR TRIM(p_FechaSubida) = '' OR LEN(p_FechaSubida) <> 8 THEN SET p_FechaSubida =
+            RIGHT(CONCAT('0', CAST(DAY(NOW())) AS VARCHAR(2)), 2) +
+            RIGHT(CONCAT('0', CAST(MONTH(NOW())) AS VARCHAR(2)), 2) +
             CAST(YEAR(NOW()) AS VARCHAR(4)); END IF;
 
     DECLARE v_NextNum INT;
@@ -135,8 +136,7 @@ SET p_IdGenerado = NULL;
         INSERT INTO HORARIO (IDHORARIO, TITULO, DESCRIPCION, URLIMAGEN, FECHASUBIDA, ESTADO)
         VALUES (p_IdGenerado, p_Titulo, p_Descripcion, p_UrlImagen, p_FechaSubida, p_Estado);
 
-        IF p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv)) <> ''
-        BEGIN
+        IF p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv) <> '' THEN
             DECLARE v_pos INT = 1, @next INT, @token VARCHAR(50), @seq INT = 1;
             DECLARE v_csv LONGTEXT = CONCAT(p_AulasCsv, ',');
 
@@ -145,13 +145,12 @@ SET p_IdGenerado = NULL;
                 SET @next = CHARINDEX(',', v_csv, v_pos);
                 IF @next = 0 BREAK;
                 SET @token = TRIM(SUBSTRING(v_csv, v_pos, @next - v_pos)));
-                IF @token <> '' AND EXISTS (SELECT 1 FROM AULA WHERE IDAULA = @token)
-                BEGIN
+                IF @token <> '' AND EXISTS (SELECT 1 FROM AULA WHERE IDAULA = @token) THEN
                     INSERT INTO HORARIO_AULA (IDHORARIOAULA, IDHORARIO, IDAULA)
-                    VALUES (CONCAT(p_IdGenerado, '-A') + RIGHT('000' + CAST(@seq AS VARCHAR(3)), 3), p_IdGenerado, @token);
-                    SET @seq = @seq + 1;
+                    VALUES (CONCAT(p_IdGenerado, '-A') RIGHT('000', CAST(@seq AS VARCHAR(3)), 3), p_IdGenerado, @token);
+                    SET @seq = @CONCAT(seq, 1);
                 
-                SET v_pos = @next + 1;
+                SET v_pos = @CONCAT(next, 1);
             
         
         COMMIT TRAN;
@@ -185,17 +184,19 @@ CREATE PROCEDURE usp_horario_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM HORARIO WHERE IDHORARIO = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM HORARIO WHERE IDHORARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El horario no existe.';
         LEAVE main;
     
-    IF p_Titulo IS NULL OR TRIM(p_Titulo)) = ''
-    BEGIN
+    END IF;
+
+    IF p_Titulo IS NULL OR TRIM(p_Titulo) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el título del horario.';
         LEAVE main;
     
-    IF p_Estado IS NULL OR TRIM(p_Estado)) = '' THEN SET p_Estado = 'Activo'; END IF;
+    END IF;
+
+    IF p_Estado IS NULL OR TRIM(p_Estado) = '' THEN SET p_Estado = 'Activo'; END IF;
 
     BEGIN TRY
         BEGIN TRAN;
@@ -204,15 +205,14 @@ IF NOT EXISTS (SELECT 1 FROM HORARIO WHERE IDHORARIO = p_Id)
             TITULO = p_Titulo,
             DESCRIPCION = p_Descripcion,
             URLIMAGEN = CASE
-                WHEN p_UrlImagen IS NOT NULL AND TRIM(p_UrlImagen)) <> ''
+                WHEN p_UrlImagen IS NOT NULL AND TRIM(p_UrlImagen) <> ''
                 THEN p_UrlImagen ELSE URLIMAGEN END,
             ESTADO = p_Estado
         WHERE IDHORARIO = p_Id;
 
         DELETE FROM HORARIO_AULA WHERE IDHORARIO = p_Id;
 
-        IF p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv)) <> ''
-        BEGIN
+        IF p_AulasCsv IS NOT NULL AND TRIM(p_AulasCsv) <> '' THEN
             DECLARE v_pos INT = 1, @next INT, @token VARCHAR(50), @seq INT = 1;
             DECLARE v_csv LONGTEXT = CONCAT(p_AulasCsv, ',');
 
@@ -221,13 +221,12 @@ IF NOT EXISTS (SELECT 1 FROM HORARIO WHERE IDHORARIO = p_Id)
                 SET @next = CHARINDEX(',', v_csv, v_pos);
                 IF @next = 0 BREAK;
                 SET @token = TRIM(SUBSTRING(v_csv, v_pos, @next - v_pos)));
-                IF @token <> '' AND EXISTS (SELECT 1 FROM AULA WHERE IDAULA = @token)
-                BEGIN
+                IF @token <> '' AND EXISTS (SELECT 1 FROM AULA WHERE IDAULA = @token) THEN
                     INSERT INTO HORARIO_AULA (IDHORARIOAULA, IDHORARIO, IDAULA)
-                    VALUES (CONCAT(p_Id, '-A') + RIGHT('000' + CAST(@seq AS VARCHAR(3)), 3), p_Id, @token);
-                    SET @seq = @seq + 1;
+                    VALUES (CONCAT(p_Id, '-A') RIGHT('000', CAST(@seq AS VARCHAR(3)), 3), p_Id, @token);
+                    SET @seq = @CONCAT(seq, 1);
                 
-                SET v_pos = @next + 1;
+                SET v_pos = @CONCAT(next, 1);
             
         
         COMMIT TRAN;
@@ -255,8 +254,7 @@ CREATE PROCEDURE usp_horario_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM HORARIO WHERE IDHORARIO = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM HORARIO WHERE IDHORARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El horario no existe.';
         LEAVE main;
     

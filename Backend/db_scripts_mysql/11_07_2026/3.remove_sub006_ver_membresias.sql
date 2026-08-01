@@ -22,4 +22,4 @@ SET ORDEN = 1,
     DESCRIPCION = 'Gestión de membresías'
 WHERE IDSUBMODULO = 'SUB005';
 
-SELECT 'SUB006 (Ver membresías) desactivado. Queda Membresías + Pagos.';
+SELECT 'SUB006 (Ver membresías) desactivado. Queda MembresíCONCAT(as, Pagos.)';

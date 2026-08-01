@@ -147,23 +147,25 @@ CREATE PROCEDURE usp_usuario_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
-    BEGIN
+IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El usuario ya existe.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El DNI ya está registrado.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El email ya está registrado.';
         LEAVE main;
     
-    IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario)
-    BEGIN
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.';
         LEAVE main;
     
@@ -210,18 +212,19 @@ CREATE PROCEDURE usp_usuario_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni AND IDUSUARIO <> p_Id)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni AND IDUSUARIO <> p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El DNI ya está registrado.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email AND IDUSUARIO <> p_Id)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email AND IDUSUARIO <> p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El email ya está registrado.';
         LEAVE main;
     
@@ -261,8 +264,7 @@ CREATE PROCEDURE usp_usuario_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
     

@@ -19,8 +19,7 @@ CREATE PROCEDURE usp_mensualidad_listar_pagos(
     IN p_IdMensualidad VARCHAR(50)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = p_IdMensualidad)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = p_IdMensualidad) THEN
         RAISERROR('La mensualidad no existe.', 16, 1);
         LEAVE main;
     

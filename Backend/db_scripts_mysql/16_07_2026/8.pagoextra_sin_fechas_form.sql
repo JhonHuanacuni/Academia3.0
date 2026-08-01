@@ -31,31 +31,34 @@ CREATE PROCEDURE usp_pagoextra_insertar(
 main: BEGIN
 SET p_IdGenerado = NULL;
 
-    IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario)) = ''
-    BEGIN
+    IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un estudiante.';
         LEAVE main;
     
-    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario)
-    BEGIN
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe.';
         LEAVE main;
     
-    IF p_IdConcepto IS NULL OR TRIM(p_IdConcepto)) = ''
-    BEGIN
+    END IF;
+
+    IF p_IdConcepto IS NULL OR TRIM(p_IdConcepto) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un concepto.';
         LEAVE main;
     
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1 FROM CONCEPTOPAGOEXTRA
         WHERE IDCONCEPTO = p_IdConcepto
           AND ACTIVO = 1
           AND FECHAINICIO IS NOT NULL AND LEN(FECHAINICIO) = 8
           AND FECHAFIN IS NOT NULL AND LEN(FECHAFIN) = 8
-          AND CAST(NOW() AS DATE) >= CONVERT(DATE,
-                SUBSTRING(FECHAINICIO, 5, 4) + SUBSTRING(FECHAINICIO, 3, 2) + SUBSTRING(FECHAINICIO, 1, 2), 112)
-          AND CAST(NOW() AS DATE) <= CONVERT(DATE,
-                SUBSTRING(FECHAFIN, 5, 4) + SUBSTRING(FECHAFIN, 3, 2) + SUBSTRING(FECHAFIN, 1, 2), 112)
+          AND CAST(NOW() AS DATE) >= CONCAT(CONVERT(DATE,
+                SUBSTRING(FECHAINICIO, 5, 4), SUBSTRING(FECHAINICIO, 3, 2)) + SUBSTRING(FECHAINICIO, 1, 2), 112)
+          AND CAST(NOW() AS DATE) <= CONCAT(CONVERT(DATE,
+                SUBSTRING(FECHAFIN, 5, 4), SUBSTRING(FECHAFIN, 3, 2)) + SUBSTRING(FECHAFIN, 1, 2), 112)
     )
     BEGIN
         SET p_Resultado = 0; SET p_Mensaje = 'El concepto no está activo o no está vigente en la fecha actual.';
@@ -66,20 +69,20 @@ SET p_IdGenerado = NULL;
     FROM CONCEPTOPAGOEXTRA
     WHERE IDCONCEPTO = p_IdConcepto;
 
-    IF p_Monto IS NULL OR p_Monto <= 0
-    BEGIN
+    IF p_Monto IS NULL OR p_Monto <= 0 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa un monto válido.';
         LEAVE main;
     
-    IF p_FechaPago IS NULL OR LEN(p_FechaPago) <> 8
-    BEGIN
+    END IF;
+
+    IF p_FechaPago IS NULL OR LEN(p_FechaPago) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha del pago.';
         LEAVE main;
     
     DECLARE v_NextNum INT;
     SELECT IFNULL(MAX(CAST(REPLACE(IDPAGOEXTRA, 'PEX', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM PAGOEXTRAORDINARIO;
-    SET p_IdGenerado = CONCAT('PEX', RIGHT('00000' + CAST(v_NextNum AS VARCHAR(5)), 5);
+    SET p_IdGenerado = CONCAT('PEX', RIGHT(CONCAT('00000', CAST(v_NextNum AS VARCHAR(5))), 5);
 
     INSERT INTO PAGOEXTRAORDINARIO (
         IDPAGOEXTRA, IDUSUARIO, IDCONCEPTO, MONTO,
@@ -114,28 +117,31 @@ CREATE PROCEDURE usp_pagoextra_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.';
         LEAVE main;
     
-    IF p_IdConcepto IS NULL OR TRIM(p_IdConcepto)) = ''
-    BEGIN
+    END IF;
+
+    IF p_IdConcepto IS NULL OR TRIM(p_IdConcepto) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un concepto.';
         LEAVE main;
     
-    IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_IdConcepto)
-    BEGIN
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_IdConcepto) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El concepto no existe.';
         LEAVE main;
     
-    IF p_Monto IS NULL OR p_Monto <= 0
-    BEGIN
+    END IF;
+
+    IF p_Monto IS NULL OR p_Monto <= 0 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa un monto válido.';
         LEAVE main;
     
-    IF p_FechaPago IS NULL OR LEN(p_FechaPago) <> 8
-    BEGIN
+    END IF;
+
+    IF p_FechaPago IS NULL OR LEN(p_FechaPago) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha del pago.';
         LEAVE main;
     

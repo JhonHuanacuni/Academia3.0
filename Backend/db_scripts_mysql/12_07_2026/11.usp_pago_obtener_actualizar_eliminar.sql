@@ -41,7 +41,7 @@ SELECT
     FROM PAGOMEMBRESIA p
     INNER JOIN MEMBRESIA m ON m.IDMEMBRESIA = p.IDMEMBRESIA
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
     OUTER APPLY (
         SELECT SUM(x.MONTO) AS PAGADO
@@ -71,10 +71,16 @@ CREATE PROCEDURE usp_pago_actualizar(
 main: BEGIN
 IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.'; LEAVE main; 
+    END IF;
+
     IF p_Monto IS NULL OR p_Monto <= 0
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingrese un monto válido.'; LEAVE main; 
+    END IF;
+
     IF p_IdMetodoPago IS NULL OR p_IdMetodoPago = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago.'; LEAVE main; 
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM METODO_PAGO WHERE IDMETODOPAGO = p_IdMetodoPago AND ACTIVO = 1)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El método de pago no es válido.'; LEAVE main; 
     DECLARE v_IdMembresia VARCHAR(50);
@@ -93,10 +99,9 @@ IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id)
 
     SET v_Maximo = v_MontoTotal - v_PagadoOtros;
     IF v_Maximo < 0 THEN SET v_Maximo = 0; END IF;
-    IF p_Monto > v_Maximo
-    BEGIN
+    IF p_Monto > v_Maximo THEN
         SET p_Resultado = 0;
-        SET p_Mensaje = 'El monto no puede superar S/ ' + CAST(v_Maximo AS VARCHAR(20)) + '.';
+        SET p_Mensaje = CONCAT('El monto no puede superar S/ ', CAST(v_Maximo AS VARCHAR(20))) + '.';
         LEAVE main;
     
     UPDATE PAGOMEMBRESIA SET

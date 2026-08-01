@@ -4,16 +4,17 @@
 USE `AcademiaDB`;
 
 /* ============================================================================
-   EXAMEN: TODASLASULA + EXAMEN_AULA + plantilla distribución
+   EXAMEN: CONCAT(TODASLASULA EXAMEN_AULA, plantilla) distribución
    Fecha: 17/07/2026
    ============================================================================ */
 
--- TODO MySQL: add column if missing on EXAMEN.TODASLASULA
-BEGIN
-    ALTER TABLE EXAMEN ADD TODASLASULA TINYINT(1) NOT NULL
-        CONSTRAINT DF_EXAMEN_TODASLASULA DEFAULT (1);
-    SELECT 'Columna EXAMEN.TODASLASULA agregada.';
-
+SET @col_EXAMEN_TODASLASULA := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'EXAMEN' AND COLUMN_NAME = 'TODASLASULA'
+);
+SET @sql_EXAMEN_TODASLASULA := IF(@col_EXAMEN_TODASLASULA = 0, 'ALTER TABLE EXAMEN ADD TODASLASULA TINYINT(1) NOT NULL
+        CONSTRAINT DF_EXAMEN_TODASLASULA DEFAULT (1)', 'SELECT 1');
+PREPARE stmt FROM @sql_EXAMEN_TODASLASULA; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- create if missing EXAMEN_AULA
     CREATE TABLE IF NOT EXISTS EXAMEN_AULA (
         IDEXAMENAULA VARCHAR(50) NOT NULL PRIMARY KEY,

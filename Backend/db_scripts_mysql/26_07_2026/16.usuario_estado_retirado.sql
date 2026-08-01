@@ -23,8 +23,7 @@ CREATE PROCEDURE usp_usuario_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
     
@@ -33,7 +32,7 @@ IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id)
     SET p_Resultado = 1; SET p_Mensaje = 'Usuario retirado.';
 END;
 
-SELECT 'USUARIO: estado Retirado aplicado (datos + usp_usuario_eliminar).';
+SELECT 'USUARIO: estado Retirado aplicado (CONCAT(datos, usp_usuario_eliminar)).';
     SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 

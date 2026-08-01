@@ -106,14 +106,22 @@ CREATE PROCEDURE usp_categoria_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id)) = ''
+IF p_Id IS NULL OR TRIM(p_Id) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código de la categoría.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main; 
+    END IF;
+
     IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main; 
+    END IF;
+
     IF EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de categoría ya existe.'; LEAVE main; 
+    END IF;
+
     IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main; 
     INSERT INTO CATEGORIA (IDCATEGORIA, NOMBRE, PORCENTAJE, ORDEN, ACTIVO)
@@ -122,8 +130,7 @@ IF p_Id IS NULL OR TRIM(p_Id)) = ''
         p_Nombre,
         p_Porcentaje,
         IFNULL(p_Orden, 0),
-        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
-    );
+        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Categoría registrada.';
     SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
@@ -149,17 +156,23 @@ CREATE PROCEDURE usp_categoria_actualizar(
 main: BEGIN
 IF NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la categoría.'; LEAVE main; 
+    END IF;
+
     IF p_Porcentaje IS NOT NULL AND (p_Porcentaje < 0 OR p_Porcentaje > 100)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El porcentaje debe estar entre 0 y 100.'; LEAVE main; 
+    END IF;
+
     IF EXISTS (SELECT 1 FROM CATEGORIA WHERE NOMBRE = p_Nombre AND IDCATEGORIA <> p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una categoría con ese nombre.'; LEAVE main; 
     UPDATE CATEGORIA SET
         NOMBRE     = p_Nombre,
         PORCENTAJE = p_Porcentaje,
         ORDEN      = IFNULL(p_Orden, 0),
-        ACTIVO     = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
+        ACTIVO     = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
     WHERE IDCATEGORIA = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Categoría actualizada.';
@@ -182,8 +195,9 @@ CREATE PROCEDURE usp_categoria_eliminar(
 main: BEGIN
 IF NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM MATERIA WHERE IDCATEGORIA = p_Id)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM MATERIA WHERE IDCATEGORIA = p_Id) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'No se puede eliminar: hay materias asociadas.';
         LEAVE main;

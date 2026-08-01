@@ -23,13 +23,13 @@ CREATE PROCEDURE usp_asistencia_informe(
     IN p_EstadoUsuario VARCHAR(50)
 )
 main: BEGIN
-IF p_FechaDesde IS NULL OR p_FechaDesde = '' OR p_FechaHasta IS NULL OR p_FechaHasta = ''
-    BEGIN
+IF p_FechaDesde IS NULL OR p_FechaDesde = '' OR p_FechaHasta IS NULL OR p_FechaHasta = '' THEN
         RAISERROR('Debe indicar fecha desde y fecha hasta.', 16, 1);
         LEAVE main;
     
-    IF p_FechaDesde > p_FechaHasta
-    BEGIN
+    END IF;
+
+    IF p_FechaDesde > p_FechaHasta THEN
         RAISERROR('La fecha desde no puede ser mayor que la fecha hasta.', 16, 1);
         LEAVE main;
     
@@ -41,10 +41,9 @@ IF p_FechaDesde IS NULL OR p_FechaDesde = '' OR p_FechaHasta IS NULL OR p_FechaH
         UPPER(IFNULL(u.ESTADO, 'Activo')) AS ESTADO,
         UPPER(IFNULL(tut.NOMBRE, '')) AS TUTORA,
         IFNULL(au.NOMBRE, '') AS AULA,
-        UPPER(TRIM(
-            IFNULL(pl.NOMBRE, '') +
-            CASE WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
-                 THEN ' ' + tu.DESCRIPCION ELSE '' 
+        CONCAT(UPPER(TRIM(
+            IFNULL(pl.NOMBRE, ''), CASE) WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
+                 THEN CONCAT(' ', tu.DESCRIPCION) ELSE '' 
         ))) AS CICLO,
         mem.FECHAFIN AS FECHA_VENCE
     FROM USUARIO u
@@ -64,7 +63,7 @@ IF p_FechaDesde IS NULL OR p_FechaDesde = '' OR p_FechaHasta IS NULL OR p_FechaH
     ) mem
     LEFT JOIN AULA au ON au.IDAULA = mem.IDAULA
     LEFT JOIN USUARIO tut ON tut.IDUSUARIO = au.IDTUTORA
-    LEFT JOIN [PLAN] pl ON pl.IDPLAN = mem.IDPLAN
+    LEFT JOIN `PLAN` pl ON pl.IDPLAN = mem.IDPLAN
     LEFT JOIN TURNO tu ON tu.IDTURNO = mem.IDTURNO
     WHERE u.IDTIPOUSUARIO = '1'
       AND (

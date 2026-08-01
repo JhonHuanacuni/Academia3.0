@@ -96,23 +96,25 @@ CREATE PROCEDURE usp_asesor_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id)) = ''
-    BEGIN
+IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del asesor.';
         LEAVE main;
     
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
-    BEGIN
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del asesor.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El código de asesor ya existe.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.';
         LEAVE main;
     
@@ -120,8 +122,7 @@ IF p_Id IS NULL OR TRIM(p_Id)) = ''
     VALUES (
         p_Id,
         p_Nombre,
-        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
-    );
+        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Asesor registrado.';
     SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
@@ -143,24 +144,25 @@ CREATE PROCEDURE usp_asesor_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El asesor no existe.';
         LEAVE main;
     
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
-    BEGIN
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del asesor.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre AND IDASESOR <> p_Id)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM ASESOR WHERE NOMBRE = p_Nombre AND IDASESOR <> p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un asesor con ese nombre.';
         LEAVE main;
     
     UPDATE ASESOR SET
         NOMBRE = p_Nombre,
-        ACTIVO = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
+        ACTIVO = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
     WHERE IDASESOR = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Asesor actualizado.';
@@ -181,13 +183,13 @@ CREATE PROCEDURE usp_asesor_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM ASESOR WHERE IDASESOR = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El asesor no existe.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDASESOR = p_Id)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDASESOR = p_Id) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'No se puede eliminar: el asesor tiene membresías asociadas.';
         LEAVE main;

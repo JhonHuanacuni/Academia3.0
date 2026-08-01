@@ -20,44 +20,37 @@ CREATE PROCEDURE usp_auditoria_agregar_columnas(
     IN p_Tabla VARCHAR(128)
 )
 main: BEGIN
-IF OBJECT_ID(QUOTENAME('dbo') + '.' + QUOTENAME(p_Tabla), 'U') IS NULL
-    BEGIN
+IF CONCAT(OBJECT_ID(QUOTENAME('dbo'), '.') + QUOTENAME(p_Tabla), 'U') IS NULL THEN
         SELECT CONCAT('Tabla omitida (no existe): ', p_Tabla);
         LEAVE main;
     
     DECLARE v_Sql LONGTEXT;
 
-    IF COL_LENGTH(p_Tabla, 'CREADO_POR') IS NULL
-    BEGIN
-        SET v_Sql = N'ALTER TABLE ' + QUOTENAME(p_Tabla) + N' ADD CREADO_POR VARCHAR(50) NULL;';
+    IF COL_LENGTH(p_Tabla, 'CREADO_POR') IS NULL THEN
+        SET v_Sql = CONCAT('ALTER TABLE ', QUOTENAME(p_Tabla)) + ' ADD CREADO_POR VARCHAR(50) NULL;';
         EXEC sp_executesql v_Sql;
     
-    IF COL_LENGTH(p_Tabla, 'FECHACREACION') IS NULL
-    BEGIN
-        SET v_Sql = N'ALTER TABLE ' + QUOTENAME(p_Tabla) + N' ADD FECHACREACION CHAR(8) NULL;';
+    IF COL_LENGTH(p_Tabla, 'FECHACREACION') IS NULL THEN
+        SET v_Sql = CONCAT('ALTER TABLE ', QUOTENAME(p_Tabla)) + ' ADD FECHACREACION CHAR(8) NULL;';
         EXEC sp_executesql v_Sql;
     
-    IF COL_LENGTH(p_Tabla, 'HORACREACION') IS NULL
-    BEGIN
-        SET v_Sql = N'ALTER TABLE ' + QUOTENAME(p_Tabla) + N' ADD HORACREACION CHAR(8) NULL;';
+    IF COL_LENGTH(p_Tabla, 'HORACREACION') IS NULL THEN
+        SET v_Sql = CONCAT('ALTER TABLE ', QUOTENAME(p_Tabla)) + ' ADD HORACREACION CHAR(8) NULL;';
         EXEC sp_executesql v_Sql;
     
-    IF COL_LENGTH(p_Tabla, 'MODIFICADO_POR') IS NULL
-    BEGIN
-        SET v_Sql = N'ALTER TABLE ' + QUOTENAME(p_Tabla) + N' ADD MODIFICADO_POR VARCHAR(50) NULL;';
+    IF COL_LENGTH(p_Tabla, 'MODIFICADO_POR') IS NULL THEN
+        SET v_Sql = CONCAT('ALTER TABLE ', QUOTENAME(p_Tabla)) + ' ADD MODIFICADO_POR VARCHAR(50) NULL;';
         EXEC sp_executesql v_Sql;
     
-    IF COL_LENGTH(p_Tabla, 'FECHAMODIFICACION') IS NULL
-    BEGIN
-        SET v_Sql = N'ALTER TABLE ' + QUOTENAME(p_Tabla) + N' ADD FECHAMODIFICACION CHAR(8) NULL;';
+    IF COL_LENGTH(p_Tabla, 'FECHAMODIFICACION') IS NULL THEN
+        SET v_Sql = CONCAT('ALTER TABLE ', QUOTENAME(p_Tabla)) + ' ADD FECHAMODIFICACION CHAR(8) NULL;';
         EXEC sp_executesql v_Sql;
     
-    IF COL_LENGTH(p_Tabla, 'HORAMODIFICACION') IS NULL
-    BEGIN
-        SET v_Sql = N'ALTER TABLE ' + QUOTENAME(p_Tabla) + N' ADD HORAMODIFICACION CHAR(8) NULL;';
+    IF COL_LENGTH(p_Tabla, 'HORAMODIFICACION') IS NULL THEN
+        SET v_Sql = CONCAT('ALTER TABLE ', QUOTENAME(p_Tabla)) + ' ADD HORAMODIFICACION CHAR(8) NULL;';
         EXEC sp_executesql v_Sql;
     
-    SELECT CONCAT('Columnas de auditoría verificadas en ', p_Tabla) + '.';
+    SELECT CONCAT('Columnas de auditoría verificadas en ', p_Tabla) '.';
 END;
 
 EXEC usp_auditoria_agregar_columnas p_Tabla = 'USUARIO';

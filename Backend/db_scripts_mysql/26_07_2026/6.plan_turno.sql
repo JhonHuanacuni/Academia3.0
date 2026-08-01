@@ -9,28 +9,28 @@ USE `AcademiaDB`;
    Fecha: 26/07/2026
    ============================================================================ */
 
--- TODO MySQL: add column if missing on PLAN.IDTURNO
-BEGIN
-    ALTER TABLE [PLAN] ADD IDTURNO VARCHAR(50) NULL;
-    SELECT 'Columna PLAN.IDTURNO agregada.';
-
-IF NOT EXISTS (
-    SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_PLAN_TURNO'
-)
-BEGIN
-    ALTER TABLE [PLAN]
-        ADD CONSTRAINT FK_PLAN_TURNO FOREIGN KEY (IDTURNO) REFERENCES TURNO(IDTURNO);
-    SELECT 'FK PLAN.IDTURNO → TURNO creada.';
-
+SET @col_PLAN_IDTURNO := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PLAN' AND COLUMN_NAME = 'IDTURNO'
+);
+SET @sql_PLAN_IDTURNO := IF(@col_PLAN_IDTURNO = 0, 'ALTER TABLE `PLAN` ADD IDTURNO VARCHAR(50) NULL', 'SELECT 1');
+PREPARE stmt FROM @sql_PLAN_IDTURNO; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @fk_FK_PLAN_TURNO := (
+    SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'FK_PLAN_TURNO'
+);
+SET @sql_FK_PLAN_TURNO := IF(@fk_FK_PLAN_TURNO = 0, 'ALTER TABLE `PLAN`
+        ADD CONSTRAINT FK_PLAN_TURNO FOREIGN KEY (IDTURNO) REFERENCES TURNO(IDTURNO)', 'SELECT 1');
+PREPARE stmt FROM @sql_FK_PLAN_TURNO; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 /* Catálogo Academia Vita: tarde en PLN002 y PLN006; resto mañana */
-UPDATE [PLAN] SET IDTURNO = 'TUR002' WHERE IDPLAN IN ('PLN002', 'PLN006');
-UPDATE [PLAN] SET IDTURNO = 'TUR001' WHERE IDTURNO IS NULL;
+UPDATE `PLAN` SET IDTURNO = 'TUR002' WHERE IDPLAN IN ('PLN002', 'PLN006');
+UPDATE `PLAN` SET IDTURNO = 'TUR001' WHERE IDTURNO IS NULL;
 
 /* Sincronizar mensualidades existentes con el turno del plan */
 UPDATE m
 SET m.IDTURNO = p.IDTURNO
 FROM MENSUALIDAD m
-INNER JOIN [PLAN] p ON p.IDPLAN = m.IDPLAN
+INNER JOIN `PLAN` p ON p.IDPLAN = m.IDPLAN
 WHERE p.IDTURNO IS NOT NULL;
 
 /* ---- usp_plan_* ---- */
@@ -55,7 +55,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
     SELECT COUNT(*) INTO p_TotalRegistros
-    FROM [PLAN] p
+    FROM `PLAN` p
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
            p.IDPLAN      LIKE CONCAT('%', p_Buscar, '%') OR
            p.NOMBRE      LIKE CONCAT('%', p_Buscar, '%') OR
@@ -73,7 +73,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         p.IDTURNO,
         IFNULL(tu.DESCRIPCION, '') AS TURNO_DESCRIPCION,
         CASE WHEN p.ACTIVO = 1 THEN 'Activo' ELSE 'Inactivo' END AS ESTADO
-    FROM [PLAN] p
+    FROM `PLAN` p
     LEFT JOIN TURNO tu ON tu.IDTURNO = p.IDTURNO
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
            p.IDPLAN      LIKE CONCAT('%', p_Buscar, '%') OR
@@ -117,7 +117,7 @@ SELECT
         p.IDTURNO,
         IFNULL(tu.DESCRIPCION, '') AS TURNO_DESCRIPCION,
         CASE WHEN p.ACTIVO = 1 THEN 'Activo' ELSE 'Inactivo' END AS ESTADO
-    FROM [PLAN] p
+    FROM `PLAN` p
     LEFT JOIN TURNO tu ON tu.IDTURNO = p.IDTURNO
     WHERE p.IDPLAN = p_Id;
 END$$
@@ -142,22 +142,32 @@ CREATE PROCEDURE usp_plan_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id)) = ''
+IF p_Id IS NULL OR TRIM(p_Id) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del plan.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
+    END IF;
+
     IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main; 
+    END IF;
+
     IF p_DiasAsistencia IS NULL OR p_DiasAsistencia = 0 THEN SET p_DiasAsistencia = 63; END IF;
 
     IF p_IdTurno IS NOT NULL AND p_IdTurno <> ''
        AND NOT EXISTS (SELECT 1 FROM TURNO WHERE IDTURNO = p_IdTurno)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El turno seleccionado no es válido.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_Id)
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM [PLAN] WHERE NOMBRE = p_Nombre)
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
-    INSERT INTO [PLAN] (IDPLAN, NOMBRE, DESCRIPCION, COSTOMENSUAL, DIASASISTENCIA, IDTURNO, ACTIVO)
+    INSERT INTO `PLAN` (IDPLAN, NOMBRE, DESCRIPCION, COSTOMENSUAL, DIASASISTENCIA, IDTURNO, ACTIVO)
     VALUES (
         p_Id,
         p_Nombre,
@@ -165,8 +175,7 @@ IF p_Id IS NULL OR TRIM(p_Id)) = ''
         p_CostoMensual,
         p_DiasAsistencia,
         NULLIF(p_IdTurno, ''),
-        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
-    );
+        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Plan registrado.';
     SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
@@ -192,26 +201,34 @@ CREATE PROCEDURE usp_plan_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_Id)
+IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
+    END IF;
+
     IF p_CostoMensual IS NOT NULL AND p_CostoMensual < 0
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El costo mensual no puede ser negativo.'; LEAVE main; 
+    END IF;
+
     IF p_DiasAsistencia IS NULL OR p_DiasAsistencia = 0 THEN SET p_DiasAsistencia = 63; END IF;
 
     IF p_IdTurno IS NOT NULL AND p_IdTurno <> ''
        AND NOT EXISTS (SELECT 1 FROM TURNO WHERE IDTURNO = p_IdTurno)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El turno seleccionado no es válido.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM [PLAN] WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id)
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
-    UPDATE [PLAN] SET
+    UPDATE `PLAN` SET
         NOMBRE          = p_Nombre,
         DESCRIPCION     = p_Descripcion,
         COSTOMENSUAL    = p_CostoMensual,
         DIASASISTENCIA  = p_DiasAsistencia,
         IDTURNO         = NULLIF(p_IdTurno, ''),
-        ACTIVO          = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
+        ACTIVO          = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
     WHERE IDPLAN = p_Id;
 
     UPDATE m
@@ -257,31 +274,44 @@ DECLARE v_IdTurno VARCHAR(50);
 
     IF p_IdUsuario IS NULL OR p_IdUsuario = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Debe seleccionar un estudiante.'; LEAVE main; 
+    END IF;
+
     IF p_FechaInicio IS NULL OR p_FechaFin IS NULL
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingrese fecha de inicio y fin.'; LEAVE main; 
+    END IF;
+
     IF p_MontoTotal IS NULL
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingrese el monto total.'; LEAVE main; 
+    END IF;
+
     IF p_EstadoMiembro NOT IN (2, 3)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Estado de mensualidad no válido.'; LEAVE main; 
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario AND IDTIPOUSUARIO = '1')
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe o no es válido.'; LEAVE main; 
-    IF NOT EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_IdPlan)
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_IdPlan)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan seleccionado no es válido.'; LEAVE main; 
-    SELECT IDTURNO FROM [PLAN] WHERE IDPLAN = p_IdPlan INTO v_IdTurno;
+    SELECT IDTURNO FROM `PLAN` WHERE IDPLAN = p_IdPlan INTO v_IdTurno;
 
     IF p_IdTutor IS NOT NULL AND p_IdTutor <> ''
        AND NOT EXISTS (SELECT 1 FROM TUTOR WHERE IDTUTOR = p_IdTutor AND ACTIVO = 1)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El tutor seleccionado no es válido.'; LEAVE main; 
+    END IF;
+
     IF p_PagoInicial IS NOT NULL AND p_PagoInicial > 0
        AND (p_IdMetodoPago IS NULL OR p_IdMetodoPago = '')
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago del pago inicial.'; LEAVE main; 
-    IF p_Id IS NULL OR p_Id = ''
-    BEGIN
+    END IF;
+
+    IF p_Id IS NULL OR p_Id = '' THEN
         DECLARE v_Next INT = IFNULL((
             SELECT MAX(CAST(SUBSTRING(IDMENSUALIDAD, 4, 10) AS INT))
             FROM MENSUALIDAD WHERE IDMENSUALIDAD LIKE 'MEM%'
         ), 0) + 1;
-        SET p_Id = CONCAT('MEM', RIGHT('000000' + CAST(v_Next AS VARCHAR(10)), 6);
+        SET p_Id = CONCAT('MEM', RIGHT(CONCAT('000000', CAST(v_Next AS VARCHAR(10))), 6);
     
     IF EXISTS (SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La mensualidad ya existe.'; LEAVE main; 
@@ -296,10 +326,9 @@ DECLARE v_IdTurno VARCHAR(50);
         p_IdTutor, p_FechaCancelacion, 'Activo'
     );
 
-    IF p_PagoInicial IS NOT NULL AND p_PagoInicial > 0
-    BEGIN
-        DECLARE v_IdPago VARCHAR(50) = CONCAT('PAG', RIGHT('000000' + CAST((
-            IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMENSUALIDAD, 4, 10) AS INT))
+    IF p_PagoInicial IS NOT NULL AND p_PagoInicial > 0 THEN
+        DECLARE v_IdPago VARCHAR(50) = CONCAT('PAG', RIGHT(CONCAT('000000', CAST((
+            IFNULL((SELECT MAX(CAST(SUBSTRING(IDPAGOMENSUALIDAD, 4, 10)) AS INT))
                     FROM PAGOMENSUALIDAD WHERE IDPAGOMENSUALIDAD LIKE 'PAG%'), 0) + 1
         ) AS VARCHAR(10)), 6);
 
@@ -343,9 +372,11 @@ DECLARE v_IdTurno VARCHAR(50);
 
     IF NOT EXISTS (SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La mensualidad no existe.'; LEAVE main; 
+    END IF;
+
     IF p_EstadoMiembro NOT IN (2, 3)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Estado de mensualidad no válido.'; LEAVE main; 
-    SELECT IDTURNO FROM [PLAN] WHERE IDPLAN = p_IdPlan INTO v_IdTurno;
+    SELECT IDTURNO FROM `PLAN` WHERE IDPLAN = p_IdPlan INTO v_IdTurno;
 
     IF p_IdTutor IS NOT NULL AND p_IdTutor <> ''
        AND NOT EXISTS (SELECT 1 FROM TUTOR WHERE IDTUTOR = p_IdTutor AND ACTIVO = 1)
@@ -393,7 +424,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM MENSUALIDAD m
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR ase ON ase.IDTUTOR = m.IDTUTOR
     WHERE m.ESTADO = p_Estado
@@ -435,7 +466,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         m.FECHAREGISTRO
     FROM MENSUALIDAD m
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN TURNO tu ON tu.IDTURNO = IFNULL(pl.IDTURNO, m.IDTURNO)
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR ase ON ase.IDTUTOR = m.IDTUTOR
@@ -512,7 +543,7 @@ SELECT
         pag.IDMETODOPAGO
     FROM MENSUALIDAD m
     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-    INNER JOIN [PLAN] pl ON pl.IDPLAN = m.IDPLAN
+    INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
     LEFT JOIN TURNO tu ON tu.IDTURNO = IFNULL(pl.IDTURNO, m.IDTURNO)
     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
     LEFT JOIN TUTOR ase ON ase.IDTUTOR = m.IDTUTOR

@@ -65,13 +65,13 @@ CREATE PROCEDURE usp_modulo_asignar_rol(
     IN p_idmodulo VARCHAR(50)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_idtipousuario)
-    BEGIN
+IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_idtipousuario) THEN
         RAISERROR('Tipo de usuario no encontrado', 16, 1);
         LEAVE main;
     
-    IF NOT EXISTS (SELECT 1 FROM MODULO WHERE IDMODULO = p_idmodulo AND ACTIVO = 1)
-    BEGIN
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM MODULO WHERE IDMODULO = p_idmodulo AND ACTIVO = 1) THEN
         RAISERROR('Módulo no encontrado o inactivo', 16, 1);
         LEAVE main;
     
@@ -93,7 +93,7 @@ IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_idtipousuario)
         BEGIN
             INSERT INTO GRUPO_MODULO (IDGRUPOMODULO, IDTIPOUSUARIO, IDMODULO, IDTIPOPERMISO)
             VALUES (
-                'GRM_' + REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''),
+                CONCAT('GRM_', REPLACE(UUID()), '-', ''),
                 p_idtipousuario,
                 p_idmodulo,
                 v_idpermiso
@@ -120,8 +120,7 @@ CREATE PROCEDURE usp_modulo_desasignar_rol(
     IN p_idmodulo VARCHAR(50)
 )
 main: BEGIN
-IF p_idtipousuario = '3' AND p_idmodulo IN ('MOD001', 'MOD008')
-    BEGIN
+IF p_idtipousuario = '3' AND p_idmodulo IN ('MOD001', 'MOD008') THEN
         RAISERROR('No se puede quitar este módulo al rol Administrador (Dashboard y Administración de Módulos son obligatorios).', 16, 1);
         LEAVE main;
     
@@ -156,7 +155,7 @@ SELECT
         s.DESCRIPCION,
         s.ICONO,
         s.ORDEN,
-        CAST(CASE WHEN ex.IDSUBMODULO IS NULL THEN 1 ELSE 0 END AS TINYINT(1)) AS asignado
+        (CASE WHEN ex.IDSUBMODULO IS NULL THEN 1 ELSE 0 END) AS asignado
     FROM SUBMODULO s
     LEFT JOIN GRUPO_SUBMODULO_EXCLUIDO ex
         ON ex.IDSUBMODULO = s.IDSUBMODULO AND ex.IDTIPOUSUARIO = p_idtipousuario
@@ -204,7 +203,7 @@ IF NOT EXISTS (
     BEGIN
         INSERT INTO GRUPO_SUBMODULO_EXCLUIDO (IDGRUPOEXCLSUB, IDTIPOUSUARIO, IDSUBMODULO, FECHAREGISTRO)
         VALUES (
-            'GEXS_' + REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''),
+            CONCAT('GEXS_', REPLACE(UUID()), '-', ''),
             p_idtipousuario,
             p_idsubmodulo,
             fn_fecha_ddmmyyyy()
@@ -240,11 +239,11 @@ DECLARE v_idtipo VARCHAR(50);
         s.DESCRIPCION,
         s.ICONO,
         s.ORDEN,
-        CAST(CASE
+        (CASE
             WHEN ex_u.IDSUBMODULO IS NOT NULL THEN 0
             WHEN ex_g.IDSUBMODULO IS NOT NULL THEN 0
             ELSE 1
-        END AS TINYINT(1)) AS asignado
+        END) AS asignado
     FROM SUBMODULO s
     LEFT JOIN USUARIO_SUBMODULO_EXCLUIDO ex_u
         ON ex_u.IDSUBMODULO = s.IDSUBMODULO AND ex_u.IDUSUARIO = p_idusuario

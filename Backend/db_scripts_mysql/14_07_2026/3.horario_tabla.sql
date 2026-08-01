@@ -4,7 +4,7 @@
 USE `AcademiaDB`;
 
 /* ============================================================================
-   HORARIO — tabla principal + relación con salones
+   HORARIO — tabla CONCAT(principal, relaci)ón con salones
    Fecha: 14/07/2026
    ============================================================================ */
 

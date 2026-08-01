@@ -1,26 +1,14 @@
--- Convertido automáticamente desde db_scripts/22_06_2026/usp_asistencia.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- ASISTENCIA — marcar por DNI/QR, listar, anti-duplicados (MySQL 8)
+-- Ejecutar después de esquema_completo.sql
+-- ============================================================================
 
 USE `AcademiaDB`;
 
-/* ============================================================================
-   ASISTENCIA — marcar por DNI/QR, listar, anti-duplicados
-   Ejecutar después de esquema_completo.sql
-   Fecha: 22/06/2026
-   ============================================================================ */
-
-IF NOT EXISTS (
-    SELECT 1 FROM sys.indexes
-    WHERE name = 'UQ_ASISTENCIA_USUARIO_FECHA' AND object_id = OBJECT_ID('ASISTENCIA')
-)
-BEGIN
-    CREATE UNIQUE INDEX UQ_ASISTENCIA_USUARIO_FECHA
-    ON ASISTENCIA(IDUSUARIO, FECHAREGISTRO)
-    WHERE FECHAREGISTRO IS NOT NULL;
+CREATE UNIQUE INDEX UQ_ASISTENCIA_USUARIO_FECHA ON ASISTENCIA(IDUSUARIO, FECHAREGISTRO);
 
 DROP PROCEDURE IF EXISTS usp_asistencia_marcar;
-
-DROP PROCEDURE IF EXISTS usp_asistencia_marcar;
+DROP PROCEDURE IF EXISTS usp_asistencia_listar;
 
 DELIMITER $$
 
@@ -32,42 +20,46 @@ CREATE PROCEDURE usp_asistencia_marcar(
     OUT p_IdAsistencia VARCHAR(50)
 )
 main: BEGIN
-DECLARE v_IdUsuario VARCHAR(50);
+    DECLARE v_IdUsuario VARCHAR(50);
     DECLARE v_Nombre VARCHAR(100);
     DECLARE v_Apellido VARCHAR(100);
-    DECLARE v_FechaHoy CHAR(8) = fn_fecha_ddmmyyyy();
+    DECLARE v_FechaHoy CHAR(8);
     DECLARE v_HoraAhora CHAR(8);
     DECLARE v_Estado VARCHAR(50);
-    DECLARE v_HoraLimite TIME = '08:00:00';
+    DECLARE v_HoraLimite TIME DEFAULT '08:00:00';
 
-    SET v_HoraAhora = CONVERT(CHAR(8), CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'SA Pacific Standard Time' AS TIME), 108);
+    SET v_FechaHoy = fn_fecha_ddmmyyyy();
+    SET v_HoraAhora = TIME_FORMAT(CONVERT_TZ(NOW(), '+00:00', '-05:00'), '%H:%i:%s');
 
-    SELECT IDUSUARIO, v_Nombre = NOMBRE, v_Apellido = APELLIDO INTO v_IdUsuario
+    SELECT IDUSUARIO, NOMBRE, APELLIDO
+    INTO v_IdUsuario, v_Nombre, v_Apellido
     FROM USUARIO
     WHERE DNI = p_Dni AND ESTADO = 'Activo';
 
-    IF v_IdUsuario IS NULL
-    BEGIN
+    IF v_IdUsuario IS NULL THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'Usuario no encontrado con ese DNI.';
         SET p_IdAsistencia = NULL;
         LEAVE main;
-    
+    END IF;
+
     IF EXISTS (
         SELECT 1 FROM ASISTENCIA
         WHERE IDUSUARIO = v_IdUsuario AND FECHAREGISTRO = v_FechaHoy
-    )
-    BEGIN
+    ) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'Este estudiante ya tiene su asistencia registrada para hoy.';
         SET p_IdAsistencia = NULL;
         LEAVE main;
-    
-    IF CAST(v_HoraAhora AS TIME) <= v_HoraLimite THEN SET v_Estado = 'Presente'; END IF;
+    END IF;
+
+    IF CAST(v_HoraAhora AS TIME) <= v_HoraLimite THEN
+        SET v_Estado = 'Presente';
     ELSE
         SET v_Estado = 'Tarde';
+    END IF;
 
-    SET p_IdAsistencia = 'AS_' + REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', '');
+    SET p_IdAsistencia = CONCAT('AS_', REPLACE(UUID(), '-', ''));
 
     INSERT INTO ASISTENCIA (
         IDASISTENCIA, FECHAREGISTRO, HORAINICIO, ESTADO, JUSTIFICADO, IDUSUARIO
@@ -77,16 +69,7 @@ DECLARE v_IdUsuario VARCHAR(50);
 
     SET p_Resultado = 1;
     SET p_Mensaje = 'Asistencia registrada.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje, p_IdAsistencia AS IdAsistencia
 END$$
-
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_asistencia_listar;
-
-DROP PROCEDURE IF EXISTS usp_asistencia_listar;
-
-DELIMITER $$
 
 CREATE PROCEDURE usp_asistencia_listar(
     IN p_Fecha CHAR(8),
@@ -98,12 +81,14 @@ CREATE PROCEDURE usp_asistencia_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-IF p_Fecha IS NULL OR p_Fecha = '' THEN SET p_Fecha = fn_fecha_ddmmyyyy(); END IF;
-
+    IF p_Fecha IS NULL OR p_Fecha = '' THEN
+        SET p_Fecha = fn_fecha_ddmmyyyy();
+    END IF;
     IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 50; END IF;
 
-    SELECT COUNT(*) INTO p_TotalRegistros
+    SELECT COUNT(*)
+    INTO p_TotalRegistros
     FROM ASISTENCIA a
     INNER JOIN USUARIO u ON u.IDUSUARIO = a.IDUSUARIO
     WHERE a.FECHAREGISTRO = p_Fecha
@@ -138,10 +123,8 @@ IF p_Fecha IS NULL OR p_Fecha = '' THEN SET p_Fecha = fn_fecha_ddmmyyyy(); END I
         CASE WHEN p_OrdenarPor = 'NOMBRE'    AND p_Direccion = 'DESC' THEN u.NOMBRE END DESC,
         a.HORAINICIO DESC
     LIMIT p_TamanioPagina OFFSET ((p_Pagina - 1) * p_TamanioPagina);
-END;
-
-SELECT 'usp_asistencia.sql ejecutado correctamente';
-    SELECT p_TotalRegistros AS TotalRegistros
 END$$
 
 DELIMITER ;
+
+SELECT 'usp_asistencia.sql ejecutado correctamente.' AS info;

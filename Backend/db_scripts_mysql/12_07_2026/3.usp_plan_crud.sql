@@ -30,7 +30,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
     SELECT COUNT(*) INTO p_TotalRegistros
-    FROM [PLAN] p
+    FROM `PLAN` p
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
            p.IDPLAN      LIKE CONCAT('%', p_Buscar, '%') OR
            p.NOMBRE      LIKE CONCAT('%', p_Buscar, '%') OR
@@ -44,7 +44,7 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         p.NOMBRE,
         p.DESCRIPCION,
         CASE WHEN p.ACTIVO = 1 THEN 'Activo' ELSE 'Inactivo' END AS ESTADO
-    FROM [PLAN] p
+    FROM `PLAN` p
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
            p.IDPLAN      LIKE CONCAT('%', p_Buscar, '%') OR
            p.NOMBRE      LIKE CONCAT('%', p_Buscar, '%') OR
@@ -81,7 +81,7 @@ SELECT
         p.NOMBRE,
         p.DESCRIPCION,
         CASE WHEN p.ACTIVO = 1 THEN 'Activo' ELSE 'Inactivo' END AS ESTADO
-    FROM [PLAN] p
+    FROM `PLAN` p
     WHERE p.IDPLAN = p_Id;
 END$$
 
@@ -102,21 +102,26 @@ CREATE PROCEDURE usp_plan_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id)) = ''
+IF p_Id IS NULL OR TRIM(p_Id) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código del plan.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_Id)
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El código de plan ya existe.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM [PLAN] WHERE NOMBRE = p_Nombre)
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
-    INSERT INTO [PLAN] (IDPLAN, NOMBRE, DESCRIPCION, ACTIVO)
+    INSERT INTO `PLAN` (IDPLAN, NOMBRE, DESCRIPCION, ACTIVO)
     VALUES (
         p_Id,
         p_Nombre,
         p_Descripcion,
-        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
-    );
+        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Plan registrado.';
     SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
@@ -139,16 +144,20 @@ CREATE PROCEDURE usp_plan_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_Id)
+IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main; 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
+    END IF;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = ''
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del plan.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM [PLAN] WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id)
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM `PLAN` WHERE NOMBRE = p_Nombre AND IDPLAN <> p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un plan con ese nombre.'; LEAVE main; 
-    UPDATE [PLAN] SET
+    UPDATE `PLAN` SET
         NOMBRE      = p_Nombre,
         DESCRIPCION = p_Descripcion,
-        ACTIVO      = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
+        ACTIVO      = CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
     WHERE IDPLAN = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Plan actualizado.';
@@ -169,15 +178,16 @@ CREATE PROCEDURE usp_plan_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM [PLAN] WHERE IDPLAN = p_Id)
+IF NOT EXISTS (SELECT 1 FROM `PLAN` WHERE IDPLAN = p_Id)
     BEGIN SET p_Resultado = 0; SET p_Mensaje = 'El plan no existe.'; LEAVE main; 
-    IF EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDPLAN = p_Id)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM MEMBRESIA WHERE IDPLAN = p_Id) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'No se puede eliminar: el plan tiene membresías asociadas.';
         LEAVE main;
     
-    DELETE FROM [PLAN] WHERE IDPLAN = p_Id;
+    DELETE FROM `PLAN` WHERE IDPLAN = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Plan eliminado.';
 END;

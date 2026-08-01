@@ -27,33 +27,33 @@ CREATE PROCEDURE usp_concepto_insertar(
 main: BEGIN
 SET p_IdGenerado = NULL;
 
-    IF p_Nombre IS NULL OR TRIM(p_Nombre)) = ''
-    BEGIN
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre del concepto.';
         LEAVE main;
     
-    IF p_Costo IS NULL OR p_Costo < 0
-    BEGIN
+    END IF;
+
+    IF p_Costo IS NULL OR p_Costo < 0 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa un costo válido.';
         LEAVE main;
     
-    IF EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE NOMBRE = p_Nombre)
-    BEGIN
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE NOMBRE = p_Nombre) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ya existe un concepto con ese nombre.';
         LEAVE main;
     
     DECLARE v_NextNum INT;
     SELECT IFNULL(MAX(CAST(REPLACE(IDCONCEPTO, 'CON', '') AS INT)), 0) + 1 INTO v_NextNum
     FROM CONCEPTOPAGOEXTRA;
-    SET p_IdGenerado = CONCAT('CON', RIGHT('000' + CAST(v_NextNum AS VARCHAR(3)), 3);
+    SET p_IdGenerado = CONCAT('CON', RIGHT(CONCAT('000', CAST(v_NextNum AS VARCHAR(3))), 3);
 
     INSERT INTO CONCEPTOPAGOEXTRA (IDCONCEPTO, NOMBRE, COSTO, ACTIVO)
     VALUES (
         p_IdGenerado,
         p_Nombre,
         p_Costo,
-        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 
-    );
+        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
 
     SET p_Resultado = 1; SET p_Mensaje = 'Concepto registrado.';
 END;
