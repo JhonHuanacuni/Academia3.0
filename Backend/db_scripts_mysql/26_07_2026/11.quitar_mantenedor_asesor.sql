@@ -1,5 +1,5 @@
 -- ============================================================================
--- Quitar mantenedor Asesores; ASESOR_NOMBRE = usuario logueado (REGISTRADOPOR)
+-- Quitar mantenedor Asesores — ASESOR_NOMBRE desde usuario logueado (REGISTRADOPOR)
 -- Ejecutar después de 10.tutor_codigo_tut.sql — MySQL 8
 -- Fecha: 26/07/2026
 -- ============================================================================

@@ -125,13 +125,20 @@ ORDER = [
 
 
 def _split_on_semicolon(sql: str) -> list[str]:
-    """Divide por ; respetando strings entre comillas simples."""
+    """Divide por ; respetando strings entre comillas simples y comentarios --."""
     parts: list[str] = []
     buf: list[str] = []
     in_str = False
+    in_line_comment = False
     i = 0
     while i < len(sql):
         ch = sql[i]
+        if in_line_comment:
+            buf.append(ch)
+            if ch == '\n':
+                in_line_comment = False
+            i += 1
+            continue
         if ch == "'" and not in_str:
             in_str = True
             buf.append(ch)
@@ -142,6 +149,17 @@ def _split_on_semicolon(sql: str) -> list[str]:
                 i += 1
             else:
                 in_str = False
+        elif (
+            not in_str
+            and ch == '-'
+            and i + 1 < len(sql)
+            and sql[i + 1] == '-'
+        ):
+            in_line_comment = True
+            buf.append(ch)
+            buf.append(sql[i + 1])
+            i += 2
+            continue
         elif ch == ';' and not in_str:
             stmt = ''.join(buf).strip()
             if stmt:
