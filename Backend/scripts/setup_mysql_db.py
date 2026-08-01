@@ -153,11 +153,23 @@ def split_sql(content: str):
     return chunks
 
 
+def _strip_leading_comments(sql: str) -> str:
+    """Quita líneas vacías y comentarios -- al inicio (no descartar CREATE tras un --)."""
+    lines = sql.splitlines()
+    while lines:
+        stripped = lines[0].strip()
+        if not stripped or stripped.startswith('--'):
+            lines.pop(0)
+            continue
+        break
+    return '\n'.join(lines).strip()
+
+
 def run_file(cursor, path: Path):
     sql = path.read_text(encoding='utf-8')
     for stmt in split_sql(sql):
-        s = stmt.strip()
-        if not s or s.startswith('--'):
+        s = _strip_leading_comments(stmt.strip())
+        if not s:
             continue
         if re.match(r'USE\s+', s, re.I):
             continue
