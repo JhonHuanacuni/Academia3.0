@@ -113,6 +113,40 @@ def fix_missing_trim_paren(text: str) -> str:
     return text
 
 
+def fix_if_begin_to_then(text: str) -> str:
+    """IF cond BEGIN -> IF cond THEN (T-SQL residual)."""
+    return re.sub(
+        r'(IF\s+(?:NOT\s+)?EXISTS\s*\([^)]+\))\s*\n\s*BEGIN\b',
+        r'\1 THEN',
+        text,
+        flags=re.I,
+    )
+
+
+def fix_begin_set_to_then(text: str) -> str:
+    """BEGIN SET p_Resultado -> THEN SET p_Resultado."""
+    return re.sub(
+        r'\bBEGIN\s+SET\s+p_',
+        'THEN SET p_',
+        text,
+        flags=re.I,
+    )
+
+
+def fix_len_to_char_length(text: str) -> str:
+    return re.sub(r'\bLEN\(', 'CHAR_LENGTH(', text, flags=re.I)
+
+
+def fix_leave_missing_end_if(text: str) -> str:
+    """LEAVE main; sin END IF antes de SELECT/INSERT (bloque IF colgado)."""
+    return re.sub(
+        r'(LEAVE main;\s*\n)(\s*(?:SELECT|INSERT|UPDATE|DELETE))',
+        r'\1    END IF;\n\n\2',
+        text,
+        flags=re.I,
+    )
+
+
 def fix_file(content: str) -> str:
     content = fix_v_offset_local(content)
     content = fix_end_semicolon_before_end_dollar(content)
@@ -120,6 +154,10 @@ def fix_file(content: str) -> str:
     content = fix_broken_foto_case(content)
     content = fix_trailing_select_in_proc(content)
     content = fix_missing_trim_paren(content)
+    content = fix_if_begin_to_then(content)
+    content = fix_begin_set_to_then(content)
+    content = fix_len_to_char_length(content)
+    content = fix_leave_missing_end_if(content)
     return content
 
 

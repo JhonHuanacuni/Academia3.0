@@ -1,15 +1,10 @@
--- Convertido automáticamente desde db_scripts/16_07_2026/15.usp_materia_crud.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- CRUD MATERIA (con categoría) — MySQL 8
+-- Ejecutar después de 14.usp_categoria_crud.sql
+-- Fecha: 16/07/2026
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   CRUD MATERIA (con categoría)
-   Ejecutar después de 14.usp_categoria_crud.sql
-   Fecha: 16/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_materia_listar;
 
 DROP PROCEDURE IF EXISTS usp_materia_listar;
 
@@ -27,10 +22,11 @@ CREATE PROCEDURE usp_materia_listar(
 )
 main: BEGIN
     DECLARE v_offset INT DEFAULT 0;
-IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
-    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
+    IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
+    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
     SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
+
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM MATERIA m
     LEFT JOIN CATEGORIA c ON c.IDCATEGORIA = m.IDCATEGORIA
@@ -81,15 +77,11 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_materia_obtener;
 
-DROP PROCEDURE IF EXISTS usp_materia_obtener;
-
 DELIMITER $$
 
-CREATE PROCEDURE usp_materia_obtener(
-    IN p_Id VARCHAR(50)
-)
+CREATE PROCEDURE usp_materia_obtener(IN p_Id VARCHAR(50))
 main: BEGIN
-SELECT
+    SELECT
         m.IDMATERIA,
         m.CODIGO,
         m.NOMBRE,
@@ -105,8 +97,6 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_materia_insertar;
 
-DROP PROCEDURE IF EXISTS usp_materia_insertar;
-
 DELIMITER $$
 
 CREATE PROCEDURE usp_materia_insertar(
@@ -119,40 +109,51 @@ CREATE PROCEDURE usp_materia_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código de la materia.'; LEAVE main;     END IF;
+    IF p_Id IS NULL OR TRIM(p_Id) = '' THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el código de la materia.';
+        LEAVE main;
+    END IF;
 
     IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la materia.'; LEAVE main;     END IF;
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la materia.';
+        LEAVE main;
+    END IF;
 
     IF EXISTS (SELECT 1 FROM MATERIA WHERE IDMATERIA = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El código de materia ya existe.'; LEAVE main;     END IF;
+        SET p_Resultado = 0; SET p_Mensaje = 'El código de materia ya existe.';
+        LEAVE main;
+    END IF;
 
     IF EXISTS (SELECT 1 FROM MATERIA WHERE NOMBRE = p_Nombre) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese nombre.'; LEAVE main;     END IF;
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese nombre.';
+        LEAVE main;
+    END IF;
 
     IF p_IdCategoria IS NOT NULL AND TRIM(p_IdCategoria) <> ''
-       AND NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_IdCategoria)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.'; LEAVE main; 
+       AND NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_IdCategoria) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.';
+        LEAVE main;
     END IF;
 
     IF p_Codigo IS NOT NULL AND TRIM(p_Codigo) <> ''
-       AND EXISTS (SELECT 1 FROM MATERIA WHERE CODIGO = p_Codigo)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese código corto.'; LEAVE main; 
+       AND EXISTS (SELECT 1 FROM MATERIA WHERE CODIGO = p_Codigo) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese código corto.';
+        LEAVE main;
+    END IF;
+
     INSERT INTO MATERIA (IDMATERIA, CODIGO, NOMBRE, IDCATEGORIA, ACTIVO)
     VALUES (
         p_Id,
         NULLIF(TRIM(p_Codigo), ''),
         p_Nombre,
         NULLIF(TRIM(p_IdCategoria), ''),
-        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END);
+        CASE WHEN p_Estado = 'Activo' THEN 1 ELSE 0 END
+    );
 
     SET p_Resultado = 1; SET p_Mensaje = 'Materia registrada.';
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_materia_actualizar;
 
 DROP PROCEDURE IF EXISTS usp_materia_actualizar;
 
@@ -168,23 +169,33 @@ CREATE PROCEDURE usp_materia_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM MATERIA WHERE IDMATERIA = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'La materia no existe.'; LEAVE main;     END IF;
+    IF NOT EXISTS (SELECT 1 FROM MATERIA WHERE IDMATERIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La materia no existe.';
+        LEAVE main;
+    END IF;
 
     IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la materia.'; LEAVE main;     END IF;
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingresa el nombre de la materia.';
+        LEAVE main;
+    END IF;
 
     IF EXISTS (SELECT 1 FROM MATERIA WHERE NOMBRE = p_Nombre AND IDMATERIA <> p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese nombre.'; LEAVE main;     END IF;
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese nombre.';
+        LEAVE main;
+    END IF;
 
     IF p_IdCategoria IS NOT NULL AND TRIM(p_IdCategoria) <> ''
-       AND NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_IdCategoria)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.'; LEAVE main; 
+       AND NOT EXISTS (SELECT 1 FROM CATEGORIA WHERE IDCATEGORIA = p_IdCategoria) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La categoría no existe.';
+        LEAVE main;
     END IF;
 
     IF p_Codigo IS NOT NULL AND TRIM(p_Codigo) <> ''
-       AND EXISTS (SELECT 1 FROM MATERIA WHERE CODIGO = p_Codigo AND IDMATERIA <> p_Id)
-    BEGIN SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese código corto.'; LEAVE main; 
+       AND EXISTS (SELECT 1 FROM MATERIA WHERE CODIGO = p_Codigo AND IDMATERIA <> p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'Ya existe una materia con ese código corto.';
+        LEAVE main;
+    END IF;
+
     UPDATE MATERIA SET
         CODIGO      = NULLIF(TRIM(p_Codigo), ''),
         NOMBRE      = p_Nombre,
@@ -199,8 +210,6 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_materia_eliminar;
 
-DROP PROCEDURE IF EXISTS usp_materia_eliminar;
-
 DELIMITER $$
 
 CREATE PROCEDURE usp_materia_eliminar(
@@ -209,28 +218,31 @@ CREATE PROCEDURE usp_materia_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM MATERIA WHERE IDMATERIA = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'La materia no existe.'; LEAVE main;     END IF;
+    IF NOT EXISTS (SELECT 1 FROM MATERIA WHERE IDMATERIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'La materia no existe.';
+        LEAVE main;
+    END IF;
 
-    IF (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PREGUNTA') > 0
-       AND EXISTS (SELECT 1 FROM PREGUNTA WHERE IDMATERIA = p_Id)
-    BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PREGUNTA'
+    ) AND EXISTS (SELECT 1 FROM PREGUNTA WHERE IDMATERIA = p_Id) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'No se puede eliminar: la materia tiene preguntas asociadas.';
         LEAVE main;
-    
     END IF;
 
-    IF (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'LIBRO_MATERIA') > 0
-       AND EXISTS (SELECT 1 FROM LIBRO_MATERIA WHERE IDMATERIA = p_Id)
-    BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'LIBRO_MATERIA'
+    ) AND EXISTS (SELECT 1 FROM LIBRO_MATERIA WHERE IDMATERIA = p_Id) THEN
         SET p_Resultado = 0;
         SET p_Mensaje = 'No se puede eliminar: la materia está ligada a libros.';
         LEAVE main;
-    
     END IF;
 
     DELETE FROM MATERIA WHERE IDMATERIA = p_Id;
+
     SET p_Resultado = 1; SET p_Mensaje = 'Materia eliminada.';
 END$$
 

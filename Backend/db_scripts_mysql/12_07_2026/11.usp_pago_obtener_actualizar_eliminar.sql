@@ -1,25 +1,16 @@
--- Convertido automáticamente desde db_scripts/12_07_2026/11.usp_pago_obtener_actualizar_eliminar.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- Pagos: obtener, actualizar y eliminar — MySQL 8
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   Pagos: obtener, actualizar y eliminar
-   Ejecutar después de 10.comoentero_a_usuario.sql
-   Fecha: 12/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_pago_obtener;
 
 DROP PROCEDURE IF EXISTS usp_pago_obtener;
 
 DELIMITER $$
 
-CREATE PROCEDURE usp_pago_obtener(
-    IN p_Id VARCHAR(50)
-)
+CREATE PROCEDURE usp_pago_obtener(IN p_Id VARCHAR(50))
 main: BEGIN
-SELECT
+    SELECT
         p.IDPAGOMEMBRESIA,
         p.IDMEMBRESIA,
         p.MONTO,
@@ -47,14 +38,11 @@ SELECT
         SELECT SUM(x.MONTO) AS PAGADO
         FROM PAGOMEMBRESIA x
         WHERE x.IDMEMBRESIA = m.IDMEMBRESIA
-        LIMIT 1
     ) pag ON TRUE
     WHERE p.IDPAGOMEMBRESIA = p_Id;
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_pago_actualizar;
 
 DROP PROCEDURE IF EXISTS usp_pago_actualizar;
 
@@ -70,39 +58,48 @@ CREATE PROCEDURE usp_pago_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.'; LEAVE main;     END IF;
+    DECLARE v_IdMembresia VARCHAR(50);
+    DECLARE v_MontoTotal DECIMAL(10,2) DEFAULT 0;
+    DECLARE v_PagadoOtros DECIMAL(10,2) DEFAULT 0;
+    DECLARE v_Maximo DECIMAL(10,2) DEFAULT 0;
 
+    IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.'; LEAVE main;
+    END IF;
     IF p_Monto IS NULL OR p_Monto <= 0 THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Ingrese un monto válido.'; LEAVE main;     END IF;
-
+        SET p_Resultado = 0; SET p_Mensaje = 'Ingrese un monto válido.'; LEAVE main;
+    END IF;
     IF p_IdMetodoPago IS NULL OR p_IdMetodoPago = '' THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago.'; LEAVE main;     END IF;
-
+        SET p_Resultado = 0; SET p_Mensaje = 'Indique el método de pago.'; LEAVE main;
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM METODO_PAGO WHERE IDMETODOPAGO = p_IdMetodoPago AND ACTIVO = 1) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El método de pago no es válido.'; LEAVE main;     END IF;
-SELECT IDMEMBRESIA, v_MontoAnterior = MONTO INTO v_IdMembresia
+        SET p_Resultado = 0; SET p_Mensaje = 'El método de pago no es válido.'; LEAVE main;
+    END IF;
+
+    SELECT IDMEMBRESIA INTO v_IdMembresia
     FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id;
 
-    SELECT IFNULL(MONTOTOTAL, 0) FROM MEMBRESIA WHERE IDMEMBRESIA = v_IdMembresia INTO v_MontoTotal;
+    SELECT IFNULL(MONTOTOTAL, 0) INTO v_MontoTotal
+    FROM MEMBRESIA WHERE IDMEMBRESIA = v_IdMembresia;
+
     SELECT IFNULL(SUM(MONTO), 0) INTO v_PagadoOtros
     FROM PAGOMEMBRESIA
     WHERE IDMEMBRESIA = v_IdMembresia AND IDPAGOMEMBRESIA <> p_Id;
 
     SET v_Maximo = v_MontoTotal - v_PagadoOtros;
     IF v_Maximo < 0 THEN SET v_Maximo = 0; END IF;
+
     IF p_Monto > v_Maximo THEN
         SET p_Resultado = 0;
         SET p_Mensaje = CONCAT('El monto no puede superar S/ ', CAST(v_Maximo AS CHAR(20)), '.');
         LEAVE main;
-    
     END IF;
 
     UPDATE PAGOMEMBRESIA SET
-        MONTO          = p_Monto,
-        IDMETODOPAGO   = p_IdMetodoPago,
-        FECHAPAGO      = CASE WHEN p_FechaPago IS NOT NULL AND p_FechaPago <> '' THEN p_FechaPago ELSE FECHAPAGO END,
-        OBSERVACIONES  = p_Observaciones
+        MONTO = p_Monto,
+        IDMETODOPAGO = p_IdMetodoPago,
+        FECHAPAGO = CASE WHEN p_FechaPago IS NOT NULL AND p_FechaPago <> '' THEN p_FechaPago ELSE FECHAPAGO END,
+        OBSERVACIONES = p_Observaciones
     WHERE IDPAGOMEMBRESIA = p_Id;
 
     SET p_Resultado = 1;
@@ -110,8 +107,6 @@ SELECT IDMEMBRESIA, v_MontoAnterior = MONTO INTO v_IdMembresia
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_pago_eliminar;
 
 DROP PROCEDURE IF EXISTS usp_pago_eliminar;
 
@@ -123,8 +118,10 @@ CREATE PROCEDURE usp_pago_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.'; LEAVE main;     END IF;
+    IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id) THEN
+        SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.'; LEAVE main;
+    END IF;
+
     DELETE FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id;
 
     SET p_Resultado = 1;
@@ -132,3 +129,5 @@ IF NOT EXISTS (SELECT 1 FROM PAGOMEMBRESIA WHERE IDPAGOMEMBRESIA = p_Id) THEN
 END$$
 
 DELIMITER ;
+
+SELECT 'SPs pago obtener / actualizar / eliminar creados.' AS info;

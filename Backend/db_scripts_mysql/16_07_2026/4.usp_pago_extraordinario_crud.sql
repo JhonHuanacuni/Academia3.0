@@ -1,15 +1,10 @@
--- Convertido automáticamente desde db_scripts/16_07_2026/4.usp_pago_extraordinario_crud.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- CRUD PAGOEXTRAORDINARIO — MySQL 8
+-- Prerequisito: 3.pago_extraordinario_tabla.sql
+-- Fecha: 16/07/2026
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   CRUD PAGOEXTRAORDINARIO
-   Prerequisito: 3.pago_extraordinario_tabla.sql
-   Fecha: 16/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_pagoextra_listar;
 
 DROP PROCEDURE IF EXISTS usp_pagoextra_listar;
 
@@ -25,10 +20,11 @@ CREATE PROCEDURE usp_pagoextra_listar(
 )
 main: BEGIN
     DECLARE v_offset INT DEFAULT 0;
-IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
-    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
 
+    IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
+    IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
     SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
+
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM PAGOEXTRAORDINARIO p
     INNER JOIN USUARIO u ON u.IDUSUARIO = p.IDUSUARIO
@@ -78,15 +74,11 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_pagoextra_obtener;
 
-DROP PROCEDURE IF EXISTS usp_pagoextra_obtener;
-
 DELIMITER $$
 
-CREATE PROCEDURE usp_pagoextra_obtener(
-    IN p_Id VARCHAR(50)
-)
+CREATE PROCEDURE usp_pagoextra_obtener(IN p_Id VARCHAR(50))
 main: BEGIN
-SELECT
+    SELECT
         p.IDPAGOEXTRA,
         p.IDUSUARIO,
         UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
@@ -109,8 +101,6 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_pagoextra_insertar;
 
-DROP PROCEDURE IF EXISTS usp_pagoextra_insertar;
-
 DELIMITER $$
 
 CREATE PROCEDURE usp_pagoextra_insertar(
@@ -127,67 +117,61 @@ CREATE PROCEDURE usp_pagoextra_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-SET p_IdGenerado = NULL;
+    DECLARE v_NextNum INT DEFAULT 0;
+
+    SET p_IdGenerado = NULL;
 
     IF p_IdUsuario IS NULL OR TRIM(p_IdUsuario) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un estudiante.';
         LEAVE main;
-    
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_IdUsuario) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El estudiante no existe.';
         LEAVE main;
-    
     END IF;
 
     IF p_IdConcepto IS NULL OR TRIM(p_IdConcepto) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un concepto.';
         LEAVE main;
-    
     END IF;
 
     IF NOT EXISTS (
         SELECT 1 FROM CONCEPTOPAGOEXTRA
         WHERE IDCONCEPTO = p_IdConcepto
           AND ACTIVO = 1
-          AND FECHAINICIO IS NOT NULL AND LEN(FECHAINICIO) = 8
-          AND FECHAFIN IS NOT NULL AND LEN(FECHAFIN) = 8
-          AND CAST(NOW() AS DATE) >= CONCAT(CONVERT(DATE,
-                SUBSTRING(FECHAINICIO, 5, 4), SUBSTRING(FECHAINICIO, 3, 2)) + SUBSTRING(FECHAINICIO, 1, 2), 112)
-          AND CAST(NOW() AS DATE) <= CONCAT(CONVERT(DATE,
-                SUBSTRING(FECHAFIN, 5, 4), SUBSTRING(FECHAFIN, 3, 2)) + SUBSTRING(FECHAFIN, 1, 2), 112)
-    )
-    BEGIN
+          AND FECHAINICIO IS NOT NULL AND CHAR_LENGTH(FECHAINICIO) = 8
+          AND FECHAFIN IS NOT NULL AND CHAR_LENGTH(FECHAFIN) = 8
+          AND CURDATE() >= STR_TO_DATE(FECHAINICIO, '%d%m%Y')
+          AND CURDATE() <= STR_TO_DATE(FECHAFIN, '%d%m%Y')
+    ) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El concepto no está activo o no está vigente en la fecha actual.';
         LEAVE main;
-    
     END IF;
 
     IF p_Monto IS NULL OR p_Monto <= 0 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa un monto válido.';
         LEAVE main;
-    
     END IF;
 
-    IF p_FechaPago IS NULL OR LEN(p_FechaPago) <> 8 THEN
+    IF p_FechaPago IS NULL OR CHAR_LENGTH(p_FechaPago) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha del pago.';
         LEAVE main;
-    
     END IF;
 
-    IF p_FechaInicio IS NULL OR LEN(p_FechaInicio) <> 8 THEN
+    IF p_FechaInicio IS NULL OR CHAR_LENGTH(p_FechaInicio) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha de inicio.';
         LEAVE main;
-    
     END IF;
 
-    IF p_FechaFin IS NULL OR LEN(p_FechaFin) <> 8 THEN
+    IF p_FechaFin IS NULL OR CHAR_LENGTH(p_FechaFin) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha final.';
         LEAVE main;
-SELECT IFNULL(MAX(CAST(REPLACE(IDPAGOEXTRA, 'PEX', '') AS INT)), 0) + 1 INTO v_NextNum
+    END IF;
+
+    SELECT IFNULL(MAX(CAST(REPLACE(IDPAGOEXTRA, 'PEX', '') AS UNSIGNED)), 0) + 1 INTO v_NextNum
     FROM PAGOEXTRAORDINARIO;
-    SET p_IdGenerado = CONCAT('PEX', RIGHT(CONCAT('00000', CAST(v_NextNum AS CHAR(5))), 5);
+    SET p_IdGenerado = CONCAT('PEX', LPAD(CAST(v_NextNum AS CHAR), 5, '0'));
 
     INSERT INTO PAGOEXTRAORDINARIO (
         IDPAGOEXTRA, IDUSUARIO, IDCONCEPTO, MONTO,
@@ -199,12 +183,9 @@ SELECT IFNULL(MAX(CAST(REPLACE(IDPAGOEXTRA, 'PEX', '') AS INT)), 0) + 1 INTO v_N
     );
 
     SET p_Resultado = 1; SET p_Mensaje = 'Pago extraordinario registrado.';
-    SELECT p_IdGenerado AS IdGenerado, p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_pagoextra_actualizar;
 
 DROP PROCEDURE IF EXISTS usp_pagoextra_actualizar;
 
@@ -222,42 +203,35 @@ CREATE PROCEDURE usp_pagoextra_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id) THEN
+    IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.';
         LEAVE main;
-    
     END IF;
 
     IF p_IdConcepto IS NULL OR TRIM(p_IdConcepto) = '' THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Selecciona un concepto.';
         LEAVE main;
-    
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM CONCEPTOPAGOEXTRA WHERE IDCONCEPTO = p_IdConcepto) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El concepto no existe.';
         LEAVE main;
-    
     END IF;
 
     IF p_Monto IS NULL OR p_Monto <= 0 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa un monto válido.';
         LEAVE main;
-    
     END IF;
 
-    IF p_FechaPago IS NULL OR LEN(p_FechaPago) <> 8 THEN
+    IF p_FechaPago IS NULL OR CHAR_LENGTH(p_FechaPago) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa la fecha del pago.';
         LEAVE main;
-    
     END IF;
 
-    IF p_FechaInicio IS NULL OR LEN(p_FechaInicio) <> 8
-       OR p_FechaFin IS NULL OR LEN(p_FechaFin) <> 8
-    BEGIN
+    IF p_FechaInicio IS NULL OR CHAR_LENGTH(p_FechaInicio) <> 8
+       OR p_FechaFin IS NULL OR CHAR_LENGTH(p_FechaFin) <> 8 THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Ingresa las fechas de inicio y fin.';
         LEAVE main;
-    
     END IF;
 
     UPDATE PAGOEXTRAORDINARIO SET
@@ -276,8 +250,6 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_pagoextra_eliminar;
 
-DROP PROCEDURE IF EXISTS usp_pagoextra_eliminar;
-
 DELIMITER $$
 
 CREATE PROCEDURE usp_pagoextra_eliminar(
@@ -286,10 +258,9 @@ CREATE PROCEDURE usp_pagoextra_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id) THEN
+    IF NOT EXISTS (SELECT 1 FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El pago no existe.';
         LEAVE main;
-    
     END IF;
 
     DELETE FROM PAGOEXTRAORDINARIO WHERE IDPAGOEXTRA = p_Id;
