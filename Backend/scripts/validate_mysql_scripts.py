@@ -3,8 +3,8 @@ Valida todos los scripts del ORDER ejecutándolos contra MySQL.
 Lista TODOS los errores sin detenerse en el primero (modo --continue).
 
 Uso (desde Backend/ con venv y MySQL corriendo):
-  python scripts/validate_mysql_scripts.py
-  python scripts/validate_mysql_scripts.py --from 06_07_2026/2.usp_asistencia_informe.sql
+  venv/bin/python scripts/validate_mysql_scripts.py
+  venv/bin/python scripts/validate_mysql_scripts.py --from 06_07_2026/5.usp_usuario_foto.sql
 """
 from __future__ import annotations
 

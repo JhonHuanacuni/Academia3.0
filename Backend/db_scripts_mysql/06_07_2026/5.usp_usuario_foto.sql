@@ -1,25 +1,17 @@
--- Convertido automáticamente desde db_scripts/06_07_2026/5.usp_usuario_foto.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- SPs usuario: soporte columna FOTO (Base64) — MySQL 8
+-- Ejecutar después de 4.usuario_columna_foto.sql
+-- ============================================================================
 
 USE `AcademiaDB`;
-
-/* ============================================================================
-   SPs usuario: soporte columna FOTO (Base64)
-   Ejecutar después de 4.usuario_columna_foto.sql
-   Fecha: 06/07/2026
-   ============================================================================ */
-
-DROP PROCEDURE IF EXISTS usp_usuario_obtener;
 
 DROP PROCEDURE IF EXISTS usp_usuario_obtener;
 
 DELIMITER $$
 
-CREATE PROCEDURE usp_usuario_obtener(
-    IN p_Id VARCHAR(50)
-)
+CREATE PROCEDURE usp_usuario_obtener(IN p_Id VARCHAR(50))
 main: BEGIN
-SELECT
+    SELECT
         u.IDUSUARIO,
         u.NOMBRE,
         u.APELLIDO,
@@ -47,8 +39,6 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS usp_usuario_insertar;
 
-DROP PROCEDURE IF EXISTS usp_usuario_insertar;
-
 DELIMITER $$
 
 CREATE PROCEDURE usp_usuario_insertar(
@@ -73,28 +63,26 @@ CREATE PROCEDURE usp_usuario_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El usuario ya existe.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El DNI ya está registrado.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El email ya está registrado.';
         LEAVE main;
-    
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.';
         LEAVE main;
-    
+    END IF;
+
     INSERT INTO USUARIO (
         IDUSUARIO, CONTRA, NOMBRE, APELLIDO, DNI, EMAIL, IDTIPOUSUARIO, ESTADO,
         FECHANACIMIENTO, DIRECCION, DISTRITO, COLEGIO, GRADO,
@@ -106,12 +94,9 @@ IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
     );
 
     SET p_Resultado = 1; SET p_Mensaje = 'Usuario creado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_usuario_actualizar;
 
 DROP PROCEDURE IF EXISTS usp_usuario_actualizar;
 
@@ -140,22 +125,21 @@ CREATE PROCEDURE usp_usuario_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
+    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni AND IDUSUARIO <> p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El DNI ya está registrado.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email AND IDUSUARIO <> p_Id) THEN
         SET p_Resultado = 0; SET p_Mensaje = 'El email ya está registrado.';
         LEAVE main;
-    
+    END IF;
+
     UPDATE USUARIO SET
         NOMBRE             = p_Nombre,
         APELLIDO           = p_Apellido,
@@ -172,14 +156,12 @@ IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         TELAPODERADO       = p_TelApoderado,
         SITUACIONACADEMICA = p_SituacionAcademica,
         CONTRA             = CASE WHEN p_Contra IS NOT NULL AND p_Contra <> '' THEN p_Contra ELSE CONTRA END,
-        FOTO               = CASE WHEN p_ActualizarFoto = 1 THEN p_Foto ELSE FOTO 
+        FOTO               = CASE WHEN p_ActualizarFoto = 1 THEN p_Foto ELSE FOTO END
     WHERE IDUSUARIO = p_Id;
 
     SET p_Resultado = 1; SET p_Mensaje = 'Usuario actualizado.';
-END;
-
-SELECT 'usp_usuario_obtener / insertar / actualizar actualizados con FOTO.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
 END$$
 
 DELIMITER ;
+
+SELECT 'usp_usuario_obtener / insertar / actualizar actualizados con FOTO.' AS info;
