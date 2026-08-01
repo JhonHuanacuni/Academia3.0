@@ -17,10 +17,20 @@ import pymysql
 from dotenv import load_dotenv
 
 from setup_mysql_db import ORDER, SCRIPTS_DIR, split_sql, _strip_leading_comments, _connect
+from install_auditoria_triggers import install_auditoria_triggers
 
 
 def validate_file(cursor, rel: str, path: Path) -> list[str]:
     import re
+
+    if rel == '30_07_2026/5.triggers_auditoria.sql':
+        errors = []
+        try:
+            install_auditoria_triggers(cursor)
+        except pymysql.err.MySQLError as exc:
+            msg = exc.args[1] if len(exc.args) > 1 else str(exc)
+            errors.append(f'  install_auditoria_triggers: {msg[:300]}')
+        return errors
 
     errors = []
     sql = path.read_text(encoding='utf-8')

@@ -227,7 +227,13 @@ def _strip_leading_comments(sql: str) -> str:
     return '\n'.join(lines).strip()
 
 
-def run_file(cursor, path: Path):
+def run_file(cursor, path: Path, rel: str | None = None):
+    if rel == '30_07_2026/5.triggers_auditoria.sql':
+        from install_auditoria_triggers import install_auditoria_triggers
+
+        install_auditoria_triggers(cursor)
+        return
+
     sql = path.read_text(encoding='utf-8')
     for n, stmt in enumerate(split_sql(sql), start=1):
         s = _strip_leading_comments(stmt.strip())
@@ -318,7 +324,7 @@ def main():
                     print(f'FALTA: {path}', file=sys.stderr)
                     sys.exit(1)
                 print(f'>>> {rel}')
-                run_file(cur, path)
+                run_file(cur, path, rel)
         print(f'OK: {db_name} lista.')
     finally:
         conn.close()
