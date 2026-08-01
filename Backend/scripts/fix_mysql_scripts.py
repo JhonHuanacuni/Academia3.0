@@ -126,6 +126,7 @@ SKIP_FIX = {
     '30_07_2026/5.triggers_auditoria.sql',
     '22_06_2026/submodulos_admin.sql',
     '22_06_2026/usp_asistencia.sql',
+    '22_06_2026/usp_usuario_crud.sql',
     '29_06_2026/modulo_academico.sql',
     '06_07_2026/1.modulo_informes.sql',
     '12_07_2026/13.modulo_mantenedores.sql',
@@ -301,6 +302,47 @@ def fix_if_not_exists_seed_insert(text: str) -> str:
     return text
 
 
+def fix_limit_offset(text: str) -> str:
+    """MySQL no permite expresiones en OFFSET; usar variable v_offset."""
+    if 'OFFSET ((p_Pagina - 1) * p_TamanioPagina)' not in text:
+        return text
+
+    parts = re.split(r'(CREATE PROCEDURE[\s\S]*?END\$\$)', text)
+    fixed_parts = []
+    for part in parts:
+        if (
+            part.startswith('CREATE PROCEDURE')
+            and 'OFFSET ((p_Pagina - 1) * p_TamanioPagina)' in part
+        ):
+            if 'DECLARE v_offset' not in part:
+                part = re.sub(
+                    r'(main:\s*BEGIN\s*\n)',
+                    r'\1    DECLARE v_offset INT DEFAULT 0;\n',
+                    part,
+                    count=1,
+                )
+            if 'SET v_offset' not in part:
+                part = re.sub(
+                    r'(IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = \d+; END IF;\s*\n)',
+                    r'\1    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;\n',
+                    part,
+                    count=1,
+                )
+            if 'SET v_offset' not in part:
+                part = re.sub(
+                    r'(main:\s*BEGIN\s*\n(?:\s*DECLARE v_offset[^\n]+\n)?)',
+                    r'\1    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;\n',
+                    part,
+                    count=1,
+                )
+            part = part.replace(
+                'LIMIT p_TamanioPagina OFFSET ((p_Pagina - 1) * p_TamanioPagina)',
+                'LIMIT p_TamanioPagina OFFSET v_offset',
+            )
+        fixed_parts.append(part)
+    return ''.join(fixed_parts)
+
+
 def fix_sys_indexes_block(text: str) -> str:
     return re.sub(
         r"IF NOT EXISTS\s*\(\s*SELECT 1 FROM sys\.indexes[\s\S]*?\)\s*BEGIN\s*"
@@ -449,6 +491,7 @@ def fix_file(content: str) -> str:
     content = fix_broken_usuario_nombre_concat(content)
     content = fix_string_concat(content)
     content = fix_constraint_default(content)
+    content = fix_limit_offset(content)
     content = fix_sys_indexes_block(content)
     content = fix_sys_foreign_keys(content)
     content = fix_add_column_blocks(content)

@@ -1,17 +1,14 @@
--- Convertido automáticamente desde db_scripts/22_06_2026/usp_usuario_crud.sql
--- MySQL 8 — Academia 3.0
+-- ============================================================================
+-- CRUD USUARIO — Mantenedor Listado Usuario (SUB002) — MySQL 8
+-- ============================================================================
 
 USE `AcademiaDB`;
 
-/* ============================================================================
-   CRUD USUARIO — Mantenedor Listado Usuario (SUB002)
-   5 SPs estándar: listar, obtener, insertar, actualizar, eliminar
-   Fecha: 22/06/2026
-   ============================================================================ */
-
 DROP PROCEDURE IF EXISTS usp_usuario_listar;
-
-DROP PROCEDURE IF EXISTS usp_usuario_listar;
+DROP PROCEDURE IF EXISTS usp_usuario_obtener;
+DROP PROCEDURE IF EXISTS usp_usuario_insertar;
+DROP PROCEDURE IF EXISTS usp_usuario_actualizar;
+DROP PROCEDURE IF EXISTS usp_usuario_eliminar;
 
 DELIMITER $$
 
@@ -25,18 +22,21 @@ CREATE PROCEDURE usp_usuario_listar(
     OUT p_TotalRegistros INT
 )
 main: BEGIN
-IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
+    DECLARE v_offset INT DEFAULT 0;
+
+    IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     IF p_TamanioPagina < 1 THEN SET p_TamanioPagina = 10; END IF;
+    SET v_offset = (p_Pagina - 1) * p_TamanioPagina;
 
     SELECT COUNT(*) INTO p_TotalRegistros
     FROM USUARIO u
     INNER JOIN TIPOUSUARIO t ON t.IDTIPOUSUARIO = u.IDTIPOUSUARIO
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
-           u.IDUSUARIO  LIKE CONCAT('%', p_Buscar, '%') OR
-           u.NOMBRE     LIKE CONCAT('%', p_Buscar, '%') OR
-           u.APELLIDO   LIKE CONCAT('%', p_Buscar, '%') OR
-           u.DNI        LIKE CONCAT('%', p_Buscar, '%') OR
-           u.EMAIL      LIKE CONCAT('%', p_Buscar, '%'))
+           u.IDUSUARIO LIKE CONCAT('%', p_Buscar, '%') OR
+           u.NOMBRE LIKE CONCAT('%', p_Buscar, '%') OR
+           u.APELLIDO LIKE CONCAT('%', p_Buscar, '%') OR
+           u.DNI LIKE CONCAT('%', p_Buscar, '%') OR
+           u.EMAIL LIKE CONCAT('%', p_Buscar, '%'))
       AND (p_Estado IS NULL OR p_Estado = '' OR u.ESTADO = p_Estado);
 
     SELECT
@@ -59,11 +59,11 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
     FROM USUARIO u
     INNER JOIN TIPOUSUARIO t ON t.IDTIPOUSUARIO = u.IDTIPOUSUARIO
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
-           u.IDUSUARIO  LIKE CONCAT('%', p_Buscar, '%') OR
-           u.NOMBRE     LIKE CONCAT('%', p_Buscar, '%') OR
-           u.APELLIDO   LIKE CONCAT('%', p_Buscar, '%') OR
-           u.DNI        LIKE CONCAT('%', p_Buscar, '%') OR
-           u.EMAIL      LIKE CONCAT('%', p_Buscar, '%'))
+           u.IDUSUARIO LIKE CONCAT('%', p_Buscar, '%') OR
+           u.NOMBRE LIKE CONCAT('%', p_Buscar, '%') OR
+           u.APELLIDO LIKE CONCAT('%', p_Buscar, '%') OR
+           u.DNI LIKE CONCAT('%', p_Buscar, '%') OR
+           u.EMAIL LIKE CONCAT('%', p_Buscar, '%'))
       AND (p_Estado IS NULL OR p_Estado = '' OR u.ESTADO = p_Estado)
     ORDER BY
         CASE WHEN p_OrdenarPor = 'IDUSUARIO' AND p_Direccion = 'ASC'  THEN u.IDUSUARIO END ASC,
@@ -79,23 +79,14 @@ IF p_Pagina < 1 THEN SET p_Pagina = 1; END IF;
         CASE WHEN p_OrdenarPor = 'ESTADO'    AND p_Direccion = 'ASC'  THEN u.ESTADO END ASC,
         CASE WHEN p_OrdenarPor = 'ESTADO'    AND p_Direccion = 'DESC' THEN u.ESTADO END DESC,
         u.IDUSUARIO
-    LIMIT p_TamanioPagina OFFSET ((p_Pagina - 1) * p_TamanioPagina);
-    SELECT p_TotalRegistros AS TotalRegistros
+    LIMIT p_TamanioPagina OFFSET v_offset;
 END$$
-
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_usuario_obtener;
-
-DROP PROCEDURE IF EXISTS usp_usuario_obtener;
-
-DELIMITER $$
 
 CREATE PROCEDURE usp_usuario_obtener(
     IN p_Id VARCHAR(50)
 )
 main: BEGIN
-SELECT
+    SELECT
         u.IDUSUARIO,
         u.NOMBRE,
         u.APELLIDO,
@@ -118,14 +109,6 @@ SELECT
     WHERE u.IDUSUARIO = p_Id;
 END$$
 
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_usuario_insertar;
-
-DROP PROCEDURE IF EXISTS usp_usuario_insertar;
-
-DELIMITER $$
-
 CREATE PROCEDURE usp_usuario_insertar(
     IN p_Id VARCHAR(50),
     IN p_Contra VARCHAR(255),
@@ -147,28 +130,30 @@ CREATE PROCEDURE usp_usuario_insertar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El usuario ya existe.';
+    IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El usuario ya existe.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El DNI ya está registrado.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El DNI ya está registrado.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El email ya está registrado.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El email ya está registrado.';
         LEAVE main;
-    
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM TIPOUSUARIO WHERE IDTIPOUSUARIO = p_IdTipoUsuario) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'Tipo de usuario no válido.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'Tipo de usuario no válido.';
         LEAVE main;
-    
+    END IF;
+
     INSERT INTO USUARIO (
         IDUSUARIO, CONTRA, NOMBRE, APELLIDO, DNI, EMAIL, IDTIPOUSUARIO, ESTADO,
         FECHANACIMIENTO, DIRECCION, DISTRITO, COLEGIO, GRADO,
@@ -179,17 +164,9 @@ IF EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         p_TelPersonal, p_TelApoderado, p_SituacionAcademica, fn_fecha_ddmmyyyy()
     );
 
-    SET p_Resultado = 1; SET p_Mensaje = 'Usuario creado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Usuario creado.';
 END$$
-
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_usuario_actualizar;
-
-DROP PROCEDURE IF EXISTS usp_usuario_actualizar;
-
-DELIMITER $$
 
 CREATE PROCEDURE usp_usuario_actualizar(
     IN p_Id VARCHAR(50),
@@ -212,22 +189,24 @@ CREATE PROCEDURE usp_usuario_actualizar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El usuario no existe.';
+    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE DNI = p_Dni AND IDUSUARIO <> p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El DNI ya está registrado.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El DNI ya está registrado.';
         LEAVE main;
-    
     END IF;
 
     IF EXISTS (SELECT 1 FROM USUARIO WHERE EMAIL = p_Email AND IDUSUARIO <> p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El email ya está registrado.';
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El email ya está registrado.';
         LEAVE main;
-    
+    END IF;
+
     UPDATE USUARIO SET
         NOMBRE             = p_Nombre,
         APELLIDO           = p_Apellido,
@@ -243,20 +222,15 @@ IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
         TELPERSONAL        = p_TelPersonal,
         TELAPODERADO       = p_TelApoderado,
         SITUACIONACADEMICA = p_SituacionAcademica,
-        CONTRA             = CASE WHEN p_Contra IS NOT NULL AND p_Contra <> '' THEN p_Contra ELSE CONTRA 
+        CONTRA             = CASE
+            WHEN p_Contra IS NOT NULL AND p_Contra <> '' THEN p_Contra
+            ELSE CONTRA
+        END
     WHERE IDUSUARIO = p_Id;
 
-    SET p_Resultado = 1; SET p_Mensaje = 'Usuario actualizado.';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Usuario actualizado.';
 END$$
-
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS usp_usuario_eliminar;
-
-DROP PROCEDURE IF EXISTS usp_usuario_eliminar;
-
-DELIMITER $$
 
 CREATE PROCEDURE usp_usuario_eliminar(
     IN p_Id VARCHAR(50),
@@ -264,17 +238,18 @@ CREATE PROCEDURE usp_usuario_eliminar(
     OUT p_Mensaje VARCHAR(200)
 )
 main: BEGIN
-IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
-        SET p_Resultado = 0; SET p_Mensaje = 'El usuario no existe.';
+    IF NOT EXISTS (SELECT 1 FROM USUARIO WHERE IDUSUARIO = p_Id) THEN
+        SET p_Resultado = 0;
+        SET p_Mensaje = 'El usuario no existe.';
         LEAVE main;
-    
+    END IF;
+
     UPDATE USUARIO SET ESTADO = 'Inactivo' WHERE IDUSUARIO = p_Id;
 
-    SET p_Resultado = 1; SET p_Mensaje = 'Usuario eliminado.';
-END;
-
-SELECT 'usp_usuario_crud.sql ejecutado correctamente';
-    SELECT p_Resultado AS Resultado, p_Mensaje AS Mensaje
+    SET p_Resultado = 1;
+    SET p_Mensaje = 'Usuario eliminado.';
 END$$
 
 DELIMITER ;
+
+SELECT 'usp_usuario_crud.sql ejecutado correctamente.' AS info;
