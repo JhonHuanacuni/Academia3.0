@@ -46,7 +46,7 @@ WHERE NOT EXISTS (SELECT 1 FROM TIPO_PERMISO LIMIT 1);
 
 INSERT INTO MODULO (IDMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, FECHACREACION)
 SELECT * FROM (
-    SELECT 'MOD001', 'Dashboard', 'Panel de control principal', 'faGauge', 1, 1, fn_fecha_ddmmyyyy() UNION ALL
+    SELECT 'MOD001' AS IDMODULO, 'Dashboard' AS NOMBRE, 'Panel de control principal' AS DESCRIPCION, 'faGauge' AS ICONO, 1 AS ORDEN, 1 AS ACTIVO, fn_fecha_ddmmyyyy() AS FECHACREACION UNION ALL
     SELECT 'MOD002', 'Usuarios', 'Gestión de usuarios y roles', 'faUsers', 2, 1, fn_fecha_ddmmyyyy() UNION ALL
     SELECT 'MOD003', 'Asistencias', 'Control de asistencias', 'faCalendarCheck', 3, 1, fn_fecha_ddmmyyyy() UNION ALL
     SELECT 'MOD004', 'Membresías', 'Gestión de membresías y pagos', 'faIdCard', 4, 1, fn_fecha_ddmmyyyy() UNION ALL
@@ -59,7 +59,7 @@ WHERE NOT EXISTS (SELECT 1 FROM MODULO LIMIT 1);
 
 INSERT INTO SUBMODULO (IDSUBMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, IDMODULO)
 SELECT * FROM (
-    SELECT 'SUB002', 'Listado de usuarios', 'Ver y gestionar usuarios', 'faClipboardList', 1, 1, 'MOD002' UNION ALL
+    SELECT 'SUB002' AS IDSUBMODULO, 'Listado de usuarios' AS NOMBRE, 'Ver y gestionar usuarios' AS DESCRIPCION, 'faClipboardList' AS ICONO, 1 AS ORDEN, 1 AS ACTIVO, 'MOD002' AS IDMODULO UNION ALL
     SELECT 'SUB003', 'Marcar asistencia', 'Registrar asistencia', 'faCalendarCheck', 1, 1, 'MOD003' UNION ALL
     SELECT 'SUB004', 'Ver asistencias', 'Historial de asistencias', 'faClipboardList', 2, 1, 'MOD003' UNION ALL
     SELECT 'SUB005', 'Registrar membresía', 'Nueva membresía', 'faUserPlus', 1, 1, 'MOD004' UNION ALL
