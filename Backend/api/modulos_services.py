@@ -151,8 +151,7 @@ def listar_submodulos_modulo_usuario(idusuario: str, idmodulo: str):
     try:
         with connection.cursor() as cursor:
             if sp.is_mysql():
-                sp.call_simple(cursor, 'usp_submodulos_modulo_usuario', [idusuario, idmodulo])
-                rows = sp.cursor_rows(cursor)
+                rows = sp.call_simple(cursor, 'usp_submodulos_modulo_usuario', [idusuario, idmodulo])
             else:
                 cursor.execute(
                     'EXEC usp_submodulos_modulo_usuario @idusuario=%s, @idmodulo=%s',
@@ -263,8 +262,7 @@ def listar_modulos_efectivos_usuario(idusuario: str):
     try:
         with connection.cursor() as cursor:
             if sp.is_mysql():
-                sp.call_simple(cursor, 'usp_modulos_efectivos_usuario', [idusuario])
-                rows = sp.cursor_rows(cursor)
+                rows = sp.call_simple(cursor, 'usp_modulos_efectivos_usuario', [idusuario])
             else:
                 cursor.execute(
                     'EXEC usp_modulos_efectivos_usuario @idusuario=%s',
@@ -489,8 +487,7 @@ def listar_modulos_efectivos_rol(idtipousuario: str):
     try:
         with connection.cursor() as cursor:
             if sp.is_mysql():
-                sp.call_simple(cursor, 'usp_modulos_efectivos_rol', [idtipousuario])
-                rows = sp.cursor_rows(cursor)
+                rows = sp.call_simple(cursor, 'usp_modulos_efectivos_rol', [idtipousuario])
             else:
                 cursor.execute(
                     'EXEC usp_modulos_efectivos_rol @idtipousuario=%s',
@@ -553,8 +550,7 @@ def listar_submodulos_modulo_rol(idtipousuario: str, idmodulo: str):
     try:
         with connection.cursor() as cursor:
             if sp.is_mysql():
-                sp.call_simple(cursor, 'usp_submodulos_modulo_rol', [idtipousuario, idmodulo])
-                rows = sp.cursor_rows(cursor)
+                rows = sp.call_simple(cursor, 'usp_submodulos_modulo_rol', [idtipousuario, idmodulo])
             else:
                 cursor.execute(
                     'EXEC usp_submodulos_modulo_rol @idtipousuario=%s, @idmodulo=%s',

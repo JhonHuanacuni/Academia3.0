@@ -21,8 +21,7 @@ def enriquecer_alt_segura(row):
 def listar_examenes_estudiante(id_usuario: str):
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            sp.call_simple(cursor, 'usp_examen_estudiante_listar', [id_usuario])
-            return sp.cursor_rows(cursor)
+            return sp.call_simple(cursor, 'usp_examen_estudiante_listar', [id_usuario])
         cursor.execute(
             'EXEC dbo.usp_examen_estudiante_listar @IdUsuario=%s',
             [id_usuario],

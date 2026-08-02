@@ -75,8 +75,7 @@ def listar_libros(
 def obtener_libro(id_libro: str):
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            sp.call_simple(cursor, 'usp_libro_obtener', [id_libro])
-            rows = sp.cursor_rows(cursor)
+            rows = sp.call_simple(cursor, 'usp_libro_obtener', [id_libro])
             aulas = []
             if cursor.nextset():
                 aulas = [r['IDAULA'] for r in sp.cursor_rows(cursor)]

@@ -80,8 +80,7 @@ def listar_examenes(
 def obtener_examen(id_examen: str):
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            sp.call_simple(cursor, 'usp_examen_obtener', [id_examen])
-            rows = sp.cursor_rows(cursor)
+            rows = sp.call_simple(cursor, 'usp_examen_obtener', [id_examen])
             aulas = []
             if cursor.nextset():
                 aulas = [r['IDAULA'] for r in sp.cursor_rows(cursor)]
@@ -108,8 +107,7 @@ def obtener_examen(id_examen: str):
 def obtener_pregunta(id_examen: str, id_pregunta: str):
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            sp.call_simple(cursor, 'usp_examen_pregunta_detalle', [id_examen, id_pregunta])
-            rows = sp.cursor_rows(cursor)
+            rows = sp.call_simple(cursor, 'usp_examen_pregunta_detalle', [id_examen, id_pregunta])
             alts = []
             if cursor.nextset():
                 alts = [enriquecer_alternativa(r) for r in sp.cursor_rows(cursor)]
@@ -132,8 +130,7 @@ def obtener_pregunta(id_examen: str, id_pregunta: str):
 def distribucion_examen(tipo=None, id_examen=None):
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            sp.call_simple(cursor, 'usp_examen_distribucion', [tipo, id_examen])
-            categorias = sp.cursor_rows(cursor)
+            categorias = sp.call_simple(cursor, 'usp_examen_distribucion', [tipo, id_examen])
             materias = []
             if cursor.nextset():
                 materias = sp.cursor_rows(cursor)

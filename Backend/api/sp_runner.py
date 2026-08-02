@@ -38,20 +38,27 @@ def _placeholders(n):
 
 
 def call_simple(cursor, proc, params):
+    """Ejecuta CALL y devuelve filas del primer result set con datos."""
     if is_mysql():
         cursor.execute(f'CALL {proc}({_placeholders(len(params))})', list(params))
-        return cursor_rows(cursor)
+        while True:
+            if cursor.description:
+                rows = cursor_rows(cursor)
+                if rows:
+                    return rows
+            if not cursor.nextset():
+                break
+        return []
     raise RuntimeError('call_simple: use rama SQL Server en el servicio')
 
 
 def call_obtain(proc, param):
     with connection.cursor() as cursor:
         if is_mysql():
-            call_simple(cursor, proc, [param])
-            rows = cursor_rows(cursor)
-        else:
-            cursor.execute(f'EXEC dbo.{proc} @Id=%s', [param])
-            rows = cursor_rows(cursor)
+            rows = call_simple(cursor, proc, [param])
+            return rows[0] if rows else None
+        cursor.execute(f'EXEC dbo.{proc} @Id=%s', [param])
+        rows = cursor_rows(cursor)
     return rows[0] if rows else None
 
 

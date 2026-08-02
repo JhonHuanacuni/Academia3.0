@@ -74,8 +74,7 @@ def listar_horarios(
 def obtener_horario(id_horario: str):
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            sp.call_simple(cursor, 'usp_horario_obtener', [id_horario])
-            rows = sp.cursor_rows(cursor)
+            rows = sp.call_simple(cursor, 'usp_horario_obtener', [id_horario])
             aulas = []
             if cursor.nextset():
                 aulas = [r['IDAULA'] for r in sp.cursor_rows(cursor)]
