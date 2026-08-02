@@ -139,27 +139,40 @@ def _build_params(record: dict, email: str) -> dict[str, str]:
     }
 
 
-def _marcar_retirado(cursor, dni: str, dry_run: bool) -> str:
-    """Si ya existe, pasa a Retirado; si ya está Retirado, omitir."""
-    if dry_run:
-        return 'skip'
-    cursor.execute(
-        "SELECT IDUSUARIO, ESTADO FROM USUARIO WHERE DNI = %s OR IDUSUARIO = %s LIMIT 1",
-        (dni, dni),
-    )
-    row = cursor.fetchone()
-    if not row:
-        return 'missing'
-    if row[1] == 'Retirado':
-        return 'skip'
-    cursor.execute(
-        "UPDATE USUARIO SET ESTADO = 'Retirado' WHERE IDUSUARIO = %s",
-        (row[0],),
-    )
-    return 'updated'
+def _fallback_email(dni: str) -> str:
+    return f'{dni}@import.academia.local'
 
 
-def _upsert_retirado(cursor, params: dict[str, str], dni: str, dry_run: bool) -> tuple[str, str]:
+def _set_param_email(params: dict[str, str], email: str) -> dict[str, str]:
+    out = dict(params)
+    esc = email.replace("'", "''")
+    out['Email'] = 'NULL' if not email else f"N'{esc}'"
+    return out
+
+
+def _email_ocupado(cursor, email: str, dni: str) -> bool:
+    cursor.execute(
+        'SELECT 1 FROM USUARIO WHERE EMAIL = %s AND DNI <> %s LIMIT 1',
+        (email, dni),
+    )
+    return cursor.fetchone() is not None
+
+
+def _try_insert_retirado(cursor, params: dict[str, str], dni: str) -> tuple[int, str]:
+    r, m = call_usuario_insertar(cursor, params, dry_run=False)
+    if r == 1:
+        return r, m
+    if 'email' in m.lower():
+        r2, m2 = call_usuario_insertar(
+            cursor, _set_param_email(params, _fallback_email(dni)), dry_run=False,
+        )
+        return r2, m2
+    return r, m
+
+
+def _upsert_retirado(
+    cursor, params: dict[str, str], dni: str, email: str, dry_run: bool,
+) -> tuple[str, str]:
     if dry_run:
         return 'ok', 'dry-run'
     cursor.execute(
@@ -176,14 +189,27 @@ def _upsert_retirado(cursor, params: dict[str, str], dni: str, dry_run: bool) ->
         )
         return 'updated', 'marcado retirado'
 
-    r, m = call_usuario_insertar(cursor, params, dry_run)
+    if _email_ocupado(cursor, email, dni):
+        params = _set_param_email(params, _fallback_email(dni))
+
+    r, m = _try_insert_retirado(cursor, params, dni)
     if r == 1:
         return 'ok', m
     if 'ya existe' in m.lower() or 'retirado' in m.lower():
-        action, msg = _marcar_retirado(cursor, dni, dry_run), m
-        if action == 'missing':
+        cursor.execute(
+            "SELECT IDUSUARIO, ESTADO FROM USUARIO WHERE DNI = %s OR IDUSUARIO = %s LIMIT 1",
+            (dni, dni),
+        )
+        row = cursor.fetchone()
+        if not row:
             return 'fail', m
-        return action, msg
+        if row[1] == 'Retirado':
+            return 'skip', m
+        cursor.execute(
+            "UPDATE USUARIO SET ESTADO = 'Retirado' WHERE IDUSUARIO = %s",
+            (row[0],),
+        )
+        return 'updated', m
     return 'fail', m
 
 
@@ -204,7 +230,7 @@ def import_retirados(cursor, path: Path, dry_run: bool) -> dict[str, int]:
 
         params = _build_params(record, email)
         try:
-            action, m = _upsert_retirado(cursor, params, dni, dry_run)
+            action, m = _upsert_retirado(cursor, params, dni, email, dry_run)
         except Exception as exc:
             stats['fail'] += 1
             print(f'  ERROR DNI {dni}: {exc}', file=sys.stderr)
