@@ -7,6 +7,8 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.db import connection
 from .db_context import prepare_write_cursor
+from . import sp_runner as sp
+from .sql_compat import concat_nombre_usuario, is_mysql
 
 CORRECTA = Decimal('20').quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
 INCORRECTA = Decimal('-1.125').quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
@@ -18,8 +20,27 @@ AREA_KEYS = (
 
 
 def _cursor_rows(cursor):
-    columns = [col[0] for col in cursor.description] if cursor.description else []
-    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    return sp.cursor_rows(cursor)
+
+
+def _cast_tipo_importacion(col: str) -> str:
+    if is_mysql():
+        return f'CAST({col} AS CHAR)'
+    return f'CAST({col} AS NVARCHAR(10))'
+
+
+def _select_top() -> str:
+    return '' if is_mysql() else 'TOP 1 '
+
+
+def _limit_suffix() -> str:
+    return 'LIMIT 1' if is_mysql() else ''
+
+
+def _paginate_sql(offset: int, tamanio: int) -> str:
+    if is_mysql():
+        return f'LIMIT {int(tamanio)} OFFSET {int(offset)}'
+    return f'OFFSET {int(offset)} ROWS FETCH NEXT {int(tamanio)} ROWS ONLY'
 
 
 def _normalize_key(key: str) -> str:
@@ -175,49 +196,70 @@ def listar_aulas_activas():
 
 
 def _buscar_usuario_por_dni(dni: str):
+    trim_dni = 'TRIM(DNI)' if is_mysql() else 'LTRIM(RTRIM(DNI))'
     with connection.cursor() as cursor:
         cursor.execute(
-            """
-            SELECT TOP 1 IDUSUARIO, DNI, NOMBRE, APELLIDO
+            f"""
+            SELECT {_select_top()}IDUSUARIO, DNI, NOMBRE, APELLIDO
             FROM USUARIO
-            WHERE LTRIM(RTRIM(DNI)) = %s AND ESTADO = 'Activo'
+            WHERE {trim_dni} = %s AND ESTADO = 'Activo'
+            {_limit_suffix()}
             """,
             [dni],
         )
-        row = cursor.fetchone()
-        if not row:
-            return None
-        cols = [c[0] for c in cursor.description]
-        return dict(zip(cols, row))
+        rows = _cursor_rows(cursor)
+        return rows[0] if rows else None
 
 
 def _verificar_duplicado(id_aula, tipo_importacion, tipo_area, fecha_examen_db):
     if not id_aula:
         return None
+    null_area = "IFNULL(TIPO_AREA_ACADEMICA, '')" if is_mysql() else "ISNULL(TIPO_AREA_ACADEMICA, '')"
     with connection.cursor() as cursor:
         cursor.execute(
-            """
-            SELECT TOP 1 IDIMPORTACION, NOMBRE_ARCHIVO
+            f"""
+            SELECT {_select_top()}IDIMPORTACION, NOMBRE_ARCHIVO
             FROM NOTAS_IMPORTACION
             WHERE IDAULA = %s
               AND TIPO_IMPORTACION = %s
-              AND ISNULL(TIPO_AREA_ACADEMICA, '') = ISNULL(%s, '')
+              AND {null_area} = COALESCE(%s, '')
               AND FECHA_EXAMEN = %s
               AND ESTADO = 'Activo'
+            {_limit_suffix()}
             """,
             [id_aula, tipo_importacion, tipo_area or '', fecha_examen_db],
         )
-        row = cursor.fetchone()
-        if not row:
-            return None
-        return {'IDIMPORTACION': row[0], 'NOMBRE_ARCHIVO': row[1]}
+        rows = _cursor_rows(cursor)
+        return rows[0] if rows else None
 
 
 def _insertar_importacion(payload, id_usuario, fecha_examen_db):
     now = datetime.now().strftime('%d%m%Y %H:%M:%S')
     modo = (payload.get('modo') or 'presencial').lower()
+    params = [
+        payload.get('nombre_archivo') or 'importacion.xlsx',
+        now,
+        fecha_examen_db,
+        id_usuario,
+        payload.get('id_aula') or payload.get('salon_id'),
+        int(payload.get('tipo_importacion') or 40),
+        modo,
+        payload.get('tipo_area_academica') if int(payload.get('tipo_importacion') or 40) == 100 else None,
+    ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, {'IDUSUARIO': id_usuario})
+        if is_mysql():
+            cursor.execute(
+                """
+                INSERT INTO NOTAS_IMPORTACION (
+                    NOMBRE_ARCHIVO, FECHA_IMPORTACION, FECHA_EXAMEN, IMPORTADO_POR,
+                    IDAULA, TIPO_IMPORTACION, TIPO_EXAMEN, TIPO_AREA_ACADEMICA, ESTADO
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activo')
+                """,
+                params,
+            )
+            cursor.execute('SELECT LAST_INSERT_ID()')
+            return int(cursor.fetchone()[0])
         cursor.execute(
             """
             INSERT INTO NOTAS_IMPORTACION (
@@ -227,19 +269,9 @@ def _insertar_importacion(payload, id_usuario, fecha_examen_db):
             OUTPUT INSERTED.IDIMPORTACION
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activo')
             """,
-            [
-                payload.get('nombre_archivo') or 'importacion.xlsx',
-                now,
-                fecha_examen_db,
-                id_usuario,
-                payload.get('id_aula') or payload.get('salon_id'),
-                int(payload.get('tipo_importacion') or 40),
-                modo,
-                payload.get('tipo_area_academica') if int(payload.get('tipo_importacion') or 40) == 100 else None,
-            ],
+            params,
         )
-        row = cursor.fetchone()
-        return int(row[0])
+        return int(cursor.fetchone()[0])
 
 
 def _upsert_nota(id_importacion, id_usuario, modo, puntaje, porcentaje,
@@ -482,6 +514,24 @@ def listar_importaciones(
     }.get(ordenar_por, 'i.FECHA_EXAMEN')
     dir_sql = 'DESC' if str(direccion).upper() == 'DESC' else 'ASC'
     buscar_like = f'%{buscar}%' if buscar else None
+    cast_tipo = _cast_tipo_importacion('i.TIPO_IMPORTACION')
+    importado_por = concat_nombre_usuario('u')
+
+    filtro_buscar = f"""
+              AND (%s IS NULL OR (
+                    i.NOMBRE_ARCHIVO LIKE %s OR
+                    a.NOMBRE LIKE %s OR
+                    u.NOMBRE LIKE %s OR
+                    u.APELLIDO LIKE %s OR
+                    u.DNI LIKE %s OR
+                    {cast_tipo} LIKE %s
+              ))
+              AND (%s IS NULL OR {cast_tipo} = %s)
+    """
+    params_base = [
+        buscar_like, buscar_like, buscar_like, buscar_like, buscar_like, buscar_like, buscar_like,
+        tipo, tipo,
+    ]
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -491,23 +541,13 @@ def listar_importaciones(
             LEFT JOIN AULA a ON a.IDAULA = i.IDAULA
             LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IMPORTADO_POR
             WHERE i.ESTADO = 'Activo'
-              AND (%s IS NULL OR (
-                    i.NOMBRE_ARCHIVO LIKE %s OR
-                    a.NOMBRE LIKE %s OR
-                    u.NOMBRE LIKE %s OR
-                    u.APELLIDO LIKE %s OR
-                    u.DNI LIKE %s OR
-                    CAST(i.TIPO_IMPORTACION AS NVARCHAR(10)) LIKE %s
-              ))
-              AND (%s IS NULL OR CAST(i.TIPO_IMPORTACION AS NVARCHAR(10)) = %s)
+            {filtro_buscar}
             """,
-            [
-                buscar_like, buscar_like, buscar_like, buscar_like, buscar_like, buscar_like, buscar_like,
-                tipo, tipo,
-            ],
+            params_base,
         )
         total = int(cursor.fetchone()[0])
 
+        list_params = params_base
         cursor.execute(
             f"""
             SELECT
@@ -522,39 +562,27 @@ def listar_importaciones(
                 a.NOMBRE AS AULA_NOMBRE,
                 a.CAPACIDAD AS AULA_CAPACIDAD,
                 u.IDUSUARIO AS IMPORTADO_POR_ID,
-                UPPER(LTRIM(RTRIM(
-                    ISNULL(u.APELLIDO, '') + ' ' + ISNULL(u.NOMBRE, '')
-                ))) AS IMPORTADO_POR,
+                {importado_por} AS IMPORTADO_POR,
                 (SELECT COUNT(*) FROM NOTA_IMPORTADA n WHERE n.IDIMPORTACION = i.IDIMPORTACION) AS TOTAL_NOTAS
             FROM NOTAS_IMPORTACION i
             LEFT JOIN AULA a ON a.IDAULA = i.IDAULA
             LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IMPORTADO_POR
             WHERE i.ESTADO = 'Activo'
-              AND (%s IS NULL OR (
-                    i.NOMBRE_ARCHIVO LIKE %s OR
-                    a.NOMBRE LIKE %s OR
-                    u.NOMBRE LIKE %s OR
-                    u.APELLIDO LIKE %s OR
-                    u.DNI LIKE %s OR
-                    CAST(i.TIPO_IMPORTACION AS NVARCHAR(10)) LIKE %s
-              ))
-              AND (%s IS NULL OR CAST(i.TIPO_IMPORTACION AS NVARCHAR(10)) = %s)
+            {filtro_buscar}
             ORDER BY {orden_sql} {dir_sql}, i.IDIMPORTACION DESC
-            OFFSET %s ROWS FETCH NEXT %s ROWS ONLY
+            {_paginate_sql(offset, tamanio)}
             """,
-            [
-                buscar_like, buscar_like, buscar_like, buscar_like, buscar_like, buscar_like, buscar_like,
-                tipo, tipo,
-                offset, int(tamanio),
-            ],
+            list_params,
         )
         return _cursor_rows(cursor), total
 
 
 def obtener_importacion(id_importacion):
+    importado_por = concat_nombre_usuario('u')
+    estudiante_nombre = concat_nombre_usuario('u')
     with connection.cursor() as cursor:
         cursor.execute(
-            """
+            f"""
             SELECT
                 i.IDIMPORTACION,
                 i.NOMBRE_ARCHIVO,
@@ -566,9 +594,7 @@ def obtener_importacion(id_importacion):
                 i.IDAULA,
                 a.NOMBRE AS AULA_NOMBRE,
                 a.CAPACIDAD AS AULA_CAPACIDAD,
-                UPPER(LTRIM(RTRIM(
-                    ISNULL(u.APELLIDO, '') + ' ' + ISNULL(u.NOMBRE, '')
-                ))) AS IMPORTADO_POR
+                {importado_por} AS IMPORTADO_POR
             FROM NOTAS_IMPORTACION i
             LEFT JOIN AULA a ON a.IDAULA = i.IDAULA
             LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IMPORTADO_POR
@@ -581,14 +607,12 @@ def obtener_importacion(id_importacion):
             return None
 
         cursor.execute(
-            """
+            f"""
             SELECT
                 n.IDNOTA,
                 n.IDUSUARIO,
                 u.DNI AS ESTUDIANTE_DNI,
-                UPPER(LTRIM(RTRIM(
-                    ISNULL(u.APELLIDO, '') + ' ' + ISNULL(u.NOMBRE, '')
-                ))) AS ESTUDIANTE_NOMBRE,
+                {estudiante_nombre} AS ESTUDIANTE_NOMBRE,
                 n.MODO,
                 n.PUNTAJE,
                 n.PORCENTAJE,
