@@ -20,12 +20,15 @@ def validate_user(username: str, password: str):
                 'CALL usp_validate_user(%s, %s)',
                 [username, password],
             )
+            row = cursor.fetchone()
+            while cursor.nextset():
+                pass
         else:
             cursor.execute(
                 'EXEC usp_validate_user @username=%s, @password=%s',
                 [username, password],
             )
-        row = cursor.fetchone()
+            row = cursor.fetchone()
 
     if not row:
         return False, None

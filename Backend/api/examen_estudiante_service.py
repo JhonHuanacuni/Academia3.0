@@ -1,7 +1,7 @@
 from django.db import connection
 
 from . import sp_runner as sp
-from .examen_crud_service import _cursor_rows, _read_sp_write_result, _media_url, enriquecer_pregunta
+from .examen_crud_service import _read_sp_write_result, _media_url, enriquecer_pregunta
 from .sql_compat import isnull
 
 
@@ -27,7 +27,7 @@ def listar_examenes_estudiante(id_usuario: str):
             'EXEC dbo.usp_examen_estudiante_listar @IdUsuario=%s',
             [id_usuario],
         )
-        return _cursor_rows(cursor)
+        return sp.cursor_rows(cursor)
 
 
 def iniciar_intento(id_examen: str, id_usuario: str):
@@ -69,7 +69,7 @@ def estado_intento(id_intento: str, id_usuario: str):
                 'EXEC dbo.usp_examen_intento_estado @IdIntento=%s, @IdUsuario=%s',
                 [id_intento, id_usuario],
             )
-        header_rows = _cursor_rows(cursor)
+        header_rows = sp.cursor_rows(cursor)
         if not header_rows:
             return None
         header = dict(header_rows[0])
@@ -82,16 +82,16 @@ def estado_intento(id_intento: str, id_usuario: str):
 
         respondidas = []
         if cursor.nextset():
-            respondidas = _cursor_rows(cursor)
+            respondidas = sp.cursor_rows(cursor)
 
         pregunta = None
         if cursor.nextset():
-            preg_rows = _cursor_rows(cursor)
+            preg_rows = sp.cursor_rows(cursor)
             if preg_rows:
                 pregunta = enriquecer_pregunta(preg_rows[0])
                 pregunta.pop('ESCORRECTA', None)
             if cursor.nextset():
-                alternativas = [enriquecer_alt_segura(r) for r in _cursor_rows(cursor)]
+                alternativas = [enriquecer_alt_segura(r) for r in sp.cursor_rows(cursor)]
                 if pregunta is not None:
                     pregunta['ALTERNATIVAS'] = alternativas
 
@@ -170,7 +170,7 @@ def finalizar_intento(id_intento: str, id_usuario: str):
         resumen = None
         while True:
             if cursor.description:
-                rows = _cursor_rows(cursor)
+                rows = sp.cursor_rows(cursor)
                 if not rows:
                     pass
                 else:
@@ -206,7 +206,7 @@ def finalizar_intento(id_intento: str, id_usuario: str):
                 """,
                 [id_intento, id_usuario],
             )
-            rows = _cursor_rows(cursor)
+            rows = sp.cursor_rows(cursor)
             if rows:
                 resumen = rows[0]
 
@@ -223,10 +223,10 @@ def ranking_aula_ultimo_examen(id_usuario: str):
                 'EXEC dbo.usp_examen_ranking_aula @IdUsuario=%s',
                 [id_usuario],
             )
-        examen_rows = _cursor_rows(cursor)
+        examen_rows = sp.cursor_rows(cursor)
         ranking = []
         if cursor.nextset() and cursor.description:
-            ranking = _cursor_rows(cursor)
+            ranking = sp.cursor_rows(cursor)
 
     examen = examen_rows[0] if examen_rows else None
     if examen and not examen.get('IDEXAMEN'):
