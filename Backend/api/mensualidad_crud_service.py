@@ -2,6 +2,7 @@ from django.db import connection
 from .db_context import prepare_write_cursor
 from .models import Aula
 from . import sp_runner as sp
+from .sql_compat import concat_nombre_usuario, plan_table
 
 
 def _read_sp_write_result(cursor):
@@ -183,10 +184,8 @@ def obtener_nombre_registrador(id_usuario: str | None):
         return ''
     with connection.cursor() as cursor:
         cursor.execute(
-            """
-            SELECT UPPER(LTRIM(RTRIM(
-                ISNULL(u.APELLIDO, '') + ' ' + ISNULL(u.NOMBRE, '')
-            )))
+            f"""
+            SELECT {concat_nombre_usuario('u')}
             FROM USUARIO u
             WHERE u.IDUSUARIO = %s
             """,
@@ -209,9 +208,9 @@ def listar_catalogos(id_registrador=None):
     }
     with connection.cursor() as cursor:
         cursor.execute(
-            """
+            f"""
             SELECT IDPLAN, NOMBRE
-            FROM [PLAN] WHERE ACTIVO = 1 ORDER BY NOMBRE
+            FROM {plan_table()} WHERE ACTIVO = 1 ORDER BY NOMBRE
             """
         )
         catalogos['planes'] = sp.cursor_rows(cursor)
