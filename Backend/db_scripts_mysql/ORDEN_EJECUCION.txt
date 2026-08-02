@@ -89,6 +89,7 @@
 26_07_2026/8.asesor_registro_mensualidad.sql
 26_07_2026/9.menu_tutores_asesores.sql
 26_07_2026/10.tutor_codigo_tut.sql
+26_07_2026/21.usp_tutor_crud.sql
 26_07_2026/11.quitar_mantenedor_asesor.sql
 26_07_2026/12.plan_hora_entrada_tardanza.sql
 26_07_2026/13.mantenedores_codigo_autogenerado.sql

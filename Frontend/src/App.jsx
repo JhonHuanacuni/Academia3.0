@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Layout from "./components/layout/Layout";
+import LoginPage from "./components/LoginPage";
+import "./components/LoginPage.css";
 import AdminModulos from "./components/admin/AdminModulos";
 import UsuarioPage from "./modules/usuario/UsuarioPage";
 import AsistenciaMarcarPage from "./modules/asistencia/AsistenciaMarcarPage";
@@ -259,38 +261,14 @@ function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="login-page">
-        <div className="login-card">
-          <h1>Iniciar sesión</h1>
-          <p>Ingresa tus credenciales para acceder al sistema.</p>
-          <form className="login-form" onSubmit={handleLogin}>
-            <label>
-              Usuario
-              <input
-                type="text"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="Usuario"
-                required
-              />
-            </label>
-            <label>
-              Contraseña
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Contraseña"
-                required
-              />
-            </label>
-            {loginError && <div className="login-error">{loginError}</div>}
-            <button type="submit" className="login-button">
-              Entrar
-            </button>
-          </form>
-        </div>
-      </div>
+      <LoginPage
+        username={username}
+        password={password}
+        loginError={loginError}
+        onUsernameChange={setUsername}
+        onPasswordChange={setPassword}
+        onSubmit={handleLogin}
+      />
     );
   }
 
