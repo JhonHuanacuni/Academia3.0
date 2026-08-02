@@ -18,11 +18,34 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from import_datos_mysql import USER_PARAM_ORDER, call_usuario_insertar
+from import_datos_mysql import call_usuario_insertar
 from setup_mysql_db import _connect
 
 BASE = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT = BASE / 'data' / 'retirados.txt'
+
+# Límites usp_usuario_insertar / columnas USUARIO
+_LIMITS = {
+    'nombre': 100,
+    'apellido': 100,
+    'email': 150,
+    'direccion': 255,
+    'distrito': 100,
+    'colegio': 150,
+    'grado': 50,
+    'tel': 20,
+    'apoderado': 200,
+    'foto': 500,
+}
+
+
+def _trunc(val: str | None, max_len: int) -> str | None:
+    if val is None:
+        return None
+    s = ' '.join(str(val).split())
+    if not s:
+        return None
+    return s[:max_len] if len(s) > max_len else s
 
 
 def _pick_colegio(record: dict):
@@ -75,18 +98,19 @@ def _assign_emails(records: list[dict]) -> list[str]:
 
 def _build_params(record: dict, email: str) -> dict[str, str]:
     dni = (record.get('dni') or record.get('username') or '').strip()
-    nombre = (record.get('nombres') or record.get('firstName') or '').strip()
-    apellido = (record.get('apellidos') or record.get('lastName') or '').strip()
-    tel = (record.get('telefono') or '').strip() or None
-    tel_apod = (record.get('telefono_apoderado') or '').strip() or None
-    direccion = (record.get('direccion') or '').strip() or None
-    distrito = (record.get('distrito') or '').strip() if record.get('distrito') else None
-    colegio = _pick_colegio(record)
-    grado = (record.get('grado') or '').strip() or None
-    foto = (record.get('foto_perfil') or '').strip() or None
+    nombre = _trunc((record.get('nombres') or record.get('firstName') or '').strip(), _LIMITS['nombre']) or ''
+    apellido = _trunc((record.get('apellidos') or record.get('lastName') or '').strip(), _LIMITS['apellido']) or ''
+    tel = _trunc((record.get('telefono') or '').strip() or None, _LIMITS['tel'])
+    tel_apod = _trunc((record.get('telefono_apoderado') or '').strip() or None, _LIMITS['tel'])
+    direccion = _trunc((record.get('direccion') or '').strip() or None, _LIMITS['direccion'])
+    distrito = _trunc((record.get('distrito') or '').strip() if record.get('distrito') else None, _LIMITS['distrito'])
+    colegio = _trunc(_pick_colegio(record), _LIMITS['colegio'])
+    grado = _trunc((record.get('grado') or '').strip() or None, _LIMITS['grado'])
+    foto = _trunc((record.get('foto_perfil') or '').strip() or None, _LIMITS['foto'])
     fecha_nac = _fmt_fecha(record.get('fecha_nacimiento'))
     situacion = _norm_situacion(record.get('situacion_academica'))
-    apoderado = (record.get('descripcion') or '').strip() or None
+    apoderado = _trunc((record.get('descripcion') or '').strip() or None, _LIMITS['apoderado'])
+    email = _trunc(email, _LIMITS['email']) or f'{dni}@import.academia.local'
 
     def sval(v):
         return 'NULL' if v is None else f"N'{str(v).replace(chr(39), chr(39)+chr(39))}'"
@@ -179,7 +203,12 @@ def import_retirados(cursor, path: Path, dry_run: bool) -> dict[str, int]:
             continue
 
         params = _build_params(record, email)
-        action, m = _upsert_retirado(cursor, params, dni, dry_run)
+        try:
+            action, m = _upsert_retirado(cursor, params, dni, dry_run)
+        except Exception as exc:
+            stats['fail'] += 1
+            print(f'  ERROR DNI {dni}: {exc}', file=sys.stderr)
+            continue
         if action in stats:
             stats[action] += 1
         else:
