@@ -128,10 +128,13 @@ def call_usuario_insertar(cursor, params: dict[str, str], dry_run: bool) -> tupl
     if r != 1 and 'ya existe' in m.lower():
         dni = _param_python_value(params.get('Dni'))
         email = _param_python_value(params.get('Email'))
-        if dni and email:
-            cursor.execute('UPDATE USUARIO SET EMAIL = %s WHERE DNI = %s', (email, dni))
-            if cursor.rowcount:
-                return 1, f'email actualizado para DNI {dni}'
+        if dni:
+            cursor.execute('SELECT EMAIL FROM USUARIO WHERE DNI = %s LIMIT 1', (dni,))
+            row = cursor.fetchone()
+            if row:
+                if email and row[0] != email:
+                    cursor.execute('UPDATE USUARIO SET EMAIL = %s WHERE DNI = %s', (email, dni))
+                return 1, 'ya existía (omitido)'
     return r, m
 
 
@@ -175,6 +178,10 @@ def process_mensualidades_file(cursor, path: Path, dry_run: bool, stats: dict) -
     for match in IF_NOT_EXISTS_MENS_INSERT_RE.finditer(text):
         mid, insert_sql = match.group(1), match.group(2)
         if _exists(cursor, 'MENSUALIDAD', 'IDMENSUALIDAD', mid):
+            stats['skip'] += 1
+            continue
+        uid_match = re.search(r"N'(\d+)',\s*N'72618032'", insert_sql)
+        if uid_match and not _exists(cursor, 'USUARIO', 'IDUSUARIO', uid_match.group(1)):
             stats['skip'] += 1
             continue
         sql = _normalize_mysql_sql(insert_sql)
