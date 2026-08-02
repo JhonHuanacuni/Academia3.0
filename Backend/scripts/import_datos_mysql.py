@@ -89,7 +89,22 @@ def _parse_params(block: str) -> dict[str, str]:
     return {m.group(1): m.group(2) for m in PARAM_RE.finditer(block)}
 
 
+def _param_python_value(raw: str | None):
+    if raw is None:
+        return None
+    lit = _tsql_to_mysql_literal(raw)
+    if lit.upper() == 'NULL':
+        return None
+    if lit.startswith("'") and lit.endswith("'"):
+        return lit[1:-1].replace("''", "'")
+    if re.match(r'^-?\d+(?:\.\d+)?$', lit):
+        return float(lit) if '.' in lit else int(lit)
+    return lit
+
+
 def _fetch_out(cursor) -> tuple[int, str]:
+    while cursor.nextset():
+        pass
     cursor.execute('SELECT @r AS r, @m AS m')
     row = cursor.fetchone()
     return int(row[0] or 0), str(row[1] or '')
@@ -101,15 +116,18 @@ def _exists(cursor, table: str, col: str, val: str) -> bool:
 
 
 def call_usuario_insertar(cursor, params: dict[str, str], dry_run: bool) -> tuple[int, str]:
-    args = [_tsql_to_mysql_literal(params.get(p, 'NULL')) for p in USER_PARAM_ORDER]
     if dry_run:
         return 1, 'dry-run'
-    cursor.execute('SET @r = 0, @m = ""')
-    cursor.execute(f"CALL usp_usuario_insertar({', '.join(args + ['@r', '@m'])})")
+    uid = _param_python_value(params.get('Id'))
+    ucontra = _param_python_value(params.get('Contra'))
+    in_vals = [_param_python_value(params.get(p)) for p in USER_PARAM_ORDER[2:]]
+    cursor.execute('SET @uid = %s, @ucontra = %s, @r = 0, @m = ""', (uid, ucontra))
+    ph = ', '.join(['%s'] * len(in_vals))
+    cursor.execute(f'CALL usp_usuario_insertar(@uid, @ucontra, {ph}, @r, @m)', in_vals)
     r, m = _fetch_out(cursor)
     if r != 1 and 'ya existe' in m.lower():
-        dni = _tsql_to_mysql_literal(params.get('Dni', 'NULL')).strip("'")
-        email = _tsql_to_mysql_literal(params.get('Email', 'NULL')).strip("'")
+        dni = _param_python_value(params.get('Dni'))
+        email = _param_python_value(params.get('Email'))
         if dni and email:
             cursor.execute('UPDATE USUARIO SET EMAIL = %s WHERE DNI = %s', (email, dni))
             if cursor.rowcount:
@@ -118,12 +136,13 @@ def call_usuario_insertar(cursor, params: dict[str, str], dry_run: bool) -> tupl
 
 
 def call_mensualidad_insertar(cursor, params: dict[str, str], dry_run: bool) -> tuple[int, str]:
-    mid = _tsql_to_mysql_literal(params.get('Id', 'NULL'))
-    args_tail = [_tsql_to_mysql_literal(params.get(p, 'NULL')) for p in MENS_PARAM_ORDER[1:]]
     if dry_run:
         return 1, 'dry-run'
-    cursor.execute(f'SET @id = {mid}, @r = 0, @m = ""')
-    cursor.execute(f"CALL usp_mensualidad_insertar(@id, {', '.join(args_tail + ['@r', '@m'])})")
+    mid = _param_python_value(params.get('Id'))
+    in_vals = [_param_python_value(params.get(p)) for p in MENS_PARAM_ORDER[1:]]
+    cursor.execute('SET @id = %s, @r = 0, @m = ""', (mid,))
+    ph = ', '.join(['%s'] * len(in_vals))
+    cursor.execute(f'CALL usp_mensualidad_insertar(@id, {ph}, @r, @m)', in_vals)
     return _fetch_out(cursor)
 
 
