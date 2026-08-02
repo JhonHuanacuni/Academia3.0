@@ -16,11 +16,19 @@ GRANT ALL PRIVILEGES ON AcademiaDB.* TO 'usercodex'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
+
 ## 4. Backend
 cd /home/usercodex/academia_src/Backend
 cp deploy/env.production.example .env
 chmod +x scripts/bootstrap_server.sh
 ./scripts/bootstrap_server.sh
+
+## 4b. Datos reales (usuarios, mensualidades, pagos) — una sola vez
+# No usar phpMyAdmin: los .sql de importación usan sintaxis T-SQL.
+cd /home/usercodex/academia_src/Backend
+git pull origin main
+venv/bin/python scripts/import_datos_mysql.py
+# Esperado: ~327 usuarios, ~153 mensualidades, ~413 pagos (+ 3 demo del esquema)
 
 ## 5. Gunicorn (systemd)
 sudo cp deploy/gunicorn-academia.service /etc/systemd/system/
