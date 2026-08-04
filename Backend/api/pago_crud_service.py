@@ -1,6 +1,7 @@
 from django.db import connection
 from .db_context import prepare_write_cursor
 from . import sp_runner as sp
+from .sql_compat import plan_table
 
 
 def _read_sp_write_result(cursor):
@@ -46,7 +47,45 @@ def listar_pagos(
 def mensualidades_estudiante(id_usuario: str):
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            return sp.call_simple(cursor, 'usp_pago_mensualidades_estudiante', [id_usuario])
+            cursor.execute(
+                f"""
+                SELECT
+                    m.IDMENSUALIDAD,
+                    m.IDPLAN,
+                    pl.NOMBRE AS PLAN_NOMBRE,
+                    m.IDTURNO,
+                    m.IDAULA,
+                    m.IDTUTOR,
+                    m.OBSERVACIONES,
+                    m.FECHAINICIO,
+                    m.FECHAFIN,
+                    m.MONTOTOTAL,
+                    IFNULL(pag.PAGADO, 0) AS PAGADO,
+                    CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
+                         ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END AS DEUDA,
+                    m.ESTADOMIEMBRO,
+                    CASE m.ESTADOMIEMBRO
+                        WHEN 2 THEN 'Activo'
+                        WHEN 3 THEN 'Vencido'
+                        ELSE 'Activo'
+                    END AS ESTADOMIEMBRO_DESCRIPCION,
+                    m.ESTADO,
+                    m.FECHAREGISTRO
+                FROM MENSUALIDAD m
+                INNER JOIN {plan_table()} pl ON pl.IDPLAN = m.IDPLAN
+                LEFT JOIN LATERAL (
+                    SELECT SUM(p.MONTO) AS PAGADO
+                    FROM PAGOMENSUALIDAD p
+                    WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
+                ) pag ON TRUE
+                WHERE m.IDUSUARIO = %s
+                  AND m.ESTADO = 'Activo'
+                ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
+                LIMIT 3
+                """,
+                [id_usuario],
+            )
+            return sp.cursor_rows(cursor)
         cursor.execute(
             'EXEC dbo.usp_pago_mensualidades_estudiante @IdUsuario=%s',
             [id_usuario],
