@@ -15,6 +15,7 @@ from .libro_crud_service import (
     guardar_portada,
     borrar_archivos_libro,
 )
+from .request_multipart import multipart_post_files
 
 
 def _parse_json_body(request):
@@ -51,14 +52,14 @@ def _payload_desde_request(request):
     """Acepta JSON o multipart (FormData)."""
     content_type = (request.content_type or '').lower()
     if 'multipart/form-data' in content_type or request.FILES:
-        data = request.POST
+        data, files = multipart_post_files(request)
         return {
             'TITULO': (data.get('TITULO') or '').strip(),
             'DESCRIPCION': (data.get('DESCRIPCION') or '').strip() or None,
             'ESTADO': (data.get('ESTADO') or 'Activo').strip() or 'Activo',
             'AULAS_CSV': _aulas_csv(data.get('AULAS') or data.get('aulas')),
-            'archivo': request.FILES.get('archivo') or request.FILES.get('ARCHIVO'),
-            'portada': request.FILES.get('portada') or request.FILES.get('PORTADA'),
+            'archivo': files.get('archivo') or files.get('ARCHIVO'),
+            'portada': files.get('portada') or files.get('PORTADA'),
         }
 
     body = _parse_json_body(request) or {}

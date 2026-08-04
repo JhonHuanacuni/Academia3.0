@@ -14,6 +14,7 @@ from .horario_crud_service import (
     guardar_imagen,
     borrar_archivos_horario,
 )
+from .request_multipart import multipart_post_files
 
 IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp', '.gif')
 
@@ -55,16 +56,16 @@ def _es_imagen(name: str) -> bool:
 def _payload_desde_request(request):
     content_type = (request.content_type or '').lower()
     if 'multipart/form-data' in content_type or request.FILES:
-        data = request.POST
+        data, files = multipart_post_files(request)
         return {
             'TITULO': (data.get('TITULO') or '').strip(),
             'DESCRIPCION': (data.get('DESCRIPCION') or '').strip() or None,
             'ESTADO': (data.get('ESTADO') or 'Activo').strip() or 'Activo',
             'AULAS_CSV': _aulas_csv(data.get('AULAS') or data.get('aulas')),
             'imagen': (
-                request.FILES.get('imagen')
-                or request.FILES.get('IMAGEN')
-                or request.FILES.get('archivo')
+                files.get('imagen')
+                or files.get('IMAGEN')
+                or files.get('archivo')
             ),
         }
 
