@@ -57,8 +57,45 @@ def obtener_pago_extra(id_pago: str):
     return sp.call_obtain('usp_pagoextra_obtener', id_pago)
 
 
+def _call_pagoextra_insertar_mysql(cursor, bind):
+    """usp_pagoextra_insertar: 4 IN + 2 INOUT (fechas del concepto) + 2 IN + 3 OUT."""
+    cursor.execute(
+        'SET @_in_fi = NULL, @_in_ff = NULL, @_sp_id = NULL, @_sp_r = 0, @_sp_m = NULL'
+    )
+    cursor.execute(
+        """
+        CALL usp_pagoextra_insertar(
+            %s, %s, %s, %s, @_in_fi, @_in_ff, %s, %s,
+            @_sp_id, @_sp_r, @_sp_m
+        )
+        """,
+        bind,
+    )
+    sp.drain_sets(cursor)
+    cursor.execute(
+        'SELECT @_sp_id AS IdGenerado, @_sp_r AS Resultado, @_sp_m AS Mensaje'
+    )
+    return cursor.fetchone()
+
+
+def _call_pagoextra_actualizar_mysql(cursor, bind):
+    """usp_pagoextra_actualizar: 4 IN + 2 INOUT + 1 IN + 2 OUT."""
+    cursor.execute('SET @_in_fi = NULL, @_in_ff = NULL, @_sp_r = 0, @_sp_m = NULL')
+    cursor.execute(
+        """
+        CALL usp_pagoextra_actualizar(
+            %s, %s, %s, %s, @_in_fi, @_in_ff, %s, @_sp_r, @_sp_m
+        )
+        """,
+        bind,
+    )
+    sp.drain_sets(cursor)
+    cursor.execute('SELECT @_sp_r AS Resultado, @_sp_m AS Mensaje')
+    return cursor.fetchone()
+
+
 def insertar_pago_extra(payload: dict, id_usuario=None):
-    params = [
+    bind = [
         payload['IDUSUARIO'],
         payload['IDCONCEPTO'],
         payload['MONTO'],
@@ -69,13 +106,9 @@ def insertar_pago_extra(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
         if sp.is_mysql():
-            row = sp.call_write_outs(
-                cursor,
-                'usp_pagoextra_insertar',
-                params,
-                ['@_sp_id', '@_sp_r', '@_sp_m'],
-                ['IdGenerado', 'Resultado', 'Mensaje'],
-            )
+            row = _call_pagoextra_insertar_mysql(cursor, bind)
+            if not row:
+                return 0, 'Error desconocido', None
             return int(row[1] or 0), str(row[2] or ''), row[0]
         cursor.execute(
             """
@@ -86,14 +119,14 @@ def insertar_pago_extra(payload: dict, id_usuario=None):
                 @IdGenerado=@Id OUTPUT, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje, @Id AS IdGenerado;
             """,
-            params,
+            bind,
         )
         ok, mensaje, extras = _read_sp_write_result(cursor, extra_cols=['idgenerado'])
         return ok, mensaje, extras.get('idgenerado')
 
 
 def actualizar_pago_extra(id_pago: str, payload: dict, id_usuario=None):
-    params = [
+    bind = [
         id_pago,
         payload['IDCONCEPTO'],
         payload['MONTO'],
@@ -103,8 +136,10 @@ def actualizar_pago_extra(id_pago: str, payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
         if sp.is_mysql():
-            ok, mensaje = sp.call_write(cursor, 'usp_pagoextra_actualizar', params)
-            return ok, mensaje
+            row = _call_pagoextra_actualizar_mysql(cursor, bind)
+            if not row:
+                return 0, 'Error desconocido'
+            return int(row[0] or 0), str(row[1] or '')
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -114,7 +149,7 @@ def actualizar_pago_extra(id_pago: str, payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            params,
+            bind,
         )
         ok, mensaje, _ = _read_sp_write_result(cursor)
         return ok, mensaje
