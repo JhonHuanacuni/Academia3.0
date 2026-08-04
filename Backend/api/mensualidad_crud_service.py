@@ -169,9 +169,32 @@ def eliminar_mensualidad(id_mensualidad: str, id_usuario: str | None = None):
 
 
 def buscar_estudiantes(buscar=None):
+    nombre = concat_nombre_usuario('u')
+    b = (buscar or '').strip() or None
+    term = f'%{b}%' if b else None
+    concat_nombre = (
+        "CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))"
+        if sp.is_mysql()
+        else "ISNULL(u.APELLIDO, '') + ' ' + ISNULL(u.NOMBRE, '')"
+    )
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            return sp.call_simple(cursor, 'usp_mensualidad_buscar_estudiantes', [buscar or None])
+            cursor.execute(
+                f"""
+                SELECT u.IDUSUARIO, u.DNI, u.NOMBRE, u.APELLIDO,
+                       {nombre} AS NOMBRE_COMPLETO
+                FROM USUARIO u
+                WHERE u.IDTIPOUSUARIO = '1'
+                  AND u.ESTADO = 'Activo'
+                  AND (%s IS NULL OR
+                       u.DNI LIKE %s OR u.NOMBRE LIKE %s OR u.APELLIDO LIKE %s OR
+                       {concat_nombre} LIKE %s)
+                ORDER BY u.APELLIDO, u.NOMBRE
+                LIMIT 20
+                """,
+                [b, term, term, term, term],
+            )
+            return sp.cursor_rows(cursor)
         cursor.execute(
             'EXEC dbo.usp_mensualidad_buscar_estudiantes @Buscar=%s',
             [buscar or None],

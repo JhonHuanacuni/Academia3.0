@@ -73,10 +73,10 @@ def insertar_pago_extra(payload: dict, id_usuario=None):
                 cursor,
                 'usp_pagoextra_insertar',
                 params,
-                ['@_sp_r', '@_sp_m', '@_sp_id'],
-                ['Resultado', 'Mensaje', 'IdGenerado'],
+                ['@_sp_id', '@_sp_r', '@_sp_m'],
+                ['IdGenerado', 'Resultado', 'Mensaje'],
             )
-            return int(row[0] or 0), str(row[1] or ''), row[2]
+            return int(row[1] or 0), str(row[2] or ''), row[0]
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);
