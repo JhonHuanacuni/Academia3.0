@@ -94,17 +94,76 @@ def mensualidades_estudiante(id_usuario: str):
 
 
 def insertar_abono(payload: dict, id_usuario=None):
-    params = [
-        payload.get('IDMENSUALIDAD'),
-        _decimal_or_none(payload.get('MONTO')),
-        payload.get('IDMETODOPAGO'),
-        payload.get('OBSERVACIONES') or None,
-        payload.get('REGISTRADOPOR') or None,
-    ]
+    id_mensualidad = payload.get('IDMENSUALIDAD')
+    monto = _decimal_or_none(payload.get('MONTO'))
+    id_metodo = payload.get('IDMETODOPAGO')
+    obs = (payload.get('OBSERVACIONES') or '').strip() or 'Abono'
+    reg = payload.get('REGISTRADOPOR') or None
+
+    if not id_mensualidad:
+        return 0, 'Debe seleccionar una mensualidad.'
+    if not monto or monto <= 0:
+        return 0, 'Ingrese un monto válido.'
+    if not id_metodo:
+        return 0, 'Indique el método de pago.'
+
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
         if sp.is_mysql():
-            return sp.call_write(cursor, 'usp_pago_insertar_abono', params)
+            cursor.execute(
+                "SELECT 1 FROM MENSUALIDAD WHERE IDMENSUALIDAD = %s AND ESTADO = 'Activo'",
+                [id_mensualidad],
+            )
+            if not cursor.fetchone():
+                return 0, 'La mensualidad no existe o está inactiva.'
+
+            cursor.execute(
+                'SELECT 1 FROM METODO_PAGO WHERE IDMETODOPAGO = %s AND ACTIVO = 1',
+                [id_metodo],
+            )
+            if not cursor.fetchone():
+                return 0, 'El método de pago no es válido.'
+
+            cursor.execute(
+                'SELECT IFNULL(MONTOTOTAL, 0) FROM MENSUALIDAD WHERE IDMENSUALIDAD = %s',
+                [id_mensualidad],
+            )
+            monto_total = float(cursor.fetchone()[0])
+
+            cursor.execute(
+                'SELECT IFNULL(SUM(MONTO), 0) FROM PAGOMENSUALIDAD WHERE IDMENSUALIDAD = %s',
+                [id_mensualidad],
+            )
+            pagado = float(cursor.fetchone()[0])
+            deuda = max(0.0, monto_total - pagado)
+
+            if deuda <= 0:
+                return 0, 'Esta mensualidad no tiene deuda pendiente.'
+            if monto > deuda:
+                return 0, f'El abono no puede superar la deuda (S/ {deuda:.2f}).'
+
+            cursor.execute(
+                """
+                SELECT IFNULL(MAX(CAST(SUBSTRING(IDPAGOMENSUALIDAD, 4, 10) AS UNSIGNED)), 0) + 1
+                FROM PAGOMENSUALIDAD WHERE IDPAGOMENSUALIDAD LIKE 'PAG%'
+                """
+            )
+            id_pago = f'PAG{int(cursor.fetchone()[0]):06d}'
+
+            cursor.execute(
+                """
+                INSERT INTO PAGOMENSUALIDAD (
+                    IDPAGOMENSUALIDAD, MONTO, FECHAPAGO, HORAPAGO, OBSERVACIONES,
+                    IDMENSUALIDAD, IDMETODOPAGO, IDUSUARIO
+                ) VALUES (
+                    %s, %s, fn_fecha_ddmmyyyy(), TIME_FORMAT(NOW(), '%%H:%%i:%%s'),
+                    %s, %s, %s, %s
+                )
+                """,
+                [id_pago, monto, obs, id_mensualidad, id_metodo, reg],
+            )
+            return 1, 'Abono registrado correctamente.'
+
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
@@ -114,7 +173,7 @@ def insertar_abono(payload: dict, id_usuario=None):
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
-            params,
+            [id_mensualidad, monto, id_metodo, obs, reg],
         )
         return _read_sp_write_result(cursor)
 

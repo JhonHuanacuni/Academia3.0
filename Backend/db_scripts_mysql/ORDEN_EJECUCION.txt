@@ -117,6 +117,8 @@
 31_07_2026/4.usp_usuario_insertar_mensajes.sql
 31_07_2026/8.usp_examen_ranking_aula.sql
 
+04_08_2026/1.fix_usp_pago_mensualidad.sql
+
 # --- Importación de datos (opcional, una sola vez) ---
 # No pegar en phpMyAdmin: los .sql usan sintaxis T-SQL.
 # Ejecutar con: venv/bin/python scripts/import_datos_mysql.py
