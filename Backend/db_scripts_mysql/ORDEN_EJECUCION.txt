@@ -118,6 +118,7 @@
 31_07_2026/8.usp_examen_ranking_aula.sql
 
 04_08_2026/1.fix_usp_pago_mensualidad.sql
+04_08_2026/2.fix_usp_concepto_insertar.sql
 
 # --- Importación de datos (opcional, una sola vez) ---
 # No pegar en phpMyAdmin: los .sql usan sintaxis T-SQL.

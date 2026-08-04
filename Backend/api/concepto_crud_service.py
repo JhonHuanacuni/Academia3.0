@@ -54,7 +54,14 @@ def insertar_concepto(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
         if sp.is_mysql():
-            return sp.call_write(cursor, 'usp_concepto_insertar', params)
+            row = sp.call_write_outs(
+                cursor,
+                'usp_concepto_insertar',
+                params,
+                ['@_sp_id', '@_sp_r', '@_sp_m'],
+                ['IdGenerado', 'Resultado', 'Mensaje'],
+            )
+            return int(row[1] or 0), str(row[2] or '')
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50);

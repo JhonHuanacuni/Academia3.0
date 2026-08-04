@@ -1,7 +1,6 @@
 -- ============================================================================
--- Concepto: usp_concepto_insertar con fechas de vigencia (CON001, CON002…)
--- NOTA: Misma firma que 2.usp_concepto_crud.sql — no quitar FECHAINICIO/FECHAFIN.
--- Fecha: 16/07/2026 — actualizado 04/08/2026
+-- Corrige usp_concepto_insertar (script 6 lo reemplazó por versión sin fechas).
+-- Fecha: 04/08/2026
 -- ============================================================================
 
 USE `AcademiaDB`;
@@ -68,3 +67,5 @@ main: BEGIN
 END$$
 
 DELIMITER ;
+
+SELECT 'usp_concepto_insertar corregido (fechas de vigencia).' AS info;
