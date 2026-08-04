@@ -94,6 +94,25 @@ def call_write(cursor, proc, params, r_var='@_sp_r', m_var='@_sp_m'):
     raise RuntimeError('call_write: use rama SQL Server en el servicio')
 
 
+def call_write_inout_id(cursor, proc, id_val, params, r_var='@_sp_r', m_var='@_sp_m'):
+    """Procedimientos con INOUT p_Id como primer argumento (mensualidad, tutor)."""
+    if is_mysql():
+        cursor.execute('SET @_in_id = %s', [id_val])
+        cursor.execute(f'SET {r_var} = 0, {m_var} = NULL')
+        ph = _placeholders(len(params))
+        cursor.execute(
+            f'CALL {proc}(@_in_id, {ph}, {r_var}, {m_var})',
+            list(params),
+        )
+        drain_sets(cursor)
+        cursor.execute(f'SELECT {r_var} AS Resultado, {m_var} AS Mensaje')
+        row = cursor.fetchone()
+        if not row:
+            return 0, 'Error desconocido'
+        return int(row[0] or 0), str(row[1] or '')
+    raise RuntimeError('call_write_inout_id: use rama SQL Server en el servicio')
+
+
 def call_write_inout(cursor, proc, id_val, contra_val, params):
     """Procedimientos con INOUT p_Id / p_Contra (usp_usuario_insertar)."""
     if is_mysql():

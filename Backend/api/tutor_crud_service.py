@@ -51,7 +51,7 @@ def insertar_tutor(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
         if sp.is_mysql():
-            return sp.call_write(cursor, 'usp_tutor_insertar', params)
+            return sp.call_write_inout_id(cursor, 'usp_tutor_insertar', params[0], params[1:])
         cursor.execute(
             """
             DECLARE @R INT, @M NVARCHAR(200);
