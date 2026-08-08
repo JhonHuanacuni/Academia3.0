@@ -10,7 +10,6 @@ import {
   faSortUp,
   faSortDown,
   faImage,
-  faReceipt,
   faListUl,
 } from "@fortawesome/free-solid-svg-icons";
 import { dbToView, diasRestantesDesdeDb, textoDiasRestantes, claseDiasRestantes } from "../../utils/fecha";
@@ -100,6 +99,17 @@ function renderCell(col, row, index = 0, offset = 0) {
     const n = Number(value);
     if (Number.isNaN(n)) return String(value);
     return `S/ ${n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  if (col.tipo === "saldoDeuda") {
+    const n = Number(value);
+    if (value == null || value === "" || Number.isNaN(n) || n <= 0) {
+      return <span className="pex-saldo pex-saldo--ok">Sin deuda</span>;
+    }
+    return (
+      <span className="pex-saldo pex-saldo--deuda">
+        S/ {n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </span>
+    );
   }
   if (col.tipo === "porcentaje") {
     const n = Number(value);
@@ -291,10 +301,10 @@ export default function DataTable({
                     <button
                       type="button"
                       className="btn-icon"
-                      title="Ver pagos"
+                      title="Ver listado de pagos"
                       onClick={() => onVerPagos(row)}
                     >
-                      <FontAwesomeIcon icon={faReceipt} />
+                      <FontAwesomeIcon icon={faListUl} />
                     </button>
                   )}
                   {onEliminar && (

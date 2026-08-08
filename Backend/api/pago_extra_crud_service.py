@@ -23,6 +23,21 @@ def _read_sp_write_result(cursor, extra_cols=None):
     return int(resultado or 0), str(mensaje or ''), extras
 
 
+def listar_pagos_extra_detalle(id_usuario: str, id_concepto: str):
+    with connection.cursor() as cursor:
+        if sp.is_mysql():
+            return sp.call_simple(
+                cursor,
+                'usp_pagoextra_listar_detalle',
+                [id_usuario, id_concepto],
+            )
+        cursor.execute(
+            'EXEC dbo.usp_pagoextra_listar_detalle @IdUsuario=%s, @IdConcepto=%s',
+            [id_usuario, id_concepto],
+        )
+        return sp.cursor_rows(cursor)
+
+
 def listar_pagos_extra(
     buscar=None,
     ordenar_por='FECHAPAGO',

@@ -4,6 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .db_context import actor_from_request
 from .pago_extra_crud_service import (
     listar_pagos_extra,
+    listar_pagos_extra_detalle,
     obtener_pago_extra,
     insertar_pago_extra,
     actualizar_pago_extra,
@@ -36,6 +37,20 @@ def pagos_extra_conceptos_estudiante(request, id_usuario):
         return JsonResponse({'error': 'Método no permitido'}, status=405)
     try:
         return JsonResponse({'data': conceptos_estudiante(id_usuario)})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@csrf_exempt
+def pagos_extra_detalle(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    id_usuario = request.GET.get('idUsuario') or None
+    id_concepto = request.GET.get('idConcepto') or None
+    if not id_usuario or not id_concepto:
+        return JsonResponse({'error': 'Indica idUsuario e idConcepto.'}, status=400)
+    try:
+        return JsonResponse({'data': listar_pagos_extra_detalle(id_usuario, id_concepto)})
     except Exception as exc:
         return JsonResponse({'error': str(exc)}, status=500)
 

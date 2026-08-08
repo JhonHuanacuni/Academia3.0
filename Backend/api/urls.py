@@ -78,6 +78,7 @@ urlpatterns = [
         pago_extra_views.pagos_extra_conceptos_estudiante,
         name='pagos_extra_conceptos_estudiante',
     ),
+    path('pagos-extraordinarios/detalle/', pago_extra_views.pagos_extra_detalle, name='pagos_extra_detalle'),
     path('pagos-extraordinarios/', pago_extra_views.pagos_extra_mantenedor, name='pagos_extra_mantenedor'),
     path('pagos-extraordinarios/<str:id_pago>/', pago_extra_views.pagos_extra_mantenedor, name='pagos_extra_mantenedor_detail'),
     path('categorias/', categoria_views.categorias_mantenedor, name='categorias_mantenedor'),

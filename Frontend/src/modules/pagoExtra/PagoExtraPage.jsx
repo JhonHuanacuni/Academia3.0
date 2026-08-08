@@ -12,6 +12,7 @@ import FormModal from "../../components/mantenedor/FormModal";
 import ConfirmDialog from "../../components/mantenedor/ConfirmDialog";
 import Toast from "../../components/mantenedor/feedback/Toast";
 import EstudianteSearchField from "../mensualidad/EstudianteSearchField";
+import PagoExtraDetalleModal from "./PagoExtraDetalleModal";
 import { dbToView, hoyInput, inputToDb } from "../../utils/fecha";
 import "../../styles/mantenedor.css";
 import "../pago/pago.css";
@@ -41,8 +42,13 @@ export default function PagoExtraPage() {
   const crud = useCrud({
     entidad: cfg.entidad,
     pk: cfg.pk,
-    ordenInicial: { campo: "FECHAPAGO", direccion: "DESC" },
+    ordenInicial: { campo: "DEUDA", direccion: "DESC" },
   });
+
+  const [grupoSel, setGrupoSel] = useState(null);
+  const [detalleAbierto, setDetalleAbierto] = useState(false);
+  const [pagosDetalle, setPagosDetalle] = useState([]);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
   const [vista, setVista] = useState("lista");
   const [toast, setToast] = useState(null);
@@ -229,9 +235,41 @@ export default function PagoExtraPage() {
     }
   };
 
+  const cargarDetalleGrupo = async (grupo) => {
+    if (!grupo?.IDUSUARIO || !grupo?.IDCONCEPTO) return;
+    setCargandoDetalle(true);
+    try {
+      const params = new URLSearchParams({
+        idUsuario: grupo.IDUSUARIO,
+        idConcepto: grupo.IDCONCEPTO,
+      });
+      const res = await fetch(`/api/pagos-extraordinarios/detalle/?${params}`);
+      const data = await parseJsonResponse(res);
+      if (!res.ok) throw new Error(data.error || "Error al cargar pagos");
+      setPagosDetalle(data.data || []);
+    } catch (err) {
+      setToast({ mensaje: err.message, tipo: "error" });
+      setPagosDetalle([]);
+    } finally {
+      setCargandoDetalle(false);
+    }
+  };
+
+  const abrirDetalleGrupo = async (row) => {
+    setGrupoSel(row);
+    setDetalleAbierto(true);
+    await cargarDetalleGrupo(row);
+  };
+
+  const cerrarDetalleGrupo = () => {
+    setDetalleAbierto(false);
+    setGrupoSel(null);
+    setPagosDetalle([]);
+  };
+
   const abrirVer = async (row) => {
     try {
-      const data = await crud.obtener(row[cfg.pk]);
+      const data = await crud.obtener(row.IDPAGOEXTRA);
       crud.setRegistro(data);
       setModoDetalle("ver");
       setModalAbierto(true);
@@ -242,7 +280,7 @@ export default function PagoExtraPage() {
 
   const abrirEditar = async (row) => {
     try {
-      const data = await crud.obtener(row[cfg.pk]);
+      const data = await crud.obtener(row.IDPAGOEXTRA);
       crud.setRegistro(data);
       setModoDetalle("editar");
       setModalAbierto(true);
@@ -253,8 +291,9 @@ export default function PagoExtraPage() {
 
   const abrirEliminar = (row) => {
     setConfirm({
-      id: row[cfg.pk],
-      mensaje: `¿Eliminar el pago extraordinario de «${row.ESTUDIANTE_NOMBRE || row[cfg.pk]}»?`,
+      id: row.IDPAGOEXTRA,
+      mensaje: `¿Eliminar el pago de ${dinero(row.MONTO)} del ${dbToView(String(row.FECHAPAGO || ""))}?`,
+      grupo: grupoSel,
     });
   };
 
@@ -265,19 +304,29 @@ export default function PagoExtraPage() {
       FECHAPAGO: payload.FECHAPAGO,
       OBSERVACIONES: payload.OBSERVACIONES || null,
     };
-    const mensaje = await crud.actualizar(crud.registro[cfg.pk], body);
+    const mensaje = await crud.actualizar(crud.registro.IDPAGOEXTRA, body);
     setToast({ mensaje, tipo: "success" });
+    setModalAbierto(false);
     await crud.listar();
+    if (grupoSel) await cargarDetalleGrupo(grupoSel);
   };
 
   const handleConfirmEliminar = async () => {
     if (!confirm) return;
     try {
       setConfirmando(true);
-      const mensaje = await crud.eliminar(confirm.id);
-      setToast({ mensaje, tipo: "success" });
+      const res = await fetch(
+        `/api/pagos-extraordinarios/${encodeURIComponent(confirm.id)}/`,
+        { method: "DELETE" },
+      );
+      const data = await parseJsonResponse(res);
+      if (!res.ok || !data.ok) {
+        throw new Error(data.mensaje || data.error || "Error al eliminar");
+      }
+      setToast({ mensaje: data.mensaje, tipo: "success" });
       setConfirm(null);
       await crud.listar();
+      if (confirm.grupo) await cargarDetalleGrupo(confirm.grupo);
     } catch (err) {
       setToast({ mensaje: err.message, tipo: "error" });
     } finally {
@@ -547,9 +596,7 @@ export default function PagoExtraPage() {
           loading={crud.loading}
           error={crud.error}
           onOrden={crud.toggleOrden}
-          onVer={abrirVer}
-          onEditar={abrirEditar}
-          onEliminar={abrirEliminar}
+          onVerPagos={abrirDetalleGrupo}
           onReintentar={crud.listar}
           pagina={crud.pagina}
           tamanio={crud.tamanio}
@@ -562,6 +609,30 @@ export default function PagoExtraPage() {
           onChange={crud.setPagina}
         />
       </div>
+
+      <PagoExtraDetalleModal
+        abierto={detalleAbierto}
+        titulo="Pagos del concepto"
+        estudianteNombre={grupoSel?.ESTUDIANTE_NOMBRE}
+        conceptoNombre={grupoSel?.CONCEPTO_NOMBRE}
+        resumen={
+          grupoSel
+            ? {
+                montoTotal: grupoSel.MONTO_TOTAL,
+                pagado: grupoSel.PAGADO,
+                deuda: grupoSel.DEUDA,
+              }
+            : null
+        }
+        pagos={pagosDetalle}
+        columnas={cfg.columnasDetalle}
+        pk="IDPAGOEXTRA"
+        loading={cargandoDetalle}
+        onClose={cerrarDetalleGrupo}
+        onVer={abrirVer}
+        onEditar={abrirEditar}
+        onEliminar={abrirEliminar}
+      />
 
       <FormModal
         abierto={modalAbierto}

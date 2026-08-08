@@ -122,6 +122,8 @@ ORDER = [
     '31_07_2026/3.usp_usuario_eliminar_fisica.sql',
     '31_07_2026/4.usp_usuario_insertar_mensajes.sql',
     '31_07_2026/8.usp_examen_ranking_aula.sql',
+    '31_07_2026/9.usp_justificacion_listar_filtros.sql',
+    '31_07_2026/10.usp_pagoextra_listar_agrupado.sql',
 ]
 
 

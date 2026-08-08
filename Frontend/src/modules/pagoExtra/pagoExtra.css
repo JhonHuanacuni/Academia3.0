@@ -39,3 +39,24 @@
   font-size: 0.78rem;
   color: var(--color-muted);
 }
+
+.pex-saldo {
+  font-weight: 600;
+}
+
+.pex-saldo--deuda {
+  color: #dc2626;
+}
+
+.pex-saldo--ok {
+  color: #16a34a;
+}
+
+.pex-detalle-modal .pex-detalle-tabla {
+  padding: 0;
+  overflow: hidden;
+}
+
+.pex-detalle-modal .pex-detalle-tabla .data-table-wrap {
+  border: none;
+}
