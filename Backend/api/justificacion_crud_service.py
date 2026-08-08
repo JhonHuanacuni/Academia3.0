@@ -13,7 +13,6 @@ def listar_justificaciones(
     id_plan=None,
     fecha_desde=None,
     fecha_hasta=None,
-    id_turno=None,
     pagina=1,
     tamanio=10,
 ):
@@ -23,7 +22,6 @@ def listar_justificaciones(
         id_plan or None,
         fecha_desde or None,
         fecha_hasta or None,
-        id_turno or None,
         pagina,
         tamanio,
     ]
@@ -35,7 +33,7 @@ def listar_justificaciones(
             DECLARE @Total INT;
             EXEC dbo.usp_justificacion_listar
                 @Buscar=%s, @IdTutor=%s, @IdPlan=%s, @FechaDesde=%s, @FechaHasta=%s,
-                @IdTurno=%s, @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
+                @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
             params,

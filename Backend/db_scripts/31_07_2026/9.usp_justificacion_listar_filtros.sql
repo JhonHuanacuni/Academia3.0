@@ -1,5 +1,5 @@
 /* ============================================================================
-   Justificación listar: filtros tutor, ciclo (plan), fechas y turno
+   Justificación listar: filtros tutor, plan, fechas
    Ejecutar después de 26_07_2026/14.justificacion.sql
    Fecha: 31/07/2026
    ============================================================================ */
@@ -12,7 +12,6 @@ CREATE PROCEDURE dbo.usp_justificacion_listar
     @IdPlan         NVARCHAR(20)  = NULL,
     @FechaDesde     CHAR(8)       = NULL,
     @FechaHasta     CHAR(8)       = NULL,
-    @IdTurno        NVARCHAR(50)  = NULL,
     @Pagina         INT           = 1,
     @TamanioPagina  INT           = 10,
     @TotalRegistros INT OUTPUT
@@ -27,7 +26,7 @@ BEGIN
     INNER JOIN USUARIO est ON est.IDUSUARIO = j.IDUSUARIO
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = j.IDREGISTRADOR
     OUTER APPLY (
-        SELECT TOP 1 m.IDPLAN, m.IDTURNO, m.IDTUTOR
+        SELECT TOP 1 m.IDPLAN, m.IDTUTOR
         FROM MENSUALIDAD m
         WHERE m.IDUSUARIO = j.IDUSUARIO
           AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
@@ -35,7 +34,6 @@ BEGIN
           AND (m.FECHAFIN IS NULL OR m.FECHAFIN >= j.FECHA)
         ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
     ) mem
-    LEFT JOIN [PLAN] pl ON pl.IDPLAN = mem.IDPLAN
     WHERE (@Buscar IS NULL OR @Buscar = ''
        OR est.DNI LIKE '%' + @Buscar + '%'
        OR est.NOMBRE LIKE '%' + @Buscar + '%'
@@ -46,8 +44,7 @@ BEGIN
       AND (@FechaDesde IS NULL OR @FechaDesde = '' OR j.FECHA >= @FechaDesde)
       AND (@FechaHasta IS NULL OR @FechaHasta = '' OR j.FECHA <= @FechaHasta)
       AND (@IdTutor IS NULL OR @IdTutor = '' OR mem.IDTUTOR = @IdTutor)
-      AND (@IdPlan IS NULL OR @IdPlan = '' OR mem.IDPLAN = @IdPlan)
-      AND (@IdTurno IS NULL OR @IdTurno = '' OR ISNULL(pl.IDTURNO, mem.IDTURNO) = @IdTurno);
+      AND (@IdPlan IS NULL OR @IdPlan = '' OR mem.IDPLAN = @IdPlan);
 
     SELECT
         j.IDJUSTIFICACION,
@@ -64,7 +61,7 @@ BEGIN
     INNER JOIN USUARIO est ON est.IDUSUARIO = j.IDUSUARIO
     LEFT JOIN USUARIO reg ON reg.IDUSUARIO = j.IDREGISTRADOR
     OUTER APPLY (
-        SELECT TOP 1 m.IDPLAN, m.IDTURNO, m.IDTUTOR
+        SELECT TOP 1 m.IDPLAN, m.IDTUTOR
         FROM MENSUALIDAD m
         WHERE m.IDUSUARIO = j.IDUSUARIO
           AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
@@ -72,7 +69,6 @@ BEGIN
           AND (m.FECHAFIN IS NULL OR m.FECHAFIN >= j.FECHA)
         ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
     ) mem
-    LEFT JOIN [PLAN] pl ON pl.IDPLAN = mem.IDPLAN
     WHERE (@Buscar IS NULL OR @Buscar = ''
        OR est.DNI LIKE '%' + @Buscar + '%'
        OR est.NOMBRE LIKE '%' + @Buscar + '%'
@@ -84,12 +80,11 @@ BEGIN
       AND (@FechaHasta IS NULL OR @FechaHasta = '' OR j.FECHA <= @FechaHasta)
       AND (@IdTutor IS NULL OR @IdTutor = '' OR mem.IDTUTOR = @IdTutor)
       AND (@IdPlan IS NULL OR @IdPlan = '' OR mem.IDPLAN = @IdPlan)
-      AND (@IdTurno IS NULL OR @IdTurno = '' OR ISNULL(pl.IDTURNO, mem.IDTURNO) = @IdTurno)
     ORDER BY j.FECHA DESC, j.HORAREGISTRO DESC
     OFFSET (@Pagina - 1) * @TamanioPagina ROWS
     FETCH NEXT @TamanioPagina ROWS ONLY;
 END;
 GO
 
-PRINT 'usp_justificacion_listar: filtros tutor, ciclo, fechas y turno listos.';
+PRINT 'usp_justificacion_listar: filtros tutor, plan y fechas listos.';
 GO

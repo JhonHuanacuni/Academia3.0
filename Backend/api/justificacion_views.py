@@ -27,7 +27,6 @@ def justificaciones_mantenedor(request, id_justificacion=None):
             id_plan = request.GET.get('idPlan') or None
             fecha_desde = request.GET.get('fechaDesde') or None
             fecha_hasta = request.GET.get('fechaHasta') or None
-            id_turno = request.GET.get('idTurno') or None
             pagina = int(request.GET.get('pagina', 1))
             tamanio = int(request.GET.get('tamanio', 10))
             data, total = listar_justificaciones(
@@ -36,7 +35,6 @@ def justificaciones_mantenedor(request, id_justificacion=None):
                 id_plan,
                 fecha_desde,
                 fecha_hasta,
-                id_turno,
                 pagina,
                 tamanio,
             )
