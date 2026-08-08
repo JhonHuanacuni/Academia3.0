@@ -42,6 +42,8 @@ export default function UsuarioPage() {
               { value: "Recomendación", label: "Recomendación de amigo/familiar" },
               { value: "Google", label: "Google / Internet" },
               { value: "Volante", label: "Volante / publicidad" },
+              { value: "Promotoría", label: "Promotoría" },
+              { value: "Buscando", label: "Buscando" },
               { value: "Otro", label: "Otro" },
             ],
           });
