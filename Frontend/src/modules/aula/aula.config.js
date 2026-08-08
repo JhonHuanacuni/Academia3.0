@@ -6,6 +6,7 @@ export const aulaConfig = {
   columnas: [
     { campo: "IDAULA", etiqueta: "Código", ordenable: true },
     { campo: "NOMBRE", etiqueta: "Nombre", ordenable: true },
+    { campo: "TUTOR_NOMBRE", etiqueta: "Tutor", ordenable: true },
     { campo: "CAPACIDAD", etiqueta: "Capacidad", ordenable: true },
     { campo: "DESCRIPCION", etiqueta: "Descripción", ordenable: false },
     { campo: "ESTADO", etiqueta: "Estado", tipo: "estado", ordenable: true },
@@ -31,6 +32,19 @@ export const aulaConfig = {
           defaultValue: "Activo",
         },
         { campo: "DESCRIPCION", etiqueta: "Descripción", control: "textarea", full: true },
+      ],
+    },
+    {
+      titulo: "Asignación",
+      campos: [
+        {
+          campo: "IDTUTOR",
+          etiqueta: "Tutor",
+          control: "select",
+          catalogo: "tutores",
+          full: true,
+          ayuda: "Tutor asignado al salón. Se usará al registrar mensualidades.",
+        },
       ],
     },
     {

@@ -257,7 +257,7 @@ def listar_catalogos(id_registrador=None):
         except Exception:
             catalogos['tutores'] = []
 
-    aulas = Aula.objects.filter(ACTIVO=True).order_by('NOMBRE').values('IDAULA', 'NOMBRE')
+    aulas = Aula.objects.filter(ACTIVO=True).order_by('NOMBRE').values('IDAULA', 'NOMBRE', 'IDTUTOR')
     catalogos['aulas'] = list(aulas)
     if id_registrador:
         catalogos['registradorNombre'] = obtener_nombre_registrador(id_registrador)

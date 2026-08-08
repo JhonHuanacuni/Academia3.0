@@ -50,6 +50,7 @@ def insertar_aula(payload: dict, id_usuario=None):
         _int_or_none(payload.get('CAPACIDAD')),
         payload.get('ENLACEVIRTUAL'),
         payload.get('ENLACECUESTIONARIO'),
+        payload.get('IDTUTOR') or None,
         payload.get('ESTADO', 'Activo'),
     ]
     with connection.cursor() as cursor:
@@ -61,7 +62,7 @@ def insertar_aula(payload: dict, id_usuario=None):
             DECLARE @R INT, @M NVARCHAR(200);
             EXEC dbo.usp_aula_insertar
                 @Id=%s, @Nombre=%s, @Descripcion=%s, @Capacidad=%s,
-                @EnlaceVirtual=%s, @EnlaceCuestionario=%s, @Estado=%s,
+                @EnlaceVirtual=%s, @EnlaceCuestionario=%s, @IdTutor=%s, @Estado=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,
@@ -78,6 +79,7 @@ def actualizar_aula(id_aula: str, payload: dict, id_usuario=None):
         _int_or_none(payload.get('CAPACIDAD')),
         payload.get('ENLACEVIRTUAL'),
         payload.get('ENLACECUESTIONARIO'),
+        payload.get('IDTUTOR') or None,
         payload.get('ESTADO', 'Activo'),
     ]
     with connection.cursor() as cursor:
@@ -89,7 +91,7 @@ def actualizar_aula(id_aula: str, payload: dict, id_usuario=None):
             DECLARE @R INT, @M NVARCHAR(200);
             EXEC dbo.usp_aula_actualizar
                 @Id=%s, @Nombre=%s, @Descripcion=%s, @Capacidad=%s,
-                @EnlaceVirtual=%s, @EnlaceCuestionario=%s, @Estado=%s,
+                @EnlaceVirtual=%s, @EnlaceCuestionario=%s, @IdTutor=%s, @Estado=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
             SELECT @R AS Resultado, @M AS Mensaje;
             """,

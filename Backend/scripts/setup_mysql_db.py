@@ -124,6 +124,7 @@ ORDER = [
     '31_07_2026/8.usp_examen_ranking_aula.sql',
     '31_07_2026/9.usp_justificacion_listar_filtros.sql',
     '31_07_2026/10.usp_pagoextra_listar_agrupado.sql',
+    '31_07_2026/11.aula_tutor.sql',
 ]
 
 

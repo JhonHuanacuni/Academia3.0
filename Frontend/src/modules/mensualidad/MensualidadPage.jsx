@@ -20,7 +20,11 @@ function mapCatalogos(data) {
       value: p.IDPLAN,
       label: p.NOMBRE,
     })),
-    aulas: (data.aulas || []).map((a) => ({ value: a.IDAULA, label: a.NOMBRE })),
+    aulas: (data.aulas || []).map((a) => ({
+      value: a.IDAULA,
+      label: a.NOMBRE,
+      idTutor: a.IDTUTOR || "",
+    })),
     tutores: (data.tutores || []).map((a) => ({ value: a.IDTUTOR, label: a.NOMBRE })),
     metodosPago: (data.metodosPago || []).map((m) => ({
       value: m.IDMETODOPAGO,
@@ -246,6 +250,14 @@ export default function MensualidadPage() {
     [modo, registradorNombre],
   );
 
+  const handleFieldChange = (campo, val, setValues) => {
+    if (campo !== "IDAULA") return;
+    const aula = catalogos.aulas.find((a) => a.value === val);
+    if (aula?.idTutor) {
+      setValues((prev) => ({ ...prev, IDTUTOR: aula.idTutor }));
+    }
+  };
+
   if (vista === "form") {
     return (
       <>
@@ -262,6 +274,7 @@ export default function MensualidadPage() {
           estudianteSeleccionado={estudianteSel}
           onEstudianteChange={setEstudianteSel}
           createDefaults={createDefaults}
+          onFieldChange={handleFieldChange}
           onCancel={volverLista}
           onSubmit={handleGuardar}
         />

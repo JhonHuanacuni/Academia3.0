@@ -164,6 +164,7 @@ class Aula(models.Model):
     ACTIVO = models.BooleanField(default=True)
     ENLACEVIRTUAL = models.CharField(max_length=255, blank=True, null=True)
     ENLACECUESTIONARIO = models.CharField(max_length=255, blank=True, null=True)
+    IDTUTOR = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
         db_table = 'AULA'

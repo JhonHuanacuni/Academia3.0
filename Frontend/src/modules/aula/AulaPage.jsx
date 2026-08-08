@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { parseJsonResponse } from "../../utils/api";
 import { useCrud } from "../../hooks/useCrud";
 import { aulaConfig } from "./aula.config";
 import PageHeader from "../../components/mantenedor/PageHeader";
@@ -19,6 +20,26 @@ export default function AulaPage() {
   const [confirm, setConfirm] = useState(null);
   const [toast, setToast] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
+  const [catalogos, setCatalogos] = useState({ tutores: [] });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/mensualidades/catalogos/");
+        const data = await parseJsonResponse(res);
+        if (res.ok) {
+          setCatalogos({
+            tutores: (data.data?.tutores || []).map((t) => ({
+              value: t.IDTUTOR,
+              label: t.NOMBRE,
+            })),
+          });
+        }
+      } catch {
+        /* catálogo opcional */
+      }
+    })();
+  }, []);
 
   const abrirCrear = () => {
     crud.setRegistro(null);
@@ -86,7 +107,7 @@ export default function AulaPage() {
 
   return (
     <div className="mantenedor-page">
-      <PageHeader titulo={cfg.titulo} onNuevo={abrirCrear} />
+      <PageHeader modulo={cfg.modulo} vista={cfg.titulo} onNuevo={abrirCrear} />
 
       <div className="mantenedor-card">
         <Toolbar
@@ -132,6 +153,7 @@ export default function AulaPage() {
         campos={cfg.campos}
         secciones={cfg.secciones}
         registro={crud.registro}
+        catalogos={catalogos}
         onClose={() => setModalAbierto(false)}
         onSubmit={handleGuardar}
       />
