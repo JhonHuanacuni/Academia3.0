@@ -20,7 +20,6 @@ export default function JustificacionPage() {
     filtrosIniciales: {
       idTutor: "",
       idPlan: "",
-      idTurno: "",
       fechaDesde: "",
       fechaHasta: "",
     },
@@ -33,38 +32,24 @@ export default function JustificacionPage() {
   const [confirmando, setConfirmando] = useState(false);
   const [estudianteSel, setEstudianteSel] = useState(null);
   const [registradorNombre, setRegistradorNombre] = useState("");
-  const [catalogos, setCatalogos] = useState({ tutores: [], planes: [], turnos: [] });
+  const [catalogos, setCatalogos] = useState({ tutores: [], planes: [] });
 
   useEffect(() => {
     (async () => {
       try {
-        const [resMen, resPlan] = await Promise.all([
-          fetch("/api/mensualidades/catalogos/"),
-          fetch("/api/planes/catalogos/"),
-        ]);
-        const dataMen = await parseJsonResponse(resMen);
-        const dataPlan = await parseJsonResponse(resPlan);
-        if (resMen.ok) {
-          setCatalogos((prev) => ({
-            ...prev,
-            tutores: (dataMen.data?.tutores || []).map((t) => ({
+        const res = await fetch("/api/mensualidades/catalogos/");
+        const data = await parseJsonResponse(res);
+        if (res.ok) {
+          setCatalogos({
+            tutores: (data.data?.tutores || []).map((t) => ({
               value: t.IDTUTOR,
               label: t.NOMBRE,
             })),
-            planes: (dataMen.data?.planes || []).map((p) => ({
+            planes: (data.data?.planes || []).map((p) => ({
               value: p.IDPLAN,
               label: p.NOMBRE,
             })),
-          }));
-        }
-        if (resPlan.ok) {
-          setCatalogos((prev) => ({
-            ...prev,
-            turnos: (dataPlan.data?.turnos || []).map((t) => ({
-              value: t.IDTURNO,
-              label: t.DESCRIPCION,
-            })),
-          }));
+          });
         }
       } catch {
         /* catálogos opcionales */
@@ -235,17 +220,10 @@ export default function JustificacionPage() {
               },
               {
                 key: "idPlan",
-                etiqueta: "Ciclo",
+                etiqueta: "Plan",
                 value: crud.filtros.idPlan || "",
                 opciones: catalogos.planes,
                 onChange: (v) => crud.setFiltro("idPlan", v),
-              },
-              {
-                key: "idTurno",
-                etiqueta: "Turno",
-                value: crud.filtros.idTurno || "",
-                opciones: catalogos.turnos,
-                onChange: (v) => crud.setFiltro("idTurno", v),
               },
             ]}
           />
