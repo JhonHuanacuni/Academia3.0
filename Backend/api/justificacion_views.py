@@ -23,9 +23,23 @@ def justificaciones_mantenedor(request, id_justificacion=None):
     if request.method == 'GET' and not id_justificacion:
         try:
             buscar = request.GET.get('buscar') or None
+            id_tutor = request.GET.get('idTutor') or None
+            id_plan = request.GET.get('idPlan') or None
+            fecha_desde = request.GET.get('fechaDesde') or None
+            fecha_hasta = request.GET.get('fechaHasta') or None
+            id_turno = request.GET.get('idTurno') or None
             pagina = int(request.GET.get('pagina', 1))
             tamanio = int(request.GET.get('tamanio', 10))
-            data, total = listar_justificaciones(buscar, pagina, tamanio)
+            data, total = listar_justificaciones(
+                buscar,
+                id_tutor,
+                id_plan,
+                fecha_desde,
+                fecha_hasta,
+                id_turno,
+                pagina,
+                tamanio,
+            )
             return JsonResponse({
                 'data': data,
                 'total': total,

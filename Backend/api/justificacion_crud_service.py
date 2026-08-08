@@ -9,10 +9,24 @@ def _read_sp_write_result(cursor):
 
 def listar_justificaciones(
     buscar=None,
+    id_tutor=None,
+    id_plan=None,
+    fecha_desde=None,
+    fecha_hasta=None,
+    id_turno=None,
     pagina=1,
     tamanio=10,
 ):
-    params = [buscar or None, pagina, tamanio]
+    params = [
+        buscar or None,
+        id_tutor or None,
+        id_plan or None,
+        fecha_desde or None,
+        fecha_hasta or None,
+        id_turno or None,
+        pagina,
+        tamanio,
+    ]
     with connection.cursor() as cursor:
         if sp.is_mysql():
             return sp.call_list(cursor, 'usp_justificacion_listar', params)
@@ -20,7 +34,8 @@ def listar_justificaciones(
             """
             DECLARE @Total INT;
             EXEC dbo.usp_justificacion_listar
-                @Buscar=%s, @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
+                @Buscar=%s, @IdTutor=%s, @IdPlan=%s, @FechaDesde=%s, @FechaHasta=%s,
+                @IdTurno=%s, @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
             params,
