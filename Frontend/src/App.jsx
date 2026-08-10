@@ -24,6 +24,7 @@ import InformeAsistenciasPage from "./modules/informes/InformeAsistenciasPage";
 import DashboardPage from "./modules/dashboard/DashboardPage";
 import NotasPage from "./modules/notas/NotasPage";
 import AuditoriaPage from "./modules/auditoria/AuditoriaPage";
+import ClasesGrabadasPorRol from "./modules/claseGrabada/ClaseGrabadaPage";
 import "./App.css";
 
 function ExamenesPorRol({ role }) {
@@ -149,8 +150,9 @@ const pageContent = {
     component: HorarioPage,
   },
   "academico-clases": {
-    title: "Clases",
-    description: "Registro y administración de clases.",
+    title: "Clases grabadas",
+    description: "Enlaces a clases grabadas por materia y salón.",
+    component: ClasesGrabadasPorRol,
   },
   "academico-notas": {
     title: "Importar notas",
@@ -285,8 +287,8 @@ function App() {
       onLogout={handleLogout}
     >
       {page.component ? (
-        page.component === ExamenesPorRol ? (
-          <ExamenesPorRol role={role} />
+        page.component === ExamenesPorRol || page.component === ClasesGrabadasPorRol ? (
+          <page.component role={role} />
         ) : (
           <page.component role={role} idusuario={idusuario} onChangePage={setActivePage} />
         )

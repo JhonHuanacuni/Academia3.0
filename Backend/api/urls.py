@@ -21,6 +21,7 @@ from . import justificacion_views
 from . import nota_import_views
 from . import auditoria_views
 from . import dashboard_views
+from . import clase_grabada_views
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -127,6 +128,10 @@ urlpatterns = [
     path('auditoria/catalogos/', auditoria_views.auditoria_mantenedor, {'id_auditoria': 'catalogos'}),
     path('auditoria/', auditoria_views.auditoria_mantenedor, name='auditoria_mantenedor'),
     path('auditoria/<str:id_auditoria>/', auditoria_views.auditoria_mantenedor, name='auditoria_mantenedor_detail'),
+    path('clases-grabadas/catalogos/', clase_grabada_views.clases_grabadas_catalogos, name='clases_grabadas_catalogos'),
+    path('clases-grabadas/materias/', clase_grabada_views.clases_grabadas_materias, name='clases_grabadas_materias'),
+    path('clases-grabadas/', clase_grabada_views.clases_grabadas_mantenedor, name='clases_grabadas_mantenedor'),
+    path('clases-grabadas/<str:id_clase>/', clase_grabada_views.clases_grabadas_mantenedor, name='clases_grabadas_mantenedor_detail'),
     path('menu-usuario/', views.menu_usuario, name='menu_usuario'),
     
     # URLs de módulos - Admin
