@@ -38,7 +38,7 @@ export default function MensualidadPage() {
   const crud = useCrud({
     entidad: cfg.entidad,
     pk: cfg.pk,
-    ordenInicial: { campo: "FECHAREGISTRO", direccion: "DESC" },
+    ordenInicial: { campo: "ESTUDIANTE_NOMBRE", direccion: "ASC" },
     filtrosIniciales: {},
   });
 

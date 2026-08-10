@@ -15,6 +15,148 @@ def _decimal_or_none(value):
     return float(value)
 
 
+def _listar_mensualidades_mysql(
+    cursor,
+    buscar=None,
+    deuda=None,
+    ordenar_por='FECHAREGISTRO',
+    direccion='DESC',
+    pagina=1,
+    tamanio=10,
+):
+    buscar = (buscar or '').strip() or None
+    deuda = (deuda or '').strip() or None
+    ordenar_por = (ordenar_por or 'FECHAREGISTRO').strip()
+    direccion = 'DESC' if (direccion or 'DESC').upper() == 'DESC' else 'ASC'
+    pagina = max(1, int(pagina or 1))
+    tamanio = max(1, int(tamanio or 10))
+    offset = (pagina - 1) * tamanio
+
+    sql_base = """
+        WITH Base AS (
+            SELECT
+                m.IDMENSUALIDAD,
+                m.IDUSUARIO,
+                UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
+                u.DNI AS ESTUDIANTE_DNI,
+                m.IDPLAN,
+                pl.NOMBRE AS PLAN_NOMBRE,
+                IFNULL(tu.DESCRIPCION, '') AS TURNO_DESCRIPCION,
+                m.ESTADOMIEMBRO,
+                m.FECHAINICIO,
+                m.FECHAFIN,
+                m.MONTOTOTAL,
+                IFNULL(pag.PAGADO, 0) AS PAGADO,
+                CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
+                     ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END AS DEUDA,
+                COUNT(*) OVER (PARTITION BY m.IDUSUARIO) AS CANT_MENSUALIDADES,
+                SUM(
+                    CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
+                         ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END
+                ) OVER (PARTITION BY m.IDUSUARIO) AS DEUDA_TOTAL,
+                IFNULL(au.NOMBRE, '') AS AULA_NOMBRE,
+                m.IDTUTOR,
+                IFNULL(tut.NOMBRE, IFNULL(m.TUTORLEGACY, '')) AS TUTOR_NOMBRE,
+                m.REGISTRADOPOR,
+                UPPER(TRIM(CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, '')))) AS ASESOR_NOMBRE,
+                m.ESTADO,
+                m.FECHAREGISTRO,
+                ROW_NUMBER() OVER (
+                    PARTITION BY m.IDUSUARIO
+                    ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
+                ) AS RN
+            FROM MENSUALIDAD m
+            INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+            INNER JOIN `PLAN` pl ON pl.IDPLAN = m.IDPLAN
+            LEFT JOIN TURNO tu ON tu.IDTURNO = IFNULL(pl.IDTURNO, m.IDTURNO)
+            LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
+            LEFT JOIN TUTOR tut ON tut.IDTUTOR = m.IDTUTOR
+            LEFT JOIN USUARIO reg ON reg.IDUSUARIO = m.REGISTRADOPOR
+            LEFT JOIN LATERAL (
+                SELECT SUM(p.MONTO) AS PAGADO
+                FROM PAGOMENSUALIDAD p
+                WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
+            ) pag ON TRUE
+            WHERE m.ESTADO = 'Activo'
+        ),
+        Filtrada AS (
+            SELECT *
+            FROM Base
+            WHERE RN = 1
+              AND (%s IS NULL OR
+                   IDMENSUALIDAD LIKE CONCAT('%%', %s, '%%') OR
+                   ESTUDIANTE_DNI LIKE CONCAT('%%', %s, '%%') OR
+                   ESTUDIANTE_NOMBRE LIKE CONCAT('%%', %s, '%%') OR
+                   PLAN_NOMBRE LIKE CONCAT('%%', %s, '%%') OR
+                   AULA_NOMBRE LIKE CONCAT('%%', %s, '%%') OR
+                   TUTOR_NOMBRE LIKE CONCAT('%%', %s, '%%'))
+              AND (
+                  %s IS NULL OR
+                  (%s IN ('con', 'Con deuda') AND DEUDA_TOTAL > 0) OR
+                  (%s IN ('sin', 'Sin deuda') AND DEUDA_TOTAL <= 0)
+              )
+        )
+    """
+
+    filtros = [buscar, buscar, buscar, buscar, buscar, buscar, buscar, deuda, deuda, deuda]
+
+    cursor.execute(f'{sql_base} SELECT COUNT(*) FROM Filtrada', filtros)
+    total = int((cursor.fetchone() or [0])[0])
+
+    order_sql = """
+        ORDER BY
+            CASE WHEN %s = 'FECHAREGISTRO' AND %s = 'DESC' THEN FECHAREGISTRO END DESC,
+            CASE WHEN %s = 'FECHAREGISTRO' AND %s = 'ASC' THEN FECHAREGISTRO END ASC,
+            CASE WHEN %s IN ('DEUDA', 'DEUDA_TOTAL') AND %s = 'DESC' THEN DEUDA_TOTAL END DESC,
+            CASE WHEN %s IN ('DEUDA', 'DEUDA_TOTAL') AND %s = 'ASC' THEN DEUDA_TOTAL END ASC,
+            CASE WHEN %s = 'CANT_MENSUALIDADES' AND %s = 'DESC' THEN CANT_MENSUALIDADES END DESC,
+            CASE WHEN %s = 'CANT_MENSUALIDADES' AND %s = 'ASC' THEN CANT_MENSUALIDADES END ASC,
+            CASE WHEN %s = 'ESTUDIANTE_NOMBRE' AND %s = 'DESC' THEN ESTUDIANTE_NOMBRE END DESC,
+            CASE WHEN %s = 'ESTUDIANTE_NOMBRE' AND %s = 'ASC' THEN ESTUDIANTE_NOMBRE END ASC,
+            CASE WHEN %s = 'FECHAFIN' AND %s = 'DESC' THEN FECHAFIN END DESC,
+            CASE WHEN %s = 'FECHAFIN' AND %s = 'ASC' THEN FECHAFIN END ASC,
+            IDMENSUALIDAD DESC
+        LIMIT %s OFFSET %s
+    """
+    order_params = []
+    for _ in range(8):
+        order_params.extend([ordenar_por, direccion])
+    order_params.extend([tamanio, offset])
+
+    cursor.execute(
+        f"""
+        {sql_base}
+        SELECT
+            IDMENSUALIDAD,
+            IDUSUARIO,
+            ESTUDIANTE_NOMBRE,
+            ESTUDIANTE_DNI,
+            IDPLAN,
+            PLAN_NOMBRE,
+            TURNO_DESCRIPCION,
+            ESTADOMIEMBRO,
+            FECHAINICIO,
+            FECHAFIN,
+            MONTOTOTAL,
+            PAGADO,
+            DEUDA,
+            CANT_MENSUALIDADES,
+            DEUDA_TOTAL,
+            AULA_NOMBRE,
+            IDTUTOR,
+            TUTOR_NOMBRE,
+            REGISTRADOPOR,
+            ASESOR_NOMBRE,
+            ESTADO,
+            FECHAREGISTRO
+        FROM Filtrada
+        {order_sql}
+        """,
+        filtros + order_params,
+    )
+    return sp.cursor_rows(cursor), total
+
+
 def listar_mensualidades(
     buscar=None,
     deuda=None,
@@ -27,7 +169,9 @@ def listar_mensualidades(
     params = [buscar or None, deuda, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            return sp.call_list(cursor, 'usp_mensualidad_listar', params)
+            return _listar_mensualidades_mysql(
+                cursor, buscar, deuda, ordenar_por, direccion, pagina, tamanio
+            )
         cursor.execute(
             """
             DECLARE @Total INT;

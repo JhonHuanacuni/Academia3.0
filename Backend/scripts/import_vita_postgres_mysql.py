@@ -30,20 +30,26 @@ Uso (desde Backend/):
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pymysql
 from dotenv import load_dotenv
 
+psycopg2 = None
+psycopg2_extras = None
+
 try:
-    import psycopg2
-    import psycopg2.extras
+    import psycopg2 as _pg_mod
+    import psycopg2.extras as _pgx_mod
+    psycopg2 = _pg_mod
+    psycopg2_extras = _pgx_mod
 except ImportError:
-    print('ERROR: instala psycopg2-binary: pip install psycopg2-binary', file=sys.stderr)
-    sys.exit(1)
+    pass
 
 from import_mensualidades_faltantes_mysql import (
     PLAN_MAP,
@@ -61,6 +67,78 @@ from import_mensualidades_faltantes_mysql import (
 from setup_mysql_db import _connect
 
 BASE = Path(__file__).resolve().parent.parent
+EXPORT_DIR = BASE / 'data' / 'vita_export'
+
+
+def _require_psycopg2():
+    global psycopg2, psycopg2_extras
+    if psycopg2 is None:
+        try:
+            import psycopg2 as _pg
+            import psycopg2.extras as _pgx
+            psycopg2 = _pg
+            psycopg2_extras = _pgx
+        except ImportError:
+            print('ERROR: instala psycopg2-binary: pip install psycopg2-binary', file=sys.stderr)
+            sys.exit(1)
+
+
+def _row_to_json(row: dict) -> dict:
+    out = {}
+    for k, v in dict(row).items():
+        if isinstance(v, datetime):
+            out[k] = v.isoformat()
+        elif isinstance(v, date):
+            out[k] = v.isoformat()
+        elif isinstance(v, Decimal):
+            out[k] = float(v)
+        else:
+            out[k] = v
+    return out
+
+
+def export_json(export_dir: Path) -> None:
+    _require_psycopg2()
+    export_dir.mkdir(parents=True, exist_ok=True)
+    pg = connect_pg()
+    try:
+        users = fetch_users(pg)
+        membresias = fetch_membresias(pg)
+        pagos = fetch_pagos(pg)
+    finally:
+        pg.close()
+
+    (export_dir / 'usuarios.json').write_text(
+        json.dumps([_row_to_json(u) for u in users], ensure_ascii=False, indent=2),
+        encoding='utf-8',
+    )
+    (export_dir / 'mensualidades.json').write_text(
+        json.dumps([_row_to_json(m) for m in membresias], ensure_ascii=False, indent=2),
+        encoding='utf-8',
+    )
+    (export_dir / 'pagos.json').write_text(
+        json.dumps([_row_to_json(p) for p in pagos], ensure_ascii=False, indent=2),
+        encoding='utf-8',
+    )
+    print(f'Exportado en {export_dir}:')
+    print(f'  usuarios={len(users)} mensualidades={len(membresias)} pagos={len(pagos)}')
+
+
+def load_json_export(export_dir: Path) -> tuple[list[dict], list[dict], list[dict]]:
+    users = json.loads((export_dir / 'usuarios.json').read_text(encoding='utf-8'))
+    membresias = json.loads((export_dir / 'mensualidades.json').read_text(encoding='utf-8'))
+    pagos = json.loads((export_dir / 'pagos.json').read_text(encoding='utf-8'))
+    return users, membresias, pagos
+
+
+def load_pg_data() -> tuple[list[dict], list[dict], list[dict]]:
+    _require_psycopg2()
+    pg = connect_pg()
+    try:
+        return fetch_users(pg), fetch_membresias(pg), fetch_pagos(pg)
+    finally:
+        pg.close()
+
 
 ROL_MAP = {
     '1': '1',
@@ -475,6 +553,17 @@ def main():
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--only', choices=['usuarios', 'mensualidades', 'pagos'])
     parser.add_argument(
+        '--export-json',
+        action='store_true',
+        help='Exporta PostgreSQL a data/vita_export/*.json (solo PC)',
+    )
+    parser.add_argument(
+        '--from-json',
+        type=Path,
+        default=None,
+        help='Importa desde JSON exportado (ideal en el servidor)',
+    )
+    parser.add_argument(
         '--vigentes-only',
         action='store_true',
         help='Solo mensualidades vigentes (sin cancelación y fecha_fin >= hoy)',
@@ -482,18 +571,28 @@ def main():
     args = parser.parse_args()
 
     load_dotenv(BASE / '.env')
+
+    if args.export_json:
+        export_json(EXPORT_DIR)
+        return
+
     mysql_password = os.getenv('DB_PASSWORD', '') or os.getenv('MYSQL_ROOT_PASSWORD', '')
     if not mysql_password:
         print('ERROR: DB_PASSWORD o MYSQL_ROOT_PASSWORD requerido.', file=sys.stderr)
         sys.exit(1)
 
-    pg = connect_pg()
-    try:
-        users = fetch_users(pg)
-        membresias = fetch_membresias(pg)
-        pagos = fetch_pagos(pg)
-    finally:
-        pg.close()
+    if args.from_json:
+        export_dir = args.from_json
+        if not export_dir.is_absolute():
+            export_dir = BASE / export_dir
+        if not (export_dir / 'mensualidades.json').exists():
+            print(f'ERROR: no existe export en {export_dir}', file=sys.stderr)
+            sys.exit(1)
+        users, membresias, pagos = load_json_export(export_dir)
+        source_label = f'JSON {export_dir}'
+    else:
+        users, membresias, pagos = load_pg_data()
+        source_label = 'PostgreSQL'
 
     today = date.today()
     id_to_dni = build_id_to_dni(users)
@@ -515,7 +614,7 @@ def main():
         pagos = [p for p in pagos if int(p['membresia_id']) in vig_ids]
 
     print(
-        f'PostgreSQL: usuarios={len(users)} '
+        f'{source_label}: usuarios={len(users)} '
         f'membresias={len(membresias)} pagos={len(pagos)}'
     )
 

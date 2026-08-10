@@ -11,6 +11,7 @@ import {
   faSortDown,
   faImage,
   faListUl,
+  faUserSlash,
 } from "@fortawesome/free-solid-svg-icons";
 import { dbToView, diasRestantesDesdeDb, textoDiasRestantes, claseDiasRestantes } from "../../utils/fecha";
 import { resumenDiasAsistencia } from "../../utils/diasPlan";
@@ -146,6 +147,8 @@ export default function DataTable({
   onVer,
   onEditar,
   onEliminar,
+  onRetirar,
+  campoEstado = "ESTADO",
   onCarnet,
   onResetContra,
   onWhatsapp,
@@ -157,7 +160,7 @@ export default function DataTable({
   verIcono = "eye",
 }) {
   const mostrarAcciones = Boolean(
-    onVer || onEditar || onEliminar || onCarnet || onResetContra || onWhatsapp || onVerPagos || onVerMensualidades,
+    onVer || onEditar || onEliminar || onRetirar || onCarnet || onResetContra || onWhatsapp || onVerPagos || onVerMensualidades,
   );
   const offset = Math.max(0, (pagina - 1) * tamanio);
   if (loading) {
@@ -291,7 +294,7 @@ export default function DataTable({
                     <button
                       type="button"
                       className="btn-icon"
-                      title="Ver mensualidades"
+                      title="Ver mensualidades del estudiante"
                       onClick={() => onVerMensualidades(row)}
                     >
                       <FontAwesomeIcon icon={faListUl} />
@@ -307,11 +310,21 @@ export default function DataTable({
                       <FontAwesomeIcon icon={faListUl} />
                     </button>
                   )}
-                  {onEliminar && (
+                  {onRetirar && (row[campoEstado] || "").trim() !== "Retirado" && (
                     <button
                       type="button"
                       className="btn-icon danger"
-                      title="Eliminar"
+                      title="Retirar usuario"
+                      onClick={() => onRetirar(row)}
+                    >
+                      <FontAwesomeIcon icon={faUserSlash} />
+                    </button>
+                  )}
+                  {onEliminar && (!onRetirar || (row[campoEstado] || "").trim() === "Retirado") && (
+                    <button
+                      type="button"
+                      className="btn-icon danger"
+                      title="Eliminar permanentemente"
                       onClick={() => onEliminar(row)}
                     >
                       <FontAwesomeIcon icon={faTrash} />

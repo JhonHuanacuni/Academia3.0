@@ -37,6 +37,11 @@ main: BEGIN
             IFNULL(tut.NOMBRE, IFNULL(m.TUTORLEGACY, '')) AS TUTOR_NOMBRE,
             CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
                  ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END AS DEUDA,
+            COUNT(*) OVER (PARTITION BY m.IDUSUARIO) AS CANT_MENSUALIDADES,
+            SUM(
+                CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
+                     ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END
+            ) OVER (PARTITION BY m.IDUSUARIO) AS DEUDA_TOTAL,
             ROW_NUMBER() OVER (
                 PARTITION BY m.IDUSUARIO
                 ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
@@ -66,8 +71,8 @@ main: BEGIN
                TUTOR_NOMBRE LIKE CONCAT('%', p_Buscar, '%'))
           AND (
               p_Deuda IS NULL OR p_Deuda = '' OR
-              (p_Deuda IN ('con', 'Con deuda') AND DEUDA > 0) OR
-              (p_Deuda IN ('sin', 'Sin deuda') AND DEUDA <= 0)
+              (p_Deuda IN ('con', 'Con deuda') AND DEUDA_TOTAL > 0) OR
+              (p_Deuda IN ('sin', 'Sin deuda') AND DEUDA_TOTAL <= 0)
           )
     )
     SELECT COUNT(*) INTO p_TotalRegistros FROM Filtrada;
@@ -88,6 +93,11 @@ main: BEGIN
             IFNULL(pag.PAGADO, 0) AS PAGADO,
             CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
                  ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END AS DEUDA,
+            COUNT(*) OVER (PARTITION BY m.IDUSUARIO) AS CANT_MENSUALIDADES,
+            SUM(
+                CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
+                     ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END
+            ) OVER (PARTITION BY m.IDUSUARIO) AS DEUDA_TOTAL,
             IFNULL(au.NOMBRE, '') AS AULA_NOMBRE,
             m.IDTUTOR,
             IFNULL(tut.NOMBRE, IFNULL(m.TUTORLEGACY, '')) AS TUTOR_NOMBRE,
@@ -126,8 +136,8 @@ main: BEGIN
                TUTOR_NOMBRE LIKE CONCAT('%', p_Buscar, '%'))
           AND (
               p_Deuda IS NULL OR p_Deuda = '' OR
-              (p_Deuda IN ('con', 'Con deuda') AND DEUDA > 0) OR
-              (p_Deuda IN ('sin', 'Sin deuda') AND DEUDA <= 0)
+              (p_Deuda IN ('con', 'Con deuda') AND DEUDA_TOTAL > 0) OR
+              (p_Deuda IN ('sin', 'Sin deuda') AND DEUDA_TOTAL <= 0)
           )
     )
     SELECT
@@ -144,6 +154,8 @@ main: BEGIN
         MONTOTOTAL,
         PAGADO,
         DEUDA,
+        CANT_MENSUALIDADES,
+        DEUDA_TOTAL,
         AULA_NOMBRE,
         IDTUTOR,
         TUTOR_NOMBRE,
@@ -155,8 +167,10 @@ main: BEGIN
     ORDER BY
         CASE WHEN p_OrdenarPor = 'FECHAREGISTRO' AND p_Direccion = 'DESC' THEN FECHAREGISTRO END DESC,
         CASE WHEN p_OrdenarPor = 'FECHAREGISTRO' AND p_Direccion = 'ASC'  THEN FECHAREGISTRO END ASC,
-        CASE WHEN p_OrdenarPor = 'DEUDA' AND p_Direccion = 'DESC' THEN DEUDA END DESC,
-        CASE WHEN p_OrdenarPor = 'DEUDA' AND p_Direccion = 'ASC' THEN DEUDA END ASC,
+        CASE WHEN p_OrdenarPor IN ('DEUDA', 'DEUDA_TOTAL') AND p_Direccion = 'DESC' THEN DEUDA_TOTAL END DESC,
+        CASE WHEN p_OrdenarPor IN ('DEUDA', 'DEUDA_TOTAL') AND p_Direccion = 'ASC' THEN DEUDA_TOTAL END ASC,
+        CASE WHEN p_OrdenarPor = 'CANT_MENSUALIDADES' AND p_Direccion = 'DESC' THEN CANT_MENSUALIDADES END DESC,
+        CASE WHEN p_OrdenarPor = 'CANT_MENSUALIDADES' AND p_Direccion = 'ASC' THEN CANT_MENSUALIDADES END ASC,
         CASE WHEN p_OrdenarPor = 'ESTUDIANTE_NOMBRE' AND p_Direccion = 'DESC' THEN ESTUDIANTE_NOMBRE END DESC,
         CASE WHEN p_OrdenarPor = 'ESTUDIANTE_NOMBRE' AND p_Direccion = 'ASC' THEN ESTUDIANTE_NOMBRE END ASC,
         CASE WHEN p_OrdenarPor = 'FECHAFIN' AND p_Direccion = 'DESC' THEN FECHAFIN END DESC,

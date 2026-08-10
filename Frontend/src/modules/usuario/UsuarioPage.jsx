@@ -87,13 +87,24 @@ export default function UsuarioPage() {
     }
   };
 
+  const abrirRetirar = (row) => {
+    const nombre = `${row.NOMBRE} ${row.APELLIDO}`.trim();
+    setConfirm({
+      tipo: "retirar",
+      id: row[cfg.pk],
+      titulo: "Confirmar retiro",
+      mensaje: `¿Retirar a «${nombre || row[cfg.pk]}»? El usuario quedará inactivo y podrá eliminarse permanentemente después.`,
+      confirmLabel: "Retirar",
+    });
+  };
+
   const abrirEliminar = (row) => {
     const nombre = `${row.NOMBRE} ${row.APELLIDO}`.trim();
     setConfirm({
       tipo: "eliminar",
       id: row[cfg.pk],
       titulo: "Confirmar eliminación",
-      mensaje: `¿Eliminar a «${nombre || row[cfg.pk]}»?`,
+      mensaje: `¿Eliminar permanentemente a «${nombre || row[cfg.pk]}»? Esta acción no se puede deshacer.`,
       confirmLabel: "Eliminar",
     });
   };
@@ -152,7 +163,7 @@ export default function UsuarioPage() {
           throw new Error(data.mensaje || data.error || "No se pudo restablecer la contraseña");
         }
         setToast({ mensaje: data.mensaje, tipo: "success" });
-      } else {
+      } else if (confirm.tipo === "retirar" || confirm.tipo === "eliminar") {
         const mensaje = await crud.eliminar(confirm.id);
         setToast({ mensaje, tipo: "success" });
         await crud.listar();
@@ -225,6 +236,7 @@ export default function UsuarioPage() {
           onOrden={crud.toggleOrden}
           onVer={abrirVer}
           onEditar={abrirEditar}
+          onRetirar={abrirRetirar}
           onEliminar={abrirEliminar}
           onCarnet={descargarCarnet}
           onResetContra={abrirResetContra}

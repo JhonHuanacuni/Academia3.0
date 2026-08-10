@@ -54,6 +54,40 @@ PLAN_MAP = {
     'CICLO_VERANO_2026': 'PLN009',
 }
 
+# Nombres legibles en PostgreSQL VITA (campo plan de membresias_membresia)
+PLAN_LABEL_MAP = {
+    'PLAN ANUAL 1 (MANANA)': 'PLN001',
+    'PLAN ANUAL 1': 'PLN001',
+    'PLAN ANUAL 2 (TARDE)': 'PLN002',
+    'PLAN ANUAL 2': 'PLN002',
+    'PLAN ANUAL 3 (MANANA)': 'PLN003',
+    'PLAN ANUAL 3': 'PLN003',
+    'PLAN ANUAL VIRTUAL (MANANA)': 'PLN004',
+    'PLAN ANUAL VIRTUAL': 'PLN004',
+    'PLAN ESCOLAR 1 (INTERDIARIO MANANA)': 'PLN005',
+    'PLAN ESCOLAR 1 (INTERDIARIO)': 'PLN005',
+    'PLAN ESCOLAR 2 (INTERDIARIO TARDE)': 'PLN006',
+    'PLAN ESCOLAR 2 (INTERDIARIO)': 'PLN006',
+    'PLAN SABATINO 1 (MANANA)': 'PLN007',
+    'PLAN SABATINO 1': 'PLN007',
+    'PLAN BECA 18 (MANANA)': 'PLN008',
+    'PLAN BECA 18': 'PLN008',
+    'PLAN SEMI ANUAL (MANANA)': 'PLN009',
+    'PLAN SEMI-ANUAL (MANANA)': 'PLN009',
+    'PLAN SEMI ANUAL': 'PLN009',
+    'PLAN SEMI-ANUAL': 'PLN009',
+    'PLAN SEMESTRAL (MANANA)': 'PLN010',
+    'PLAN SEMESTRAL': 'PLN010',
+    'PLAN BECA 18 SABATINO (MANANA)': 'PLN011',
+    'PLAN BECA 18 - SABATINO (MANANA)': 'PLN011',
+    'PLAN BECA 18 SABATINO': 'PLN011',
+    'CICLO CERO 2026': 'PLN009',
+    'CICLO VERANO 2026': 'PLN009',
+    'CICLO REPASO 2026': 'PLN009',
+    'CICLO ESCOLAR 2026': 'PLN005',
+    'CICLO BECA 18 2026': 'PLN008',
+}
+
 SALON_NAME_MAP = {
     'PERSONAL VITA-ESTACIÓN': 'AUL007',
     'PERSONAL VITA-ESTACION': 'AUL007',
@@ -165,10 +199,25 @@ def map_aula(m: dict) -> str | None:
     return None
 
 
+def norm_plan_label(plan: str) -> str:
+    if not plan:
+        return ''
+    s = str(plan).strip().upper()
+    for a, b in zip('ÁÉÍÓÚÜÑ', 'AEIOUUN'):
+        s = s.replace(a, b)
+    s = s.replace('-', ' ').replace('_', ' ')
+    return ' '.join(s.split())
+
+
 def map_plan(plan: str) -> str:
-    if plan not in PLAN_MAP:
-        raise KeyError(f'Plan sin mapeo: {plan}')
-    return PLAN_MAP[plan]
+    if not plan:
+        raise KeyError('Plan vacío')
+    if plan in PLAN_MAP:
+        return PLAN_MAP[plan]
+    label_key = norm_plan_label(plan)
+    if label_key in PLAN_LABEL_MAP:
+        return PLAN_LABEL_MAP[label_key]
+    raise KeyError(f'Plan sin mapeo: {plan}')
 
 
 def mensualidad_id(old_id: int) -> str:

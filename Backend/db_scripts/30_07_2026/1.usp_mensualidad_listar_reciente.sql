@@ -36,6 +36,11 @@ BEGIN
             ISNULL(pag.PAGADO, 0) AS PAGADO,
             CASE WHEN ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) < 0 THEN 0
                  ELSE ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) END AS DEUDA,
+            COUNT(*) OVER (PARTITION BY m.IDUSUARIO) AS CANT_MENSUALIDADES,
+            SUM(
+                CASE WHEN ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) < 0 THEN 0
+                     ELSE ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) END
+            ) OVER (PARTITION BY m.IDUSUARIO) AS DEUDA_TOTAL,
             ISNULL(au.NOMBRE, '') AS AULA_NOMBRE,
             m.IDTUTOR,
             ISNULL(tut.NOMBRE, ISNULL(m.TUTORLEGACY, '')) AS TUTOR_NOMBRE,
@@ -74,8 +79,8 @@ BEGIN
                TUTOR_NOMBRE LIKE '%' + @Buscar + '%')
           AND (
               @Deuda IS NULL OR @Deuda = '' OR
-              (@Deuda IN ('con', 'Con deuda') AND DEUDA > 0) OR
-              (@Deuda IN ('sin', 'Sin deuda') AND DEUDA <= 0)
+              (@Deuda IN ('con', 'Con deuda') AND DEUDA_TOTAL > 0) OR
+              (@Deuda IN ('sin', 'Sin deuda') AND DEUDA_TOTAL <= 0)
           )
     )
     SELECT
@@ -92,6 +97,8 @@ BEGIN
         MONTOTOTAL,
         PAGADO,
         DEUDA,
+        CANT_MENSUALIDADES,
+        DEUDA_TOTAL,
         AULA_NOMBRE,
         IDTUTOR,
         TUTOR_NOMBRE,
@@ -118,6 +125,8 @@ BEGIN
         MONTOTOTAL,
         PAGADO,
         DEUDA,
+        CANT_MENSUALIDADES,
+        DEUDA_TOTAL,
         AULA_NOMBRE,
         IDTUTOR,
         TUTOR_NOMBRE,
@@ -129,8 +138,10 @@ BEGIN
     ORDER BY
         CASE WHEN @OrdenarPor = 'FECHAREGISTRO' AND @Direccion = 'DESC' THEN FECHAREGISTRO END DESC,
         CASE WHEN @OrdenarPor = 'FECHAREGISTRO' AND @Direccion = 'ASC'  THEN FECHAREGISTRO END ASC,
-        CASE WHEN @OrdenarPor = 'DEUDA' AND @Direccion = 'DESC' THEN DEUDA END DESC,
-        CASE WHEN @OrdenarPor = 'DEUDA' AND @Direccion = 'ASC' THEN DEUDA END ASC,
+        CASE WHEN @OrdenarPor IN ('DEUDA', 'DEUDA_TOTAL') AND @Direccion = 'DESC' THEN DEUDA_TOTAL END DESC,
+        CASE WHEN @OrdenarPor IN ('DEUDA', 'DEUDA_TOTAL') AND @Direccion = 'ASC' THEN DEUDA_TOTAL END ASC,
+        CASE WHEN @OrdenarPor = 'CANT_MENSUALIDADES' AND @Direccion = 'DESC' THEN CANT_MENSUALIDADES END DESC,
+        CASE WHEN @OrdenarPor = 'CANT_MENSUALIDADES' AND @Direccion = 'ASC' THEN CANT_MENSUALIDADES END ASC,
         CASE WHEN @OrdenarPor = 'ESTUDIANTE_NOMBRE' AND @Direccion = 'DESC' THEN ESTUDIANTE_NOMBRE END DESC,
         CASE WHEN @OrdenarPor = 'ESTUDIANTE_NOMBRE' AND @Direccion = 'ASC' THEN ESTUDIANTE_NOMBRE END ASC,
         CASE WHEN @OrdenarPor = 'FECHAFIN' AND @Direccion = 'DESC' THEN FECHAFIN END DESC,
