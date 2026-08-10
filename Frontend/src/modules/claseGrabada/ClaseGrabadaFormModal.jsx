@@ -70,7 +70,7 @@ export default function ClaseGrabadaFormModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div className="modal-header">
+        <div className="modal-header cg-modal-header">
           <h2>{titulo}</h2>
           <button type="button" className="btn-icon" onClick={onClose} aria-label="Cerrar">
             <FontAwesomeIcon icon={faTimes} />
