@@ -103,25 +103,16 @@ def _listar_mensualidades_mysql(
     cursor.execute(f'{sql_base} SELECT COUNT(*) FROM Filtrada', filtros)
     total = int((cursor.fetchone() or [0])[0])
 
-    order_sql = """
-        ORDER BY
-            CASE WHEN %s = 'FECHAREGISTRO' AND %s = 'DESC' THEN FECHAREGISTRO END DESC,
-            CASE WHEN %s = 'FECHAREGISTRO' AND %s = 'ASC' THEN FECHAREGISTRO END ASC,
-            CASE WHEN %s IN ('DEUDA', 'DEUDA_TOTAL') AND %s = 'DESC' THEN DEUDA_TOTAL END DESC,
-            CASE WHEN %s IN ('DEUDA', 'DEUDA_TOTAL') AND %s = 'ASC' THEN DEUDA_TOTAL END ASC,
-            CASE WHEN %s = 'CANT_MENSUALIDADES' AND %s = 'DESC' THEN CANT_MENSUALIDADES END DESC,
-            CASE WHEN %s = 'CANT_MENSUALIDADES' AND %s = 'ASC' THEN CANT_MENSUALIDADES END ASC,
-            CASE WHEN %s = 'ESTUDIANTE_NOMBRE' AND %s = 'DESC' THEN ESTUDIANTE_NOMBRE END DESC,
-            CASE WHEN %s = 'ESTUDIANTE_NOMBRE' AND %s = 'ASC' THEN ESTUDIANTE_NOMBRE END ASC,
-            CASE WHEN %s = 'FECHAFIN' AND %s = 'DESC' THEN FECHAFIN END DESC,
-            CASE WHEN %s = 'FECHAFIN' AND %s = 'ASC' THEN FECHAFIN END ASC,
-            IDMENSUALIDAD DESC
-        LIMIT %s OFFSET %s
-    """
-    order_params = []
-    for _ in range(8):
-        order_params.extend([ordenar_por, direccion])
-    order_params.extend([tamanio, offset])
+    columnas_orden = {
+        'FECHAREGISTRO': 'FECHAREGISTRO',
+        'DEUDA': 'DEUDA_TOTAL',
+        'DEUDA_TOTAL': 'DEUDA_TOTAL',
+        'CANT_MENSUALIDADES': 'CANT_MENSUALIDADES',
+        'ESTUDIANTE_NOMBRE': 'ESTUDIANTE_NOMBRE',
+        'FECHAFIN': 'FECHAFIN',
+    }
+    col_orden = columnas_orden.get(ordenar_por.upper(), 'FECHAREGISTRO')
+    order_sql = f'ORDER BY {col_orden} {direccion}, IDMENSUALIDAD DESC LIMIT %s OFFSET %s'
 
     cursor.execute(
         f"""
@@ -152,7 +143,7 @@ def _listar_mensualidades_mysql(
         FROM Filtrada
         {order_sql}
         """,
-        filtros + order_params,
+        filtros + [tamanio, offset],
     )
     return sp.cursor_rows(cursor), total
 
