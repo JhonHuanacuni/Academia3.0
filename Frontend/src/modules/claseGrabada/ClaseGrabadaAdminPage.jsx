@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { parseJsonResponse } from "../../utils/api";
 import { useCrud } from "../../hooks/useCrud";
 import {
@@ -29,8 +29,6 @@ export default function ClaseGrabadaAdminPage() {
   const [materiasCat, setMateriasCat] = useState([]);
   const [materiasResumen, setMateriasResumen] = useState([]);
   const [totalEnlaces, setTotalEnlaces] = useState(0);
-  const [materiaSel, setMateriaSel] = useState("");
-  const [aulaSel, setAulaSel] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modo, setModo] = useState("crear");
   const [confirm, setConfirm] = useState(null);
@@ -56,6 +54,9 @@ export default function ClaseGrabadaAdminPage() {
     })();
   }, []);
 
+  const aulaSel = crud.filtros.idAula || "";
+  const materiaSel = crud.filtros.idMateria || "";
+
   const cargarMaterias = useCallback(async () => {
     try {
       const params = new URLSearchParams();
@@ -76,14 +77,23 @@ export default function ClaseGrabadaAdminPage() {
     cargarMaterias();
   }, [cargarMaterias]);
 
-  useEffect(() => {
-    crud.setFiltro("idMateria", materiaSel);
-  }, [materiaSel]);
+  const columnasTabla = useMemo(
+    () =>
+      claseGrabadaAdminColumnas.filter(
+        (col) => !col.soloSinFiltroAula || !aulaSel,
+      ),
+    [aulaSel],
+  );
 
-  useEffect(() => {
-    crud.setFiltro("idAula", aulaSel);
-    setMateriaSel("");
-  }, [aulaSel]);
+  const cambiarAula = (value) => {
+    crud.setFiltro("idAula", value);
+    crud.setFiltro("idMateria", "");
+  };
+
+  const cambiarMateria = (id) => {
+    crud.setFiltro("idMateria", id);
+    crud.setPagina(1);
+  };
 
   const abrirCrear = () => {
     crud.setRegistro(null);
@@ -159,37 +169,18 @@ export default function ClaseGrabadaAdminPage() {
       />
 
       <div className="mantenedor-card">
-        <div className="cg-toolbar-row">
-          <label htmlFor="cg-filtro-aula">Seleccionar salón</label>
-          <select
-            id="cg-filtro-aula"
-            value={aulaSel}
-            onChange={(e) => setAulaSel(e.target.value)}
-          >
-            <option value="">Todos los salones</option>
-            {aulas.map((a) => (
-              <option key={a.value} value={a.value}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <MateriaChipBar
-          materias={materiasResumen}
-          totalTodos={totalEnlaces}
-          seleccionada={materiaSel}
-          onSelect={(id) => {
-            setMateriaSel(id);
-            crud.setPagina(1);
-          }}
-        />
-
         <Toolbar
           buscar={crud.buscar}
           onBuscarChange={crud.onBuscarChange}
-          placeholder="Buscar detalles, salón..."
+          placeholder="Buscar detalles..."
           filtros={[
+            {
+              key: "idAula",
+              etiqueta: "Salón",
+              value: aulaSel,
+              opciones: aulas.map((a) => ({ value: a.value, label: a.label })),
+              onChange: cambiarAula,
+            },
             {
               key: "estado",
               etiqueta: "Estado",
@@ -200,8 +191,15 @@ export default function ClaseGrabadaAdminPage() {
           ]}
         />
 
+        <MateriaChipBar
+          materias={materiasResumen}
+          totalTodos={totalEnlaces}
+          seleccionada={materiaSel}
+          onSelect={cambiarMateria}
+        />
+
         <ClaseGrabadaTabla
-          columnas={claseGrabadaAdminColumnas}
+          columnas={columnasTabla}
           items={crud.items}
           pk={cfg.pk}
           orden={crud.orden}
