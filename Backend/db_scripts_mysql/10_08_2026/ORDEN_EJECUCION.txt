@@ -1,0 +1,9 @@
+# Orden de ejecución — 10_08_2026
+1.fix_orden_fechas_ddmmyyyy.sql
+
+Corrige ORDER BY de fechas CHAR(8) DDMMYYYY (orden lexicográfico incorrecto).
+Afecta: pagos, pago extra, examen, libro, horario, auditoría, clase grabada, conceptos.
+
+Nota: el listado de Pagos también quedó corregido en Python (pago_crud_service.py),
+así que con solo reiniciar Gunicorn ya ordena bien. El script SQL alinea los SPs
+del resto de módulos.

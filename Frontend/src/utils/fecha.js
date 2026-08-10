@@ -6,6 +6,10 @@ export const inputToDb = (s) => (s ? s.split("-").reverse().join("") : null);
 export const dbToView = (s) =>
   s && s.length === 8 ? `${s.slice(0, 2)}/${s.slice(2, 4)}/${s.slice(4)}` : "";
 
+/** Clave ordenable YYYYMMDD desde CHAR(8) DDMMYYYY. */
+export const dbToSortKey = (s) =>
+  s && String(s).length === 8 ? `${String(s).slice(4)}${String(s).slice(2, 4)}${String(s).slice(0, 2)}` : "";
+
 /** Primer y último día del mes de una fecha input (YYYY-MM-DD). */
 export const rangoMesCompletoInput = (fechaInput) => {
   if (!fechaInput) return { desde: "", hasta: "" };

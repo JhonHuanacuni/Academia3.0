@@ -125,6 +125,8 @@ ORDER = [
     '31_07_2026/9.usp_justificacion_listar_filtros.sql',
     '31_07_2026/10.usp_pagoextra_listar_agrupado.sql',
     '31_07_2026/11.aula_tutor.sql',
+    '04_08_2026/1.fix_usp_pago_mensualidad.sql',
+    '10_08_2026/1.fix_orden_fechas_ddmmyyyy.sql',
 ]
 
 

@@ -2,7 +2,7 @@ from django.db import connection
 from .db_context import prepare_write_cursor
 from .models import Aula
 from . import sp_runner as sp
-from .sql_compat import concat_nombre_usuario, plan_table
+from .sql_compat import concat_nombre_usuario, plan_table, fecha_sort_expr
 
 
 def _read_sp_write_result(cursor):
@@ -32,7 +32,8 @@ def _listar_mensualidades_mysql(
     tamanio = max(1, int(tamanio or 10))
     offset = (pagina - 1) * tamanio
 
-    sql_base = """
+    fs_reg = fecha_sort_expr('m.FECHAREGISTRO')
+    sql_base = f"""
         WITH Base AS (
             SELECT
                 m.IDMENSUALIDAD,
@@ -63,7 +64,7 @@ def _listar_mensualidades_mysql(
                 m.FECHAREGISTRO,
                 ROW_NUMBER() OVER (
                     PARTITION BY m.IDUSUARIO
-                    ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
+                    ORDER BY {fs_reg} DESC, m.IDMENSUALIDAD DESC
                 ) AS RN
             FROM MENSUALIDAD m
             INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
@@ -104,16 +105,18 @@ def _listar_mensualidades_mysql(
     total = int((cursor.fetchone() or [0])[0])
 
     columnas_orden = {
-        'FECHAREGISTRO': 'FECHAREGISTRO',
+        'FECHAREGISTRO': fecha_sort_expr('FECHAREGISTRO'),
         'DEUDA': 'DEUDA_TOTAL',
         'DEUDA_TOTAL': 'DEUDA_TOTAL',
         'CANT_MENSUALIDADES': 'CANT_MENSUALIDADES',
         'ESTUDIANTE_NOMBRE': 'ESTUDIANTE_NOMBRE',
         'PLAN_NOMBRE': 'PLAN_NOMBRE',
-        'FECHAINICIO': 'FECHAINICIO',
-        'FECHAFIN': 'FECHAFIN',
+        'FECHAINICIO': fecha_sort_expr('FECHAINICIO'),
+        'FECHAFIN': fecha_sort_expr('FECHAFIN'),
     }
-    col_orden = columnas_orden.get(ordenar_por.upper(), 'FECHAREGISTRO')
+    col_orden = columnas_orden.get(
+        ordenar_por.upper(), fecha_sort_expr('FECHAREGISTRO')
+    )
     order_sql = f'ORDER BY {col_orden} {direccion}, IDMENSUALIDAD DESC LIMIT %s OFFSET %s'
 
     cursor.execute(

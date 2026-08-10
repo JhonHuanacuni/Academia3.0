@@ -1,7 +1,7 @@
 from django.db import connection
 from .db_context import prepare_write_cursor
 from . import sp_runner as sp
-from .sql_compat import plan_table
+from .sql_compat import plan_table, fecha_sort_expr, concat_nombre_usuario
 
 
 def _read_sp_write_result(cursor):
@@ -14,6 +14,81 @@ def _decimal_or_none(value):
     return float(value)
 
 
+def _listar_pagos_mysql(
+    cursor,
+    buscar=None,
+    ordenar_por='FECHAPAGO',
+    direccion='DESC',
+    pagina=1,
+    tamanio=10,
+):
+    buscar = (buscar or '').strip() or None
+    ordenar_por = (ordenar_por or 'FECHAPAGO').strip()
+    direccion = 'DESC' if (direccion or 'DESC').upper() == 'DESC' else 'ASC'
+    pagina = max(1, int(pagina or 1))
+    tamanio = max(1, int(tamanio or 10))
+    offset = (pagina - 1) * tamanio
+    nombre = concat_nombre_usuario('u')
+    fs_pago = fecha_sort_expr('p.FECHAPAGO')
+
+    where = """
+        WHERE (%s IS NULL OR
+               p.IDPAGOMENSUALIDAD LIKE CONCAT('%%', %s, '%%') OR
+               m.IDMENSUALIDAD LIKE CONCAT('%%', %s, '%%') OR
+               u.DNI LIKE CONCAT('%%', %s, '%%') OR
+               u.NOMBRE LIKE CONCAT('%%', %s, '%%') OR
+               u.APELLIDO LIKE CONCAT('%%', %s, '%%') OR
+               pl.NOMBRE LIKE CONCAT('%%', %s, '%%') OR
+               IFNULL(mp.TITULO, '') LIKE CONCAT('%%', %s, '%%'))
+    """
+    filtros = [buscar] * 8
+
+    from_sql = f"""
+        FROM PAGOMENSUALIDAD p
+        INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = p.IDMENSUALIDAD
+        INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+        INNER JOIN {plan_table()} pl ON pl.IDPLAN = m.IDPLAN
+        LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
+        {where}
+    """
+
+    cursor.execute(f'SELECT COUNT(*) {from_sql}', filtros)
+    total = int((cursor.fetchone() or [0])[0])
+
+    columnas_orden = {
+        'FECHAPAGO': fs_pago,
+        'MONTO': 'p.MONTO',
+        'ESTUDIANTE_NOMBRE': 'u.APELLIDO',
+        'IDPAGOMENSUALIDAD': 'p.IDPAGOMENSUALIDAD',
+    }
+    col_orden = columnas_orden.get(ordenar_por.upper(), fs_pago)
+    order_sql = (
+        f'ORDER BY {col_orden} {direccion}, {fs_pago} DESC, '
+        f'p.HORAPAGO DESC, p.IDPAGOMENSUALIDAD DESC LIMIT %s OFFSET %s'
+    )
+
+    cursor.execute(
+        f"""
+        SELECT
+            p.IDPAGOMENSUALIDAD,
+            p.IDMENSUALIDAD,
+            p.MONTO,
+            p.FECHAPAGO,
+            p.HORAPAGO,
+            p.OBSERVACIONES,
+            p.IDMETODOPAGO,
+            IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
+            {nombre} AS ESTUDIANTE_NOMBRE,
+            u.DNI AS ESTUDIANTE_DNI,
+            pl.NOMBRE AS PLAN_NOMBRE
+        {from_sql}
+        {order_sql}
+        """,
+        filtros + [tamanio, offset],
+    )
+    return sp.cursor_rows(cursor), total
+
+
 def listar_pagos(
     buscar=None,
     ordenar_por='FECHAPAGO',
@@ -24,7 +99,9 @@ def listar_pagos(
     params = [buscar or None, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            return sp.call_list(cursor, 'usp_pago_listar', params)
+            return _listar_pagos_mysql(
+                cursor, buscar, ordenar_por, direccion, pagina, tamanio
+            )
         cursor.execute(
             """
             DECLARE @Total INT;

@@ -23,6 +23,18 @@ def ym_from_fechapago():
     return "SUBSTRING(p.FECHAPAGO, 5, 4) + SUBSTRING(p.FECHAPAGO, 3, 2)"
 
 
+def fecha_sort_expr(col: str) -> str:
+    """CHAR(8) DDMMYYYY → expresión ordenable cronológicamente (YYYYMMDD)."""
+    if is_mysql():
+        return (
+            f"CONCAT(SUBSTRING({col}, 5, 4), SUBSTRING({col}, 3, 2), "
+            f"SUBSTRING({col}, 1, 2))"
+        )
+    return (
+        f"SUBSTRING({col}, 5, 4) + SUBSTRING({col}, 3, 2) + SUBSTRING({col}, 1, 2)"
+    )
+
+
 def plan_table():
     return '`PLAN`' if is_mysql() else '[PLAN]'
 

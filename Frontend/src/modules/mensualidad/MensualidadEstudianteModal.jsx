@@ -5,6 +5,7 @@ import DataTable from "../../components/mantenedor/DataTable";
 import Pagination from "../../components/mantenedor/Pagination";
 import Toolbar from "../../components/mantenedor/Toolbar";
 import { mensualidadEstudianteColumnas } from "./mensualidadEstudiante.config";
+import { dbToSortKey } from "../../utils/fecha";
 import "../../styles/mantenedor.css";
 import "../horario/horario.css";
 import "./mensualidad.css";
@@ -12,16 +13,9 @@ import "./mensualidad.css";
 const PK = "IDMENSUALIDAD";
 const TAMANIO = 5;
 
-function parseFechaDb(value) {
-  const s = String(value || "").trim();
-  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!m) return 0;
-  return new Date(`${m[3]}-${m[2]}-${m[1]}T12:00:00`).getTime() || 0;
-}
-
 function valorOrden(row, campo) {
   if (campo === "FECHAINICIO" || campo === "FECHAFIN" || campo === "FECHAREGISTRO") {
-    return parseFechaDb(row[campo]);
+    return dbToSortKey(row[campo]) || "";
   }
   const n = Number(row[campo]);
   if (!Number.isNaN(n) && row[campo] !== "" && row[campo] != null) return n;
