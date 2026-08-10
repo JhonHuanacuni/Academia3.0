@@ -89,6 +89,9 @@ function renderCell(col, row, index = 0, offset = 0) {
     if (value == null || value === "" || Number.isNaN(n) || n <= 0) {
       return <span className="badge-estado activo">Sin deuda</span>;
     }
+    if (col.ocultarMonto) {
+      return <span className="badge-estado vencido">Con deuda</span>;
+    }
     return (
       <span className="badge-estado vencido">
         Con deuda (S/{" "}

@@ -6,9 +6,10 @@ export const mensualidadConfig = {
   columnas: [
     { campo: "_NUMERO", etiqueta: "N°", tipo: "numero", ordenable: false },
     { campo: "ESTUDIANTE_NOMBRE", etiqueta: "Estudiante", ordenable: true },
-    { campo: "ESTUDIANTE_DNI", etiqueta: "DNI", ordenable: true },
-    { campo: "CANT_MENSUALIDADES", etiqueta: "Mensualidades", ordenable: true },
-    { campo: "DEUDA_TOTAL", etiqueta: "Deuda", tipo: "deuda", ordenable: true },
+    { campo: "PLAN_NOMBRE", etiqueta: "Plan", ordenable: true },
+    { campo: "FECHAINICIO", etiqueta: "Fecha inicio", tipo: "fecha", ordenable: true },
+    { campo: "FECHAFIN", etiqueta: "Fecha fin", tipo: "fecha", ordenable: true },
+    { campo: "DEUDA_TOTAL", etiqueta: "Deuda", tipo: "deuda", ocultarMonto: true, ordenable: true },
   ],
   secciones: [
     {

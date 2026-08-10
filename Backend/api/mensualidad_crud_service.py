@@ -109,6 +109,8 @@ def _listar_mensualidades_mysql(
         'DEUDA_TOTAL': 'DEUDA_TOTAL',
         'CANT_MENSUALIDADES': 'CANT_MENSUALIDADES',
         'ESTUDIANTE_NOMBRE': 'ESTUDIANTE_NOMBRE',
+        'PLAN_NOMBRE': 'PLAN_NOMBRE',
+        'FECHAINICIO': 'FECHAINICIO',
         'FECHAFIN': 'FECHAFIN',
     }
     col_orden = columnas_orden.get(ordenar_por.upper(), 'FECHAREGISTRO')
