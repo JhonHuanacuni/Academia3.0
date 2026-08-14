@@ -110,16 +110,28 @@ CREATE PROCEDURE dbo.usp_aula_insertar
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF @Id IS NULL OR LTRIM(RTRIM(@Id)) = '' BEGIN SET @Resultado = 0; SET @Mensaje = 'Ingresa el código del aula.'; RETURN; END
+    DECLARE @Next INT = 0;
+    DECLARE @IdFinal NVARCHAR(50);
+
     IF @Nombre IS NULL OR LTRIM(RTRIM(@Nombre)) = '' BEGIN SET @Resultado = 0; SET @Mensaje = 'Ingresa el nombre del aula.'; RETURN; END
-    IF EXISTS (SELECT 1 FROM AULA WHERE IDAULA = @Id) BEGIN SET @Resultado = 0; SET @Mensaje = 'El código de aula ya existe.'; RETURN; END
+
+    IF @Id IS NULL OR LTRIM(RTRIM(@Id)) = ''
+    BEGIN
+        SELECT @Next = ISNULL(MAX(TRY_CAST(REPLACE(IDAULA, 'AUL', '') AS INT)), 0) + 1
+        FROM AULA WHERE IDAULA LIKE 'AUL%';
+        SET @IdFinal = 'AUL' + RIGHT('000' + CAST(@Next AS NVARCHAR(10)), 3);
+    END
+    ELSE
+        SET @IdFinal = UPPER(LTRIM(RTRIM(@Id)));
+
+    IF EXISTS (SELECT 1 FROM AULA WHERE IDAULA = @IdFinal) BEGIN SET @Resultado = 0; SET @Mensaje = 'El código de aula ya existe.'; RETURN; END
     IF EXISTS (SELECT 1 FROM AULA WHERE NOMBRE = @Nombre) BEGIN SET @Resultado = 0; SET @Mensaje = 'Ya existe un aula con ese nombre.'; RETURN; END
     IF @IdTutor IS NOT NULL AND LTRIM(RTRIM(@IdTutor)) <> ''
        AND NOT EXISTS (SELECT 1 FROM TUTOR WHERE IDTUTOR = @IdTutor AND ACTIVO = 1)
     BEGIN SET @Resultado = 0; SET @Mensaje = 'El tutor seleccionado no es válido.'; RETURN; END
 
     INSERT INTO AULA (IDAULA, NOMBRE, DESCRIPCION, CAPACIDAD, ACTIVO, ENLACEVIRTUAL, ENLACECUESTIONARIO, IDTUTOR)
-    VALUES (@Id, @Nombre, @Descripcion, @Capacidad,
+    VALUES (@IdFinal, @Nombre, @Descripcion, @Capacidad,
             CASE WHEN @Estado = 'Activo' THEN 1 ELSE 0 END,
             @EnlaceVirtual, @EnlaceCuestionario, NULLIF(LTRIM(RTRIM(@IdTutor)), ''));
 
