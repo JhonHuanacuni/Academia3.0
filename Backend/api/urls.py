@@ -60,6 +60,7 @@ urlpatterns = [
     path('mensualidades/', mensualidad_views.mensualidades_mantenedor, name='mensualidades_mantenedor'),
     path('mensualidades/estudiante/<str:id_usuario>/', mensualidad_views.mensualidades_por_estudiante, name='mensualidades_por_estudiante'),
     path('mensualidades/<str:id_mensualidad>/pagos/', mensualidad_views.mensualidad_pagos, name='mensualidad_pagos'),
+    path('mensualidades/<str:id_mensualidad>/cuotas/', mensualidad_views.mensualidad_cuotas, name='mensualidad_cuotas'),
     path('mensualidades/<str:id_mensualidad>/', mensualidad_views.mensualidades_mantenedor, name='mensualidades_mantenedor_detail'),
     path('pagos/catalogos/', pago_views.pagos_catalogos, name='pagos_catalogos'),
     path('pagos/estudiante/<str:id_usuario>/mensualidades/', pago_views.pagos_mensualidades_estudiante, name='pagos_mensualidades_estudiante'),

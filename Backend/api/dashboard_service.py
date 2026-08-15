@@ -66,73 +66,120 @@ def _conteo_usuarios():
 def _stats_mensualidades():
     hoy = _hoy_db()
     limite_prox = _fecha_db(timezone.localdate() + timedelta(days=3))
-    if is_mysql():
-        sql = f"""
-            SELECT
-                SUM(CASE WHEN u.DEUDA > 0 THEN 1 ELSE 0 END) AS CON_DEUDA,
-                SUM(CASE WHEN u.DEUDA > 0 THEN u.DEUDA ELSE 0 END) AS DEUDA_TOTAL,
-                SUM(CASE WHEN u.DEUDA > 0 AND u.FECHAFIN IS NOT NULL AND u.FECHAFIN <> ''
-                          AND u.FECHAFIN < %s THEN 1 ELSE 0 END) AS VENCIDAS,
-                SUM(CASE WHEN u.DEUDA > 0 AND u.FECHAFIN IS NOT NULL AND u.FECHAFIN <> ''
-                          AND u.FECHAFIN >= %s AND u.FECHAFIN <= %s THEN 1 ELSE 0 END) AS VENCEN_PROXIMO
-            FROM (
-                SELECT
-                    m.IDUSUARIO,
-                    m.FECHAFIN,
-                    CASE WHEN {isnull('m.MONTOTOTAL', '0')} - {isnull('pag.PAGADO', '0')} < 0 THEN 0
-                         ELSE {isnull('m.MONTOTOTAL', '0')} - {isnull('pag.PAGADO', '0')} END AS DEUDA,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY m.IDUSUARIO
-                        ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
-                    ) AS RN
-                FROM MENSUALIDAD m
-                INNER JOIN USUARIO us ON us.IDUSUARIO = m.IDUSUARIO
-                    AND us.IDTIPOUSUARIO = '1'
-                    AND us.ESTADO = 'Activo'
-                LEFT JOIN (
-                    SELECT IDMENSUALIDAD, SUM(MONTO) AS PAGADO
-                    FROM PAGOMENSUALIDAD
-                    GROUP BY IDMENSUALIDAD
-                ) pag ON pag.IDMENSUALIDAD = m.IDMENSUALIDAD
-                WHERE m.ESTADO = 'Activo'
-            ) u
-            WHERE u.RN = 1
-            """
-    else:
-        sql = """
-            ;WITH Base AS (
-                SELECT
-                    m.IDUSUARIO,
-                    m.FECHAFIN,
-                    CASE WHEN ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) < 0 THEN 0
-                         ELSE ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) END AS DEUDA,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY m.IDUSUARIO
-                        ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
-                    ) AS RN
-                FROM MENSUALIDAD m
-                INNER JOIN USUARIO us ON us.IDUSUARIO = m.IDUSUARIO
-                    AND us.IDTIPOUSUARIO = '1'
-                    AND us.ESTADO = 'Activo'
-                OUTER APPLY (
-                    SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
-                ) pag
-                WHERE m.ESTADO = 'Activo'
-            ),
-            Ultima AS (
-                SELECT IDUSUARIO, FECHAFIN, DEUDA
-                FROM Base
-                WHERE RN = 1
-            )
-            SELECT
-                SUM(CASE WHEN DEUDA > 0 THEN 1 ELSE 0 END) AS CON_DEUDA,
-                SUM(CASE WHEN DEUDA > 0 THEN DEUDA ELSE 0 END) AS DEUDA_TOTAL,
-                SUM(CASE WHEN DEUDA > 0 AND FECHAFIN IS NOT NULL AND FECHAFIN <> '' AND FECHAFIN < %s THEN 1 ELSE 0 END) AS VENCIDAS,
-                SUM(CASE WHEN DEUDA > 0 AND FECHAFIN IS NOT NULL AND FECHAFIN <> ''
-                          AND FECHAFIN >= %s AND FECHAFIN <= %s THEN 1 ELSE 0 END) AS VENCEN_PROXIMO
-            FROM Ultima
-            """
+    from .cuota_service import sql_deuda_exigible_expr, tabla_cuotas_existe
+    from .sql_compat import fecha_sort_expr
+
     with connection.cursor() as cursor:
+        usa_cuotas = tabla_cuotas_existe(cursor)
+        if usa_cuotas:
+            deuda_expr = sql_deuda_exigible_expr('m')
+            fs_ini = fecha_sort_expr('c.FECHAINICIO')
+            fs_fin = fecha_sort_expr('c.FECHAFIN')
+            if is_mysql():
+                fs_hoy = (
+                    f"CONCAT(SUBSTRING('{hoy}',5,4), SUBSTRING('{hoy}',3,2), "
+                    f"SUBSTRING('{hoy}',1,2))"
+                )
+                fecha_vence_expr = f"""
+                    IFNULL((
+                        SELECT c.FECHAFIN
+                        FROM MENSUALIDAD_CUOTA c
+                        WHERE c.IDMENSUALIDAD = m.IDMENSUALIDAD
+                          AND {fs_ini} <= {fs_hoy}
+                          AND {fs_fin} >= {fs_hoy}
+                        ORDER BY c.NUMERO DESC
+                        LIMIT 1
+                    ), m.FECHAFIN)
+                """
+            else:
+                fs_hoy = (
+                    f"SUBSTRING('{hoy}',5,4) + SUBSTRING('{hoy}',3,2) + "
+                    f"SUBSTRING('{hoy}',1,2)"
+                )
+                fecha_vence_expr = f"""
+                    ISNULL((
+                        SELECT TOP 1 c.FECHAFIN
+                        FROM MENSUALIDAD_CUOTA c
+                        WHERE c.IDMENSUALIDAD = m.IDMENSUALIDAD
+                          AND {fs_ini} <= {fs_hoy}
+                          AND {fs_fin} >= {fs_hoy}
+                        ORDER BY c.NUMERO DESC
+                    ), m.FECHAFIN)
+                """
+        else:
+            deuda_expr = (
+                f"""CASE WHEN {isnull('m.MONTOTOTAL', '0')} - {isnull('pag.PAGADO', '0')} < 0 THEN 0
+                         ELSE {isnull('m.MONTOTOTAL', '0')} - {isnull('pag.PAGADO', '0')} END"""
+                if is_mysql()
+                else """CASE WHEN ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) < 0 THEN 0
+                         ELSE ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) END"""
+            )
+            fecha_vence_expr = 'm.FECHAFIN'
+
+        if is_mysql():
+            sql = f"""
+                SELECT
+                    SUM(CASE WHEN u.DEUDA > 0 THEN 1 ELSE 0 END) AS CON_DEUDA,
+                    SUM(CASE WHEN u.DEUDA > 0 THEN u.DEUDA ELSE 0 END) AS DEUDA_TOTAL,
+                    SUM(CASE WHEN u.DEUDA > 0 AND u.FECHAFIN IS NOT NULL AND u.FECHAFIN <> ''
+                              AND u.FECHAFIN < %s THEN 1 ELSE 0 END) AS VENCIDAS,
+                    SUM(CASE WHEN u.DEUDA > 0 AND u.FECHAFIN IS NOT NULL AND u.FECHAFIN <> ''
+                              AND u.FECHAFIN >= %s AND u.FECHAFIN <= %s THEN 1 ELSE 0 END) AS VENCEN_PROXIMO
+                FROM (
+                    SELECT
+                        m.IDUSUARIO,
+                        ({fecha_vence_expr}) AS FECHAFIN,
+                        ({deuda_expr}) AS DEUDA,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY m.IDUSUARIO
+                            ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
+                        ) AS RN
+                    FROM MENSUALIDAD m
+                    INNER JOIN USUARIO us ON us.IDUSUARIO = m.IDUSUARIO
+                        AND us.IDTIPOUSUARIO = '1'
+                        AND us.ESTADO = 'Activo'
+                    LEFT JOIN (
+                        SELECT IDMENSUALIDAD, SUM(MONTO) AS PAGADO
+                        FROM PAGOMENSUALIDAD
+                        GROUP BY IDMENSUALIDAD
+                    ) pag ON pag.IDMENSUALIDAD = m.IDMENSUALIDAD
+                    WHERE m.ESTADO = 'Activo'
+                ) u
+                WHERE u.RN = 1
+                """
+        else:
+            sql = f"""
+                ;WITH Base AS (
+                    SELECT
+                        m.IDUSUARIO,
+                        ({fecha_vence_expr}) AS FECHAFIN,
+                        ({deuda_expr}) AS DEUDA,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY m.IDUSUARIO
+                            ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
+                        ) AS RN
+                    FROM MENSUALIDAD m
+                    INNER JOIN USUARIO us ON us.IDUSUARIO = m.IDUSUARIO
+                        AND us.IDTIPOUSUARIO = '1'
+                        AND us.ESTADO = 'Activo'
+                    OUTER APPLY (
+                        SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
+                    ) pag
+                    WHERE m.ESTADO = 'Activo'
+                ),
+                Ultima AS (
+                    SELECT IDUSUARIO, FECHAFIN, DEUDA
+                    FROM Base
+                    WHERE RN = 1
+                )
+                SELECT
+                    SUM(CASE WHEN DEUDA > 0 THEN 1 ELSE 0 END) AS CON_DEUDA,
+                    SUM(CASE WHEN DEUDA > 0 THEN DEUDA ELSE 0 END) AS DEUDA_TOTAL,
+                    SUM(CASE WHEN DEUDA > 0 AND FECHAFIN IS NOT NULL AND FECHAFIN <> '' AND FECHAFIN < %s THEN 1 ELSE 0 END) AS VENCIDAS,
+                    SUM(CASE WHEN DEUDA > 0 AND FECHAFIN IS NOT NULL AND FECHAFIN <> ''
+                              AND FECHAFIN >= %s AND FECHAFIN <= %s THEN 1 ELSE 0 END) AS VENCEN_PROXIMO
+                FROM Ultima
+                """
         cursor.execute(sql, [hoy, hoy, limite_prox])
         row = cursor.fetchone()
     if not row:

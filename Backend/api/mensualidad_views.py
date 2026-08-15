@@ -12,6 +12,7 @@ from .mensualidad_crud_service import (
     listar_catalogos,
     listar_mensualidades_estudiante,
     listar_pagos_mensualidad,
+    listar_cuotas,
 )
 
 
@@ -125,5 +126,15 @@ def mensualidad_pagos(request, id_mensualidad):
         return JsonResponse({'error': 'Método no permitido'}, status=405)
     try:
         return JsonResponse({'data': listar_pagos_mensualidad(id_mensualidad)})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@csrf_exempt
+def mensualidad_cuotas(request, id_mensualidad):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        return JsonResponse({'data': listar_cuotas(id_mensualidad)})
     except Exception as exc:
         return JsonResponse({'error': str(exc)}, status=500)

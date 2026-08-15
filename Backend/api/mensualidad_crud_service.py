@@ -24,6 +24,8 @@ def _listar_mensualidades_mysql(
     pagina=1,
     tamanio=10,
 ):
+    from .cuota_service import sql_deuda_exigible_expr, tabla_cuotas_existe
+
     buscar = (buscar or '').strip() or None
     deuda = (deuda or '').strip() or None
     ordenar_por = (ordenar_por or 'FECHAREGISTRO').strip()
@@ -33,6 +35,14 @@ def _listar_mensualidades_mysql(
     offset = (pagina - 1) * tamanio
 
     fs_reg = fecha_sort_expr('m.FECHAREGISTRO')
+    if tabla_cuotas_existe(cursor):
+        deuda_expr = sql_deuda_exigible_expr('m')
+    else:
+        deuda_expr = """
+            CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
+                 ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END
+        """
+
     sql_base = f"""
         WITH Base AS (
             SELECT
@@ -48,13 +58,9 @@ def _listar_mensualidades_mysql(
                 m.FECHAFIN,
                 m.MONTOTOTAL,
                 IFNULL(pag.PAGADO, 0) AS PAGADO,
-                CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
-                     ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END AS DEUDA,
+                ({deuda_expr}) AS DEUDA,
                 COUNT(*) OVER (PARTITION BY m.IDUSUARIO) AS CANT_MENSUALIDADES,
-                SUM(
-                    CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
-                         ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END
-                ) OVER (PARTITION BY m.IDUSUARIO) AS DEUDA_TOTAL,
+                SUM(({deuda_expr})) OVER (PARTITION BY m.IDUSUARIO) AS DEUDA_TOTAL,
                 IFNULL(au.NOMBRE, '') AS AULA_NOMBRE,
                 m.IDTUTOR,
                 IFNULL(tut.NOMBRE, IFNULL(m.TUTORLEGACY, '')) AS TUTOR_NOMBRE,
@@ -188,18 +194,57 @@ def listar_mensualidades(
 
 
 def listar_mensualidades_estudiante(id_usuario: str):
+    from .cuota_service import deuda_exigible_mensualidad, listar_cuotas_mensualidad, tabla_cuotas_existe
+
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            return sp.call_simple(cursor, 'usp_mensualidad_listar_estudiante', [id_usuario])
-        cursor.execute(
-            'EXEC dbo.usp_mensualidad_listar_estudiante @IdUsuario=%s',
-            [id_usuario],
-        )
-        return sp.cursor_rows(cursor)
+            rows = sp.call_simple(cursor, 'usp_mensualidad_listar_estudiante', [id_usuario])
+        else:
+            cursor.execute(
+                'EXEC dbo.usp_mensualidad_listar_estudiante @IdUsuario=%s',
+                [id_usuario],
+            )
+            rows = sp.cursor_rows(cursor)
+
+        if not tabla_cuotas_existe(cursor):
+            return rows
+
+        out = []
+        for r in rows:
+            id_m = r.get('IDMENSUALIDAD')
+            deuda = deuda_exigible_mensualidad(cursor, id_m)
+            cuotas = listar_cuotas_mensualidad(id_m)
+            out.append({
+                **r,
+                'DEUDA': deuda,
+                'DEUDA_EXIGIBLE': deuda,
+                'TIENE_CUOTAS': len(cuotas) > 0,
+                'CANT_CUOTAS': len(cuotas),
+                'CUOTAS': cuotas,
+            })
+        return out
 
 
 def obtener_mensualidad(id_mensualidad: str):
-    return sp.call_obtain('usp_mensualidad_obtener', id_mensualidad)
+    from .cuota_service import deuda_exigible_mensualidad, listar_cuotas_mensualidad, tabla_cuotas_existe
+
+    row = sp.call_obtain('usp_mensualidad_obtener', id_mensualidad)
+    if not row:
+        return None
+    with connection.cursor() as cursor:
+        if tabla_cuotas_existe(cursor):
+            cuotas = listar_cuotas_mensualidad(id_mensualidad)
+            row['CUOTAS'] = cuotas
+            row['TIENE_CUOTAS'] = len(cuotas) > 0
+            row['DEUDA_EXIGIBLE'] = deuda_exigible_mensualidad(cursor, id_mensualidad)
+            if cuotas:
+                row['DEUDA'] = row['DEUDA_EXIGIBLE']
+    return row
+
+
+def listar_cuotas(id_mensualidad: str):
+    from .cuota_service import listar_cuotas_mensualidad
+    return listar_cuotas_mensualidad(id_mensualidad)
 
 
 def listar_pagos_mensualidad(id_mensualidad: str):
@@ -233,21 +278,102 @@ def insertar_mensualidad(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
         if sp.is_mysql():
-            return sp.call_write_inout_id(cursor, 'usp_mensualidad_insertar', params[0], params[1:])
+            ok, mensaje = sp.call_write_inout_id(
+                cursor, 'usp_mensualidad_insertar', params[0], params[1:]
+            )
+            if ok:
+                cursor.execute('SELECT @_in_id')
+                row = cursor.fetchone()
+                id_gen = (row[0] if row else None) or params[0]
+                if id_gen:
+                    from .cuota_service import generar_cuotas_mensualidad
+                    generar_cuotas_mensualidad(
+                        id_gen,
+                        payload['FECHAINICIO'],
+                        payload['FECHAFIN'],
+                        id_plan=payload['IDPLAN'],
+                        id_actor=id_usuario or payload.get('REGISTRADOPOR'),
+                    )
+                    # Si hubo pago inicial, asociarlo a la primera cuota
+                    pago_ini = _decimal_or_none(payload.get('PAGOINICIAL'))
+                    if pago_ini and pago_ini > 0:
+                        _asociar_pago_inicial_primera_cuota(cursor, id_gen)
+            return ok, mensaje
         cursor.execute(
             """
-            DECLARE @R INT, @M NVARCHAR(200);
+            DECLARE @R INT, @M NVARCHAR(200), @Id NVARCHAR(50) = %s;
             EXEC dbo.usp_mensualidad_insertar
-                @Id=%s, @IdUsuario=%s, @IdPlan=%s, @EstadoMiembro=%s,
+                @Id=@Id OUTPUT, @IdUsuario=%s, @IdPlan=%s, @EstadoMiembro=%s,
                 @FechaInicio=%s, @FechaFin=%s, @MontoTotal=%s, @PagoInicial=%s,
                 @IdMetodoPago=%s, @IdAula=%s, @IdTutor=%s,
                 @Observaciones=%s, @FechaCancelacion=%s, @RegistradoPor=%s,
                 @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
-            SELECT @R AS Resultado, @M AS Mensaje;
+            SELECT @R AS Resultado, @M AS Mensaje, @Id AS IdGenerado;
             """,
             params,
         )
+        result = cursor.fetchone()
+        if result:
+            ok, mensaje, id_gen = int(result[0] or 0), str(result[1] or ''), result[2]
+            if ok and id_gen:
+                from .cuota_service import generar_cuotas_mensualidad
+                generar_cuotas_mensualidad(
+                    id_gen,
+                    payload['FECHAINICIO'],
+                    payload['FECHAFIN'],
+                    id_plan=payload['IDPLAN'],
+                    id_actor=id_usuario or payload.get('REGISTRADOPOR'),
+                )
+            return ok, mensaje
         return _read_sp_write_result(cursor)
+
+
+def _asociar_pago_inicial_primera_cuota(cursor, id_mensualidad: str):
+    """Vincula el último pago sin cuota (pago inicial del SP) a la cuota #1."""
+    cursor.execute(
+        """
+        SELECT IDCUOTA FROM MENSUALIDAD_CUOTA
+        WHERE IDMENSUALIDAD = %s AND NUMERO = 1 LIMIT 1
+        """
+        if sp.is_mysql()
+        else """
+        SELECT TOP 1 IDCUOTA FROM MENSUALIDAD_CUOTA
+        WHERE IDMENSUALIDAD = %s AND NUMERO = 1
+        """,
+        [id_mensualidad],
+    )
+    row = cursor.fetchone()
+    if not row:
+        return
+    id_cuota = row[0]
+    if sp.is_mysql():
+        cursor.execute(
+            """
+            UPDATE PAGOMENSUALIDAD
+            SET IDCUOTA = %s
+            WHERE IDMENSUALIDAD = %s AND IDCUOTA IS NULL
+            ORDER BY FECHAPAGO DESC, HORAPAGO DESC, IDPAGOMENSUALIDAD DESC
+            LIMIT 1
+            """,
+            [id_cuota, id_mensualidad],
+        )
+    else:
+        cursor.execute(
+            """
+            ;WITH cte AS (
+                SELECT TOP 1 IDPAGOMENSUALIDAD
+                FROM PAGOMENSUALIDAD
+                WHERE IDMENSUALIDAD = %s AND IDCUOTA IS NULL
+                ORDER BY FECHAPAGO DESC, HORAPAGO DESC, IDPAGOMENSUALIDAD DESC
+            )
+            UPDATE p SET IDCUOTA = %s
+            FROM PAGOMENSUALIDAD p
+            INNER JOIN cte ON cte.IDPAGOMENSUALIDAD = p.IDPAGOMENSUALIDAD
+            """,
+            [id_mensualidad, id_cuota],
+        )
+    from .cuota_service import sincronizar_estado_cuota
+    sincronizar_estado_cuota(cursor, id_cuota)
 
 
 def actualizar_mensualidad(id_mensualidad: str, payload: dict, id_usuario=None):

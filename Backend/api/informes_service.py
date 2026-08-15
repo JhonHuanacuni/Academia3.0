@@ -536,6 +536,17 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                 params,
             )
             rows = _cursor_rows(cursor)
-        return {r['IDUSUARIO']: r for r in rows}
+        out = {r['IDUSUARIO']: r for r in rows}
+        try:
+            from .cuota_service import fecha_vence_cuota_vigente, tabla_cuotas_existe
+            with connection.cursor() as cursor:
+                if tabla_cuotas_existe(cursor):
+                    for uid, meta in out.items():
+                        vence_cuota = fecha_vence_cuota_vigente(uid)
+                        if vence_cuota:
+                            meta['FECHA_VENCE'] = vence_cuota
+        except Exception:
+            pass
+        return out
     except Exception:
         return {}

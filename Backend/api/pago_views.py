@@ -104,7 +104,9 @@ def pagos_mantenedor(request, id_pago=None):
             else:
                 body = {
                     'IDMENSUALIDAD': payload.get('IDMENSUALIDAD'),
+                    'IDCUOTA': payload.get('IDCUOTA'),
                     'MONTO': payload.get('MONTO'),
+                    'MONTO_CUOTA': payload.get('MONTO_CUOTA'),
                     'IDMETODOPAGO': payload.get('IDMETODOPAGO'),
                     'OBSERVACIONES': payload.get('OBSERVACIONES'),
                     'REGISTRADOPOR': payload.get('REGISTRADOPOR'),
