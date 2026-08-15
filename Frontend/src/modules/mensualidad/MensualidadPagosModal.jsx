@@ -60,11 +60,48 @@ export default function MensualidadPagosModal({
                   <span>Total: {dinero(resumen.montoTotal)}</span>
                   <span>Pagado: {dinero(resumen.pagado)}</span>
                   <span className={tieneDeuda ? "deuda" : "ok"}>
-                    {tieneDeuda ? `Deuda: ${dinero(deuda)}` : "Sin deuda"}
+                    {tieneDeuda ? `Deuda exigible: ${dinero(deuda)}` : "Sin deuda exigible"}
                   </span>
                 </div>
               )}
             </div>
+          )}
+
+          {resumen?.tieneCuotas && Array.isArray(resumen.cuotas) && resumen.cuotas.length > 0 && (
+            <>
+              <h3 className="form-section-title">Cuotas del periodo</h3>
+              <div className="mantenedor-card mens-pagos-tabla" style={{ marginBottom: "1rem" }}>
+                <div className="data-table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Periodo</th>
+                        <th>Monto</th>
+                        <th>Pagado</th>
+                        <th>Saldo</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resumen.cuotas.map((c) => (
+                        <tr key={c.IDCUOTA}>
+                          <td>{c.NUMERO}</td>
+                          <td>
+                            {dbToView(String(c.FECHAINICIO || ""))} —{" "}
+                            {dbToView(String(c.FECHAFIN || ""))}
+                          </td>
+                          <td>{dinero(c.MONTO)}</td>
+                          <td>{dinero(c.PAGADO)}</td>
+                          <td>{dinero(c.DEUDA)}</td>
+                          <td>{c.ESTADO_CALC || c.ESTADO || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
 
           <h3 className="form-section-title">Pagos registrados</h3>

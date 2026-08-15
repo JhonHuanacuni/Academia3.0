@@ -9,7 +9,7 @@ export const mensualidadConfig = {
     { campo: "PLAN_NOMBRE", etiqueta: "Plan", ordenable: true },
     { campo: "FECHAINICIO", etiqueta: "Fecha inicio", tipo: "fecha", ordenable: true },
     { campo: "FECHAFIN", etiqueta: "Fecha fin", tipo: "fecha", ordenable: true },
-    { campo: "DEUDA_TOTAL", etiqueta: "Deuda", tipo: "deuda", ocultarMonto: true, ordenable: true },
+    { campo: "DEUDA_TOTAL", etiqueta: "Deuda exigible", tipo: "deuda", ocultarMonto: true, ordenable: true },
   ],
   secciones: [
     {

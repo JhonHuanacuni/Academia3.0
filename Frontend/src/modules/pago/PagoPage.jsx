@@ -46,10 +46,36 @@ function duracionDiasDb(inicioDb, finDb) {
 }
 
 const emptyAbono = () => ({
+  IDCUOTA: "",
   MONTO: "",
+  MONTO_CUOTA: "",
   IDMETODOPAGO: "MPG001",
   OBSERVACIONES: "",
 });
+
+function cuotaLabel(c) {
+  const rango = `${dbToView(String(c.FECHAINICIO || ""))} — ${dbToView(String(c.FECHAFIN || ""))}`;
+  return `Cuota ${c.NUMERO}: ${rango}`;
+}
+
+function primeraCuotaExigible(cuotas) {
+  if (!Array.isArray(cuotas) || !cuotas.length) return null;
+  return (
+    cuotas.find((c) => c.EXIGIBLE && Number(c.DEUDA) > 0) ||
+    cuotas.find((c) => Number(c.DEUDA) > 0) ||
+    null
+  );
+}
+
+function abonoDesdeCuota(cuota) {
+  const deuda = Number(cuota?.DEUDA) || 0;
+  return {
+    ...emptyAbono(),
+    IDCUOTA: cuota?.IDCUOTA || "",
+    MONTO: deuda > 0 ? String(deuda) : "",
+    MONTO_CUOTA: cuota?.MONTO != null ? String(cuota.MONTO) : "",
+  };
+}
 
 const emptyNueva = () => ({
   IDPLAN: "",
@@ -142,10 +168,8 @@ export default function PagoPage() {
         if (conDeuda) {
           setSeleccionada(conDeuda);
           setModo("abono");
-          setAbono({
-            ...emptyAbono(),
-            MONTO: String(conDeuda.DEUDA),
-          });
+          const cuota = primeraCuotaExigible(conDeuda.CUOTAS);
+          setAbono(cuota ? abonoDesdeCuota(cuota) : { ...emptyAbono(), MONTO: String(conDeuda.DEUDA) });
         } else {
           setSeleccionada(null);
           setModo("nueva");
@@ -247,12 +271,28 @@ export default function PagoPage() {
     if (deuda <= 0) return;
     setSeleccionada(m);
     setModo("abono");
-    setAbono({
-      ...emptyAbono(),
-      MONTO: String(deuda),
-    });
+    const cuota = primeraCuotaExigible(m.CUOTAS);
+    setAbono(cuota ? abonoDesdeCuota(cuota) : { ...emptyAbono(), MONTO: String(deuda) });
     setErrors({});
   };
+
+  const seleccionarCuota = (idCuota) => {
+    const cuotas = seleccionada?.CUOTAS || [];
+    const cuota = cuotas.find((c) => c.IDCUOTA === idCuota);
+    if (!cuota) {
+      setAbono((p) => ({ ...p, IDCUOTA: idCuota }));
+      return;
+    }
+    setAbono(abonoDesdeCuota(cuota));
+    setErrors({});
+  };
+
+  const cuotaSeleccionada = (seleccionada?.CUOTAS || []).find(
+    (c) => c.IDCUOTA === abono.IDCUOTA,
+  );
+  const deudaAbono = seleccionada?.TIENE_CUOTAS
+    ? Number(cuotaSeleccionada?.DEUDA) || 0
+    : Number(seleccionada?.DEUDA) || 0;
 
   const iniciarNueva = () => {
     setSeleccionada(null);
@@ -266,10 +306,26 @@ export default function PagoPage() {
     if (!estudiante?.IDUSUARIO) e.estudiante = "Selecciona un estudiante.";
     if (modo === "abono") {
       if (!seleccionada?.IDMENSUALIDAD) e.mensualidad = "Selecciona una mensualidad con deuda.";
+      if (seleccionada?.TIENE_CUOTAS && !abono.IDCUOTA) {
+        e.IDCUOTA = "Selecciona la cuota a cobrar.";
+      }
       if (!abono.MONTO || Number(abono.MONTO) <= 0) e.MONTO = "Ingresa el monto del abono.";
       if (!abono.IDMETODOPAGO) e.IDMETODOPAGO = "Selecciona el método de pago.";
-      const deuda = Number(seleccionada?.DEUDA) || 0;
-      if (Number(abono.MONTO) > deuda) e.MONTO = `No puede superar la deuda (${dinero(deuda)}).`;
+      const deuda = deudaAbono;
+      const montoCuotaEdit = abono.MONTO_CUOTA !== "" ? Number(abono.MONTO_CUOTA) : null;
+      let deudaMax = deuda;
+      if (
+        seleccionada?.TIENE_CUOTAS &&
+        cuotaSeleccionada &&
+        montoCuotaEdit != null &&
+        !Number.isNaN(montoCuotaEdit)
+      ) {
+        const pagado = Number(cuotaSeleccionada.PAGADO) || 0;
+        deudaMax = Math.max(0, montoCuotaEdit - pagado);
+      }
+      if (Number(abono.MONTO) > deudaMax + 0.001) {
+        e.MONTO = `No puede superar la deuda (${dinero(deudaMax)}).`;
+      }
     } else {
       if (!nueva.IDPLAN) e.IDPLAN = "Selecciona el plan.";
       if (!nueva.FECHAINICIO) e.FECHAINICIO = "Ingresa fecha de inicio.";
@@ -293,7 +349,12 @@ export default function PagoPage() {
         body = {
           TIPO: "abono",
           IDMENSUALIDAD: seleccionada.IDMENSUALIDAD,
+          IDCUOTA: abono.IDCUOTA || null,
           MONTO: Number(abono.MONTO),
+          MONTO_CUOTA:
+            abono.MONTO_CUOTA !== "" && abono.MONTO_CUOTA != null
+              ? Number(abono.MONTO_CUOTA)
+              : null,
           IDMETODOPAGO: abono.IDMETODOPAGO,
           OBSERVACIONES: abono.OBSERVACIONES || "Abono",
           REGISTRADOPOR: registradoPor,
@@ -371,12 +432,54 @@ export default function PagoPage() {
                       </span>
                     </div>
                     <div className="pago-abono-deuda">
-                      Deuda: <strong>{dinero(seleccionada.DEUDA)}</strong>
+                      Deuda exigible: <strong>{dinero(seleccionada.DEUDA)}</strong>
                     </div>
                   </div>
                   {errors.mensualidad && <span className="field-error">{errors.mensualidad}</span>}
 
+                  {seleccionada.TIENE_CUOTAS && (
+                    <div className={`form-field full ${errors.IDCUOTA ? "has-error" : ""}`}>
+                      <label>Cuota a cobrar</label>
+                      <select
+                        value={abono.IDCUOTA}
+                        onChange={(e) => seleccionarCuota(e.target.value)}
+                      >
+                        <option value="">Selecciona una cuota...</option>
+                        {(seleccionada.CUOTAS || []).map((c) => (
+                          <option key={c.IDCUOTA} value={c.IDCUOTA}>
+                            {cuotaLabel(c)} · {dinero(c.MONTO)} · saldo {dinero(c.DEUDA)} ·{" "}
+                            {c.ESTADO_CALC || c.ESTADO}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.IDCUOTA && <span className="field-error">{errors.IDCUOTA}</span>}
+                      {cuotaSeleccionada && (
+                        <div className="pago-cuota-detalle">
+                          <span>Pagado: {dinero(cuotaSeleccionada.PAGADO)}</span>
+                          <span>Saldo: {dinero(cuotaSeleccionada.DEUDA)}</span>
+                          <span className={`pago-cuota-estado estado-${(cuotaSeleccionada.ESTADO_CALC || "").toLowerCase()}`}>
+                            {cuotaSeleccionada.ESTADO_CALC}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="form-grid form-grid--half">
+                    {seleccionada.TIENE_CUOTAS && (
+                      <div className="form-field">
+                        <label>Monto de la cuota (editable)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={abono.MONTO_CUOTA}
+                          onChange={(e) =>
+                            setAbono((p) => ({ ...p, MONTO_CUOTA: e.target.value }))
+                          }
+                        />
+                      </div>
+                    )}
                     <div className={`form-field ${errors.MONTO ? "has-error" : ""}`}>
                       <label>Monto a abonar</label>
                       <input
@@ -600,9 +703,15 @@ export default function PagoPage() {
                       <div className="pago-mensualidad-montos">
                         <span>Pagado: {dinero(m.PAGADO)}</span>
                         <span className={deuda > 0 ? "deuda" : "ok"}>
-                          {deuda > 0 ? `Deuda: ${dinero(deuda)}` : "Sin deuda"}
+                          {deuda > 0 ? `Deuda exigible: ${dinero(deuda)}` : "Sin deuda exigible"}
                         </span>
                       </div>
+                      {m.TIENE_CUOTAS && (
+                        <div className="pago-mensualidad-cuotas-hint">
+                          {(m.CUOTAS || []).filter((c) => Number(c.DEUDA) > 0 && c.EXIGIBLE).length}{" "}
+                          cuota(s) con saldo · {(m.CUOTAS || []).length} periodos
+                        </div>
+                      )}
                       {deuda > 0 && (
                         <span className="pago-mensualidad-cta">Clic para abonar</span>
                       )}

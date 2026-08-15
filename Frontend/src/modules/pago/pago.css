@@ -54,6 +54,40 @@
   color: #991b1b;
 }
 
+.pago-cuota-detalle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--color-muted, #6b7280);
+}
+
+.pago-cuota-estado {
+  font-weight: 600;
+}
+
+.pago-cuota-estado.estado-vencida {
+  color: #991b1b;
+}
+
+.pago-cuota-estado.estado-actual {
+  color: #6a42e5;
+}
+
+.pago-cuota-estado.estado-futura {
+  color: #6b7280;
+}
+
+.pago-cuota-estado.estado-pagada {
+  color: #166534;
+}
+
+.pago-mensualidad-cuotas-hint {
+  font-size: 0.75rem;
+  color: var(--color-muted, #6b7280);
+}
+
 .pago-form-actions {
   display: flex;
   flex-wrap: wrap;

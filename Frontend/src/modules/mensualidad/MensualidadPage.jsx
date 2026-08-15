@@ -173,6 +173,8 @@ export default function MensualidadPage() {
         montoTotal: mensualidad.MONTOTOTAL,
         pagado: mensualidad.PAGADO,
         deuda: mensualidad.DEUDA,
+        cuotas: mensualidad.CUOTAS || [],
+        tieneCuotas: Boolean(mensualidad.TIENE_CUOTAS),
       },
       pagos: [],
     });

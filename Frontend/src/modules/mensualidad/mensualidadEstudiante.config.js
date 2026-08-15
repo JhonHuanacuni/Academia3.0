@@ -12,5 +12,5 @@ export const mensualidadEstudianteColumnas = [
   },
   { campo: "MONTOTOTAL", etiqueta: "Total", tipo: "decimal", ordenable: true },
   { campo: "PAGADO", etiqueta: "Pagado", tipo: "decimal", ordenable: true },
-  { campo: "DEUDA", etiqueta: "Deuda", tipo: "deuda", ordenable: true },
+  { campo: "DEUDA", etiqueta: "Deuda exigible", tipo: "deuda", ordenable: true },
 ];
