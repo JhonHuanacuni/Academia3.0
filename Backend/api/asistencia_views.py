@@ -16,14 +16,25 @@ from .usuario_crud_service import obtener_usuario
 @csrf_exempt
 def asistencias_api(request):
     if request.method == 'GET':
-        fecha = request.GET.get('fecha')
+        fecha_desde = request.GET.get('fechaInicio') or request.GET.get('fechaDesde') or request.GET.get('fecha')
+        fecha_hasta = request.GET.get('fechaFin') or request.GET.get('fechaHasta')
         buscar = request.GET.get('buscar')
         pagina = int(request.GET.get('pagina', 1))
         tamanio = int(request.GET.get('tamanio', 50))
         try:
-            data, total = listar_asistencias(fecha, buscar, pagina, tamanio)
+            data, total = listar_asistencias(
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
+                buscar=buscar,
+                pagina=pagina,
+                tamanio=tamanio,
+            )
         except Exception:
-            data, total = listar_asistencias_orm(fecha, buscar)
+            data, total = listar_asistencias_orm(
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
+                buscar=buscar,
+            )
         return JsonResponse({
             'data': data,
             'total': total,

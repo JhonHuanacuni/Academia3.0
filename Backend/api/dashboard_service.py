@@ -86,6 +86,9 @@ def _stats_mensualidades():
                         ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
                     ) AS RN
                 FROM MENSUALIDAD m
+                INNER JOIN USUARIO us ON us.IDUSUARIO = m.IDUSUARIO
+                    AND us.IDTIPOUSUARIO = '1'
+                    AND us.ESTADO = 'Activo'
                 LEFT JOIN (
                     SELECT IDMENSUALIDAD, SUM(MONTO) AS PAGADO
                     FROM PAGOMENSUALIDAD
@@ -108,6 +111,9 @@ def _stats_mensualidades():
                         ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
                     ) AS RN
                 FROM MENSUALIDAD m
+                INNER JOIN USUARIO us ON us.IDUSUARIO = m.IDUSUARIO
+                    AND us.IDTIPOUSUARIO = '1'
+                    AND us.ESTADO = 'Activo'
                 OUTER APPLY (
                     SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
                 ) pag

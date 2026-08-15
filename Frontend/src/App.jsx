@@ -68,7 +68,7 @@ const pageContent = {
   },
   "asistencias-listado": {
     title: "Ver asistencias",
-    description: "Listado del día.",
+    description: "Listado de asistencias por rango de fechas.",
     component: AsistenciaListadoPage,
   },
   "asistencias-justificacion": {

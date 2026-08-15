@@ -1,9 +1,10 @@
 export const asistenciaListadoConfig = {
   modulo: "Asistencias",
-  titulo: "Asistencias de hoy",
+  titulo: "Ver asistencias",
   entidad: "asistencias",
   pk: "IDASISTENCIA",
   columnas: [
+    { campo: "FECHAREGISTRO", etiqueta: "Fecha", tipo: "fecha", ordenable: false },
     { campo: "HORAINICIO", etiqueta: "Hora", tipo: "hora", ordenable: false },
     { campo: "DNI", etiqueta: "DNI", ordenable: false },
     {

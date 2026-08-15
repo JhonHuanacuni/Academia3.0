@@ -69,7 +69,7 @@ export const diasRestantesDesdeDb = (fechaDb) => {
 
 export const textoDiasRestantes = (dias) => {
   if (dias == null) return "—";
-  if (dias < 0) return `Vencida (${Math.abs(dias)} d.)`;
+  if (dias < 0) return "Culminado";
   if (dias === 0) return "Vence hoy";
   if (dias === 1) return "1 día";
   return `${dias} días`;

@@ -10,17 +10,26 @@ import "../../styles/mantenedor.css";
 
 export default function AsistenciaListadoPage() {
   const cfg = asistenciaListadoConfig;
+  const hoy = hoyInput();
   const crud = useCrud({
     entidad: cfg.entidad,
     pk: cfg.pk,
     ordenInicial: { campo: "HORAINICIO", direccion: "DESC" },
-    filtrosIniciales: { fecha: inputToDb(hoyInput()) },
+    filtrosIniciales: {
+      fechaInicio: inputToDb(hoy),
+      fechaFin: inputToDb(hoy),
+    },
   });
 
-  const fechaInput = useMemo(() => {
-    const f = crud.filtros.fecha;
-    return f ? dbToInput(String(f)) : hoyInput();
-  }, [crud.filtros.fecha]);
+  const fechaInicioInput = useMemo(() => {
+    const f = crud.filtros.fechaInicio;
+    return f ? dbToInput(String(f)) : hoy;
+  }, [crud.filtros.fechaInicio, hoy]);
+
+  const fechaFinInput = useMemo(() => {
+    const f = crud.filtros.fechaFin;
+    return f ? dbToInput(String(f)) : hoy;
+  }, [crud.filtros.fechaFin, hoy]);
 
   const items = useMemo(
     () =>
@@ -31,11 +40,21 @@ export default function AsistenciaListadoPage() {
     [crud.items],
   );
 
-  const columnas = cfg.columnas.map((col) =>
-    col.campo === "ESTUDIANTE_NOMBRE"
-      ? { ...col, campo: "ESTUDIANTE_NOMBRE" }
-      : col,
-  );
+  const setFechaInicio = (value) => {
+    const db = inputToDb(value);
+    crud.setFiltro("fechaInicio", db);
+    if (fechaFinInput && value && value > fechaFinInput) {
+      crud.setFiltro("fechaFin", db);
+    }
+  };
+
+  const setFechaFin = (value) => {
+    const db = inputToDb(value);
+    crud.setFiltro("fechaFin", db);
+    if (fechaInicioInput && value && value < fechaInicioInput) {
+      crud.setFiltro("fechaInicio", db);
+    }
+  };
 
   return (
     <div className="mantenedor-page">
@@ -49,17 +68,25 @@ export default function AsistenciaListadoPage() {
             placeholder="Buscar por DNI o nombre..."
           />
           <label className="toolbar-date">
-            <span>Fecha</span>
+            <span>Fecha inicio</span>
             <input
               type="date"
-              value={fechaInput}
-              onChange={(e) => crud.setFiltro("fecha", inputToDb(e.target.value))}
+              value={fechaInicioInput}
+              onChange={(e) => setFechaInicio(e.target.value)}
+            />
+          </label>
+          <label className="toolbar-date">
+            <span>Fecha fin</span>
+            <input
+              type="date"
+              value={fechaFinInput}
+              onChange={(e) => setFechaFin(e.target.value)}
             />
           </label>
         </div>
 
         <DataTable
-          columnas={columnas}
+          columnas={cfg.columnas}
           items={items}
           pk={cfg.pk}
           orden={crud.orden}

@@ -190,20 +190,32 @@ def marcar_asistencia_orm(dni: str, id_registrador: str = None):
     return 1, 'Asistencia registrada.', id_asist, row
 
 
-def listar_asistencias(fecha=None, buscar=None, pagina=1, tamanio=50):
-    params = [fecha, buscar, pagina, tamanio]
+def listar_asistencias(
+    fecha_desde=None,
+    fecha_hasta=None,
+    buscar=None,
+    pagina=1,
+    tamanio=50,
+    fecha=None,
+):
+    """Lista asistencias. Acepta rango (fechaDesde/fechaHasta) o fecha única (legacy)."""
+    desde = (fecha_desde or fecha or '').strip() or None
+    hasta = (fecha_hasta or '').strip() or None
+    if desde and not hasta:
+        hasta = desde
+    if hasta and not desde:
+        desde = hasta
+
+    params = [desde, hasta, buscar, 'HORAINICIO', 'DESC', pagina, tamanio]
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            return sp.call_list(
-                cursor,
-                'usp_asistencia_listar',
-                [fecha, buscar, 'HORAINICIO', 'DESC', pagina, tamanio],
-            )
+            return sp.call_list(cursor, 'usp_asistencia_listar', params)
         cursor.execute(
             """
             DECLARE @Total INT;
             EXEC dbo.usp_asistencia_listar
-                @Fecha=%s, @Buscar=%s, @OrdenarPor='HORAINICIO', @Direccion='DESC',
+                @FechaDesde=%s, @FechaHasta=%s, @Buscar=%s,
+                @OrdenarPor=%s, @Direccion=%s,
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
@@ -218,11 +230,24 @@ def listar_asistencias(fecha=None, buscar=None, pagina=1, tamanio=50):
     return data, total
 
 
-def listar_asistencias_orm(fecha=None, buscar=None):
+def listar_asistencias_orm(fecha_desde=None, fecha_hasta=None, buscar=None, fecha=None):
     from django.db.models import Q
     from .models import Asistencia, Usuario
-    hoy = fecha or timezone.localtime().strftime('%d%m%Y')
-    qs = Asistencia.objects.filter(FECHAREGISTRO=hoy)
+
+    desde = (fecha_desde or fecha or '').strip() or timezone.localtime().strftime('%d%m%Y')
+    hasta = (fecha_hasta or '').strip() or desde
+
+    def ymd(s):
+        s = str(s or '')
+        if len(s) != 8:
+            return ''
+        return s[4:8] + s[2:4] + s[0:2]
+
+    ymd_desde, ymd_hasta = ymd(desde), ymd(hasta)
+    if ymd_desde and ymd_hasta and ymd_desde > ymd_hasta:
+        ymd_desde, ymd_hasta = ymd_hasta, ymd_desde
+
+    qs = Asistencia.objects.all()
     if buscar:
         user_ids = Usuario.objects.filter(
             Q(DNI__icontains=buscar)
@@ -231,8 +256,14 @@ def listar_asistencias_orm(fecha=None, buscar=None):
             | Q(IDUSUARIO__icontains=buscar)
         ).values_list('IDUSUARIO', flat=True)
         qs = qs.filter(IDUSUARIO__in=list(user_ids))
+
     rows = []
-    for a in qs.order_by('-HORAINICIO'):
+    for a in qs.order_by('-FECHAREGISTRO', '-HORAINICIO'):
+        key = ymd(a.FECHAREGISTRO)
+        if ymd_desde and key < ymd_desde:
+            continue
+        if ymd_hasta and key > ymd_hasta:
+            continue
         u = Usuario.objects.filter(IDUSUARIO=a.IDUSUARIO).first()
         if not u:
             continue
