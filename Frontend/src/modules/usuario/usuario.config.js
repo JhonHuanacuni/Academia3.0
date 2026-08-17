@@ -29,6 +29,7 @@ export const usuarioConfig = {
           control: "select",
           catalogo: "mediosEntero",
           obligatorio: true,
+          soloTiposUsuario: ["1"],
         },
         { campo: "FOTO", etiqueta: "Foto de perfil", control: "image", full: true },
       ],
@@ -87,6 +88,7 @@ export const usuarioConfig = {
     {
       titulo: "Datos del apoderado",
       grupo: "extra",
+      soloTiposUsuario: ["1"],
       campos: [
         { campo: "NOMBREAPODERADO", etiqueta: "Nombre y apellido", control: "text", obligatorio: true, full: true },
         { campo: "TELAPODERADO", etiqueta: "Celular", control: "text", obligatorio: true },
@@ -96,6 +98,7 @@ export const usuarioConfig = {
     {
       titulo: "Datos académicos",
       grupo: "extra",
+      soloTiposUsuario: ["1"],
       campos: [
         { campo: "COLEGIO", etiqueta: "Colegio", control: "text" },
         { campo: "GRADO", etiqueta: "Grado", control: "text" },

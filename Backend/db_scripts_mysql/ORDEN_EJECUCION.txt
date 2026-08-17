@@ -123,6 +123,8 @@
 15_08_2026/1.usp_asistencia_listar_rango.sql
 15_08_2026/2.mensualidad_cuota_tabla.sql
 
+16_08_2026/1.trabajador_y_mora.sql
+
 # --- Importación de datos (opcional, una sola vez) ---
 # No pegar en phpMyAdmin: los .sql usan sintaxis T-SQL.
 # Ejecutar con: venv/bin/python scripts/import_datos_mysql.py

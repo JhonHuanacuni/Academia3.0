@@ -107,6 +107,7 @@ def pagos_mantenedor(request, id_pago=None):
                     'IDCUOTA': payload.get('IDCUOTA'),
                     'MONTO': payload.get('MONTO'),
                     'MONTO_CUOTA': payload.get('MONTO_CUOTA'),
+                    'MORA': payload.get('MORA'),
                     'IDMETODOPAGO': payload.get('IDMETODOPAGO'),
                     'OBSERVACIONES': payload.get('OBSERVACIONES'),
                     'REGISTRADOPOR': payload.get('REGISTRADOPOR'),

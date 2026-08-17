@@ -7,7 +7,9 @@ export const pagoConfig = {
     { campo: "ESTUDIANTE_NOMBRE", etiqueta: "Estudiante", ordenable: true },
     { campo: "ESTUDIANTE_DNI", etiqueta: "DNI", ordenable: false },
     { campo: "PLAN_NOMBRE", etiqueta: "Plan", ordenable: false },
-    { campo: "MONTO", etiqueta: "Monto", tipo: "decimal", ordenable: true },
+    { campo: "MONTO", etiqueta: "Cuota", tipo: "decimal", ordenable: true },
+    { campo: "MORA", etiqueta: "Mora", tipo: "decimal", ordenable: false },
+    { campo: "TOTAL_COBRADO", etiqueta: "Total cobrado", tipo: "decimal", ordenable: false },
     { campo: "METODOPAGO_TITULO", etiqueta: "Método", ordenable: false },
     { campo: "FECHAPAGO", etiqueta: "Fecha", tipo: "fecha", ordenable: true },
     { campo: "OBSERVACIONES", etiqueta: "Detalle", ordenable: false },
@@ -27,9 +29,15 @@ export const pagoConfig = {
     },
     {
       campo: "MONTO",
-      etiqueta: "Monto",
+      etiqueta: "Monto aplicado a la cuota",
       control: "number",
       obligatorio: true,
+    },
+    {
+      campo: "MORA",
+      etiqueta: "Mora",
+      control: "number",
+      ayuda: "Monto extra por pago fuera de fecha. No reduce el saldo de la cuota.",
     },
     {
       campo: "IDMETODOPAGO",

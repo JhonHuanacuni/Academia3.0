@@ -14,6 +14,30 @@ def _decimal_or_none(value):
     return float(value)
 
 
+def _mora_valida(value):
+    mora = _decimal_or_none(value)
+    return 0.0 if mora is None else mora
+
+
+def _enriquecer_mora(cursor, pagos):
+    """Añade mora y total cobrado a resultados de SP antiguos de SQL Server."""
+    ids = [p.get('IDPAGOMENSUALIDAD') for p in pagos if p.get('IDPAGOMENSUALIDAD')]
+    if not ids:
+        return pagos
+    placeholders = ','.join(['%s'] * len(ids))
+    cursor.execute(
+        f'SELECT IDPAGOMENSUALIDAD, ISNULL(MORA, 0) FROM PAGOMENSUALIDAD '
+        f'WHERE IDPAGOMENSUALIDAD IN ({placeholders})',
+        ids,
+    )
+    moras = {row[0]: float(row[1] or 0) for row in cursor.fetchall()}
+    for pago in pagos:
+        mora = moras.get(pago.get('IDPAGOMENSUALIDAD'), 0.0)
+        pago['MORA'] = mora
+        pago['TOTAL_COBRADO'] = float(pago.get('MONTO') or 0) + mora
+    return pagos
+
+
 def _listar_pagos_mysql(
     cursor,
     buscar=None,
@@ -73,6 +97,8 @@ def _listar_pagos_mysql(
             p.IDPAGOMENSUALIDAD,
             p.IDMENSUALIDAD,
             p.MONTO,
+            IFNULL(p.MORA, 0) AS MORA,
+            p.MONTO + IFNULL(p.MORA, 0) AS TOTAL_COBRADO,
             p.FECHAPAGO,
             p.HORAPAGO,
             p.OBSERVACIONES,
@@ -118,6 +144,7 @@ def listar_pagos(
             row = cursor.fetchone()
             if row:
                 total = int(row[0])
+        data = _enriquecer_mora(cursor, data)
     return data, total
 
 
@@ -202,6 +229,7 @@ def insertar_abono(payload: dict, id_usuario=None):
     obs = (payload.get('OBSERVACIONES') or '').strip() or 'Abono'
     reg = payload.get('REGISTRADOPOR') or None
     monto_cuota_edit = _decimal_or_none(payload.get('MONTO_CUOTA'))
+    mora = _mora_valida(payload.get('MORA'))
 
     if not id_mensualidad:
         return 0, 'Debe seleccionar una mensualidad.'
@@ -209,6 +237,10 @@ def insertar_abono(payload: dict, id_usuario=None):
         return 0, 'Ingrese un monto válido.'
     if not id_metodo:
         return 0, 'Indique el método de pago.'
+    if mora < 0:
+        return 0, 'La mora no puede ser negativa.'
+    if mora > 0 and not id_cuota:
+        return 0, 'La mora solo puede registrarse en el pago de una cuota.'
 
     from .cuota_service import (
         actualizar_monto_cuota,
@@ -297,14 +329,14 @@ def insertar_abono(payload: dict, id_usuario=None):
             cursor.execute(
                 """
                 INSERT INTO PAGOMENSUALIDAD (
-                    IDPAGOMENSUALIDAD, MONTO, FECHAPAGO, HORAPAGO, OBSERVACIONES,
+                    IDPAGOMENSUALIDAD, MONTO, MORA, FECHAPAGO, HORAPAGO, OBSERVACIONES,
                     IDMENSUALIDAD, IDMETODOPAGO, IDUSUARIO, IDCUOTA
                 ) VALUES (
-                    %s, %s, fn_fecha_ddmmyyyy(), TIME_FORMAT(NOW(), '%%H:%%i:%%s'),
+                    %s, %s, %s, fn_fecha_ddmmyyyy(), TIME_FORMAT(NOW(), '%%H:%%i:%%s'),
                     %s, %s, %s, %s, %s
                 )
                 """,
-                [id_pago, monto, obs, id_mensualidad, id_metodo, reg, id_cuota],
+                [id_pago, monto, mora, obs, id_mensualidad, id_metodo, reg, id_cuota],
             )
             if id_cuota:
                 sincronizar_estado_cuota(cursor, id_cuota)
@@ -331,15 +363,15 @@ def insertar_abono(payload: dict, id_usuario=None):
                     ISNULL(MAX(TRY_CAST(SUBSTRING(IDPAGOMENSUALIDAD, 4, 10) AS INT)), 0) + 1 AS NVARCHAR
                 ), 6) FROM PAGOMENSUALIDAD WHERE IDPAGOMENSUALIDAD LIKE 'PAG%';
                 INSERT INTO PAGOMENSUALIDAD (
-                    IDPAGOMENSUALIDAD, MONTO, FECHAPAGO, HORAPAGO, OBSERVACIONES,
+                    IDPAGOMENSUALIDAD, MONTO, MORA, FECHAPAGO, HORAPAGO, OBSERVACIONES,
                     IDMENSUALIDAD, IDMETODOPAGO, IDUSUARIO, IDCUOTA
                 ) VALUES (
-                    @IdPago, %s, dbo.fn_fecha_ddmmyyyy(), CONVERT(CHAR(8), GETDATE(), 108),
+                    @IdPago, %s, %s, dbo.fn_fecha_ddmmyyyy(), CONVERT(CHAR(8), GETDATE(), 108),
                     %s, %s, %s, %s, %s
                 );
                 SELECT 1 AS Resultado, N'Abono registrado correctamente.' AS Mensaje;
                 """,
-                [monto, obs, id_mensualidad, id_metodo, reg, id_cuota],
+                [monto, mora, obs, id_mensualidad, id_metodo, reg, id_cuota],
             )
             sincronizar_estado_cuota(cursor, id_cuota)
             return _read_sp_write_result(cursor)
@@ -359,10 +391,34 @@ def insertar_abono(payload: dict, id_usuario=None):
 
 
 def obtener_pago(id_pago: str):
-    return sp.call_obtain('usp_pago_obtener', id_pago)
+    row = sp.call_obtain('usp_pago_obtener', id_pago)
+    if not row:
+        return None
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT ISNULL(MORA, 0), IDCUOTA
+            FROM PAGOMENSUALIDAD
+            WHERE IDPAGOMENSUALIDAD = %s
+            """
+            if not sp.is_mysql()
+            else """
+            SELECT IFNULL(MORA, 0), IDCUOTA
+            FROM PAGOMENSUALIDAD
+            WHERE IDPAGOMENSUALIDAD = %s
+            """,
+            [id_pago],
+        )
+        extra = cursor.fetchone()
+    mora = float(extra[0] or 0) if extra else 0.0
+    row['MORA'] = mora
+    row['IDCUOTA'] = extra[1] if extra else None
+    row['TOTAL_COBRADO'] = float(row.get('MONTO') or 0) + mora
+    return row
 
 
 def actualizar_pago(id_pago: str, payload: dict, id_usuario=None):
+    mora_enviada = _decimal_or_none(payload.get('MORA')) if 'MORA' in payload else None
     params = [
         id_pago,
         _decimal_or_none(payload.get('MONTO')),
@@ -372,37 +428,73 @@ def actualizar_pago(id_pago: str, payload: dict, id_usuario=None):
     ]
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
-        if sp.is_mysql():
-            return sp.call_write(cursor, 'usp_pago_actualizar', params)
         cursor.execute(
-            """
-            DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_pago_actualizar
-                @Id=%s, @Monto=%s, @IdMetodoPago=%s, @FechaPago=%s,
-                @Observaciones=%s,
-                @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
-            SELECT @R AS Resultado, @M AS Mensaje;
-            """,
-            params,
+            'SELECT IDCUOTA, MORA FROM PAGOMENSUALIDAD WHERE IDPAGOMENSUALIDAD = %s',
+            [id_pago],
         )
-        return _read_sp_write_result(cursor)
+        pago_row = cursor.fetchone()
+        id_cuota = pago_row[0] if pago_row else None
+        mora = (
+            mora_enviada
+            if mora_enviada is not None
+            else (float(pago_row[1] or 0) if pago_row else 0.0)
+        )
+        if mora < 0:
+            return 0, 'La mora no puede ser negativa.'
+        if mora > 0 and not id_cuota:
+            return 0, 'La mora solo puede registrarse en el pago de una cuota.'
+        if sp.is_mysql():
+            resultado = sp.call_write(cursor, 'usp_pago_actualizar', params)
+        else:
+            cursor.execute(
+                """
+                DECLARE @R INT, @M NVARCHAR(200);
+                EXEC dbo.usp_pago_actualizar
+                    @Id=%s, @Monto=%s, @IdMetodoPago=%s, @FechaPago=%s,
+                    @Observaciones=%s,
+                    @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
+                SELECT @R AS Resultado, @M AS Mensaje;
+                """,
+                params,
+            )
+            resultado = _read_sp_write_result(cursor)
+        if resultado[0]:
+            cursor.execute(
+                'UPDATE PAGOMENSUALIDAD SET MORA = %s WHERE IDPAGOMENSUALIDAD = %s',
+                [mora, id_pago],
+            )
+            if id_cuota:
+                from .cuota_service import sincronizar_estado_cuota
+                sincronizar_estado_cuota(cursor, id_cuota)
+        return resultado
 
 
 def eliminar_pago(id_pago: str, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario)
-        if sp.is_mysql():
-            return sp.call_write(cursor, 'usp_pago_eliminar', [id_pago])
         cursor.execute(
-            """
-            DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_pago_eliminar
-                @Id=%s, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
-            SELECT @R AS Resultado, @M AS Mensaje;
-            """,
+            'SELECT IDCUOTA FROM PAGOMENSUALIDAD WHERE IDPAGOMENSUALIDAD = %s',
             [id_pago],
         )
-        return _read_sp_write_result(cursor)
+        pago_row = cursor.fetchone()
+        id_cuota = pago_row[0] if pago_row else None
+        if sp.is_mysql():
+            resultado = sp.call_write(cursor, 'usp_pago_eliminar', [id_pago])
+        else:
+            cursor.execute(
+                """
+                DECLARE @R INT, @M NVARCHAR(200);
+                EXEC dbo.usp_pago_eliminar
+                    @Id=%s, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
+                SELECT @R AS Resultado, @M AS Mensaje;
+                """,
+                [id_pago],
+            )
+            resultado = _read_sp_write_result(cursor)
+        if resultado[0] and id_cuota:
+            from .cuota_service import sincronizar_estado_cuota
+            sincronizar_estado_cuota(cursor, id_cuota)
+        return resultado
 
 
 def listar_metodos_pago():

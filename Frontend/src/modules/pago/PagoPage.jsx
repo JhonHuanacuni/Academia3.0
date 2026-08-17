@@ -49,6 +49,7 @@ const emptyAbono = () => ({
   IDCUOTA: "",
   MONTO: "",
   MONTO_CUOTA: "",
+  MORA: "",
   IDMETODOPAGO: "MPG001",
   OBSERVACIONES: "",
 });
@@ -223,15 +224,17 @@ export default function PagoPage() {
 
   const abrirEliminar = (row) => {
     const nombre = row.ESTUDIANTE_NOMBRE || row[cfg.pk];
+    const total = Number(row.MONTO || 0) + Number(row.MORA || 0);
     setConfirm({
       id: row[cfg.pk],
-      mensaje: `¿Eliminar el pago de «${nombre}» por ${dinero(row.MONTO)}? Esta acción no se puede deshacer.`,
+      mensaje: `¿Eliminar el pago de «${nombre}» por ${dinero(total)}? Esta acción no se puede deshacer.`,
     });
   };
 
   const handleGuardarDetalle = async (payload) => {
     const mensaje = await crud.actualizar(crud.registro[cfg.pk], {
       MONTO: payload.MONTO === "" ? null : Number(payload.MONTO),
+      MORA: payload.MORA === "" ? 0 : Number(payload.MORA),
       IDMETODOPAGO: payload.IDMETODOPAGO,
       FECHAPAGO: payload.FECHAPAGO,
       OBSERVACIONES: payload.OBSERVACIONES || null,
@@ -310,6 +313,9 @@ export default function PagoPage() {
         e.IDCUOTA = "Selecciona la cuota a cobrar.";
       }
       if (!abono.MONTO || Number(abono.MONTO) <= 0) e.MONTO = "Ingresa el monto del abono.";
+      if (abono.MORA !== "" && Number(abono.MORA) < 0) {
+        e.MORA = "La mora no puede ser negativa.";
+      }
       if (!abono.IDMETODOPAGO) e.IDMETODOPAGO = "Selecciona el método de pago.";
       const deuda = deudaAbono;
       const montoCuotaEdit = abono.MONTO_CUOTA !== "" ? Number(abono.MONTO_CUOTA) : null;
@@ -351,6 +357,7 @@ export default function PagoPage() {
           IDMENSUALIDAD: seleccionada.IDMENSUALIDAD,
           IDCUOTA: abono.IDCUOTA || null,
           MONTO: Number(abono.MONTO),
+          MORA: abono.MORA === "" ? 0 : Number(abono.MORA),
           MONTO_CUOTA:
             abono.MONTO_CUOTA !== "" && abono.MONTO_CUOTA != null
               ? Number(abono.MONTO_CUOTA)
@@ -491,6 +498,23 @@ export default function PagoPage() {
                       />
                       {errors.MONTO && <span className="field-error">{errors.MONTO}</span>}
                     </div>
+                    {cuotaSeleccionada?.ESTADO_CALC === "Vencida" && (
+                      <div className={`form-field ${errors.MORA ? "has-error" : ""}`}>
+                        <label>Mora por pago fuera de fecha</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={abono.MORA}
+                          placeholder="0.00"
+                          onChange={(e) => setAbono((p) => ({ ...p, MORA: e.target.value }))}
+                        />
+                        <span className="field-hint">
+                          Monto extra; no reduce el saldo de la cuota.
+                        </span>
+                        {errors.MORA && <span className="field-error">{errors.MORA}</span>}
+                      </div>
+                    )}
                     <div className={`form-field ${errors.IDMETODOPAGO ? "has-error" : ""}`}>
                       <label>Método de pago</label>
                       <select

@@ -435,7 +435,7 @@ const AdminModulos = () => {
         <h1>Administración de Acceso a Módulos</h1>
         <p>
           {modo === "rol"
-            ? "Asigna módulos y submódulos por rol (Estudiante, Docente, Administrador)"
+            ? "Asigna módulos y submódulos por rol (Estudiante, Trabajador, Administrador)"
             : "Personaliza accesos individuales por usuario (excepciones al rol)"}
         </p>
       </div>

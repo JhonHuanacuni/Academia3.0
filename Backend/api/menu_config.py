@@ -52,6 +52,7 @@ SUBMODULO_PAGE_MAP = {
 ROLE_TO_TIPOUSUARIO = {
     'estudiante': '1',
     'docente': '2',
+    'trabajador': '2',
     'administrador': '3',
     # compatibilidad legacy
     'usuario': '1',

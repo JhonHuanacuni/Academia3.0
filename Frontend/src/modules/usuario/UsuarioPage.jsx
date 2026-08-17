@@ -32,7 +32,10 @@ export default function UsuarioPage() {
           setCatalogos({
             tiposUsuario: (data.data || []).map((t) => ({
               value: t.IDTIPOUSUARIO,
-              label: t.DESCRIPCION,
+              label:
+                String(t.IDTIPOUSUARIO) === "2" || t.DESCRIPCION === "Docente"
+                  ? "Trabajador"
+                  : t.DESCRIPCION,
             })),
             mediosEntero: [
               { value: "Facebook", label: "Facebook" },

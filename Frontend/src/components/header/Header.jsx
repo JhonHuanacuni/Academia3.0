@@ -19,7 +19,7 @@ const Header = ({ onToggleSidebar, role, onChangeRole, onLogout }) => {
             onChange={(event) => onChangeRole(event.target.value)}
           >
             <option value="administrador">Administrador</option>
-            <option value="docente">Docente</option>
+            <option value="docente">Trabajador</option>
             <option value="estudiante">Estudiante</option>
           </select>
         </label>

@@ -1,0 +1,5 @@
+# Orden de ejecución — 16_08_2026
+1.trabajador_y_mora.sql
+
+Renombra el tipo de usuario 2 de Docente a Trabajador y agrega
+PAGOMENSUALIDAD.MORA con valor 0 para los pagos existentes.

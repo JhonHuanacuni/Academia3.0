@@ -127,6 +127,9 @@ ORDER = [
     '31_07_2026/11.aula_tutor.sql',
     '04_08_2026/1.fix_usp_pago_mensualidad.sql',
     '10_08_2026/1.fix_orden_fechas_ddmmyyyy.sql',
+    '15_08_2026/1.usp_asistencia_listar_rango.sql',
+    '15_08_2026/2.mensualidad_cuota_tabla.sql',
+    '16_08_2026/1.trabajador_y_mora.sql',
 ]
 
 

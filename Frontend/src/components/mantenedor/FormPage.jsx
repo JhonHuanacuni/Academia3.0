@@ -27,6 +27,11 @@ function filtrarCampo(campo, modo) {
   return true;
 }
 
+function visibleParaTipo(item, values) {
+  if (!item.soloTiposUsuario?.length) return true;
+  return item.soloTiposUsuario.map(String).includes(String(values.IDTIPOUSUARIO ?? ""));
+}
+
 function esCampoPersistente(campo) {
   return !campo.soloFrontend && campo.control !== "action" && !campo.bloqueado;
 }
@@ -118,7 +123,9 @@ export default function FormPage({
 
   const validate = () => {
     const next = {};
-    const camposValidar = todosLosCampos.filter((c) => filtrarCampo(c, modo) && c.control !== "action");
+    const camposValidar = todosLosCampos.filter(
+      (c) => filtrarCampo(c, modo) && visibleParaTipo(c, values) && c.control !== "action",
+    );
     camposValidar.forEach((c) => {
       if (soloLectura) return;
       if (c.obligatorio && modo === "crear" && !String(values[c.campo] ?? "").trim()) {
@@ -170,7 +177,7 @@ export default function FormPage({
 
     const payload = {};
     todosLosCampos.forEach((c) => {
-      if (!esCampoPersistente(c)) return;
+      if (!esCampoPersistente(c) || !visibleParaTipo(c, values)) return;
       if (c.control === "date") {
         payload[c.campo] = inputToDb(values[c.campo]) || null;
       } else {
@@ -247,10 +254,13 @@ export default function FormPage({
 
   const bloques = secciones
     ? secciones
+        .filter((sec) => visibleParaTipo(sec, values))
         .map((sec) => ({
           titulo: sec.titulo,
           grupo: sec.grupo || null,
-          campos: sec.campos.filter((c) => filtrarCampo(c, modo)),
+          campos: sec.campos.filter(
+            (c) => filtrarCampo(c, modo) && visibleParaTipo(c, values),
+          ),
         }))
         .filter((sec) => sec.campos.length > 0)
     : [{ titulo: null, grupo: null, campos: (campos || []).filter((c) => filtrarCampo(c, modo)) }];

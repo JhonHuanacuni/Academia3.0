@@ -120,7 +120,10 @@ export default function MensualidadPagosModal({
                     <tr>
                       <th>Fecha</th>
                       <th>Hora</th>
-                      <th>Monto</th>
+                      <th>Cuota</th>
+                      <th>Mora</th>
+                      <th>Total cobrado</th>
+                      <th>N.º cuota</th>
                       <th>Método</th>
                       <th>Registrado por</th>
                       <th>Observación</th>
@@ -132,6 +135,9 @@ export default function MensualidadPagosModal({
                         <td>{dbToView(String(pago.FECHAPAGO || "")) || "—"}</td>
                         <td>{formatHora(pago.HORAPAGO)}</td>
                         <td>{dinero(pago.MONTO)}</td>
+                        <td>{dinero(pago.MORA || 0)}</td>
+                        <td>{dinero(pago.TOTAL_COBRADO ?? Number(pago.MONTO || 0) + Number(pago.MORA || 0))}</td>
+                        <td>{pago.CUOTA_NUMERO || "—"}</td>
                         <td>{pago.METODOPAGO_TITULO || "—"}</td>
                         <td>{pago.REGISTRADO_POR || "—"}</td>
                         <td>{pago.OBSERVACIONES || "—"}</td>

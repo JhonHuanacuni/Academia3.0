@@ -192,7 +192,7 @@ export default function DashboardPage({ role, idusuario, onChangePage }) {
 
   const rol = data?.rol || role;
   const esAdmin = rol === "administrador" || rol === "admin";
-  const esDocente = rol === "docente" || rol === "secretario";
+  const esDocente = rol === "docente" || rol === "trabajador" || rol === "secretario";
   const esEstudiante = rol === "estudiante" || data?.idtipousuario === "1";
 
   if (loading) {

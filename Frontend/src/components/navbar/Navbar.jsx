@@ -5,10 +5,11 @@ import PerfilModal from "../perfil/PerfilModal";
 
 const ROLE_LABELS = {
   estudiante: "Estudiante",
-  docente: "Docente",
+  docente: "Trabajador",
+  trabajador: "Trabajador",
   administrador: "Administrador",
   usuario: "Estudiante",
-  secretario: "Docente",
+  secretario: "Trabajador",
   admin: "Administrador",
 };
 
