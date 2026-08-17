@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRight,
+  faFilter,
+  faRotateLeft,
   faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { parseJsonResponse } from "../../utils/api";
@@ -19,6 +21,56 @@ function formatMoney(value) {
     currency: "PEN",
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
+}
+
+function fechaLocalIso(fecha) {
+  const offset = fecha.getTimezoneOffset() * 60000;
+  return new Date(fecha.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function rangoInicial() {
+  const hoy = new Date();
+  return {
+    fechaDesde: fechaLocalIso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)),
+    fechaHasta: fechaLocalIso(hoy),
+  };
+}
+
+function DashboardFiltros({ filtros, onChange, onSubmit, onReset, loading }) {
+  return (
+    <form className="dash-filtros" onSubmit={onSubmit}>
+      <label className="dash-filtro-campo">
+        <span>Fecha inicio</span>
+        <input
+          type="date"
+          value={filtros.fechaDesde}
+          max={filtros.fechaHasta || undefined}
+          onChange={(event) => onChange({ ...filtros, fechaDesde: event.target.value })}
+          required
+        />
+      </label>
+      <label className="dash-filtro-campo">
+        <span>Fecha final</span>
+        <input
+          type="date"
+          value={filtros.fechaHasta}
+          min={filtros.fechaDesde || undefined}
+          onChange={(event) => onChange({ ...filtros, fechaHasta: event.target.value })}
+          required
+        />
+      </label>
+      <div className="dash-filtro-acciones">
+        <button className="dash-filtro-btn dash-filtro-btn--primary" type="submit" disabled={loading}>
+          <FontAwesomeIcon icon={loading ? faSpinner : faFilter} spin={loading} />
+          Filtrar
+        </button>
+        <button className="dash-filtro-btn" type="button" onClick={onReset} disabled={loading}>
+          <FontAwesomeIcon icon={faRotateLeft} />
+          Este mes
+        </button>
+      </div>
+    </form>
+  );
 }
 
 function Shortcuts({ acciones, onNavigate }) {
@@ -75,7 +127,7 @@ function PanelPagosMensuales({ pagos }) {
   return (
     <div className="dash-panel">
       <div className="dash-panel-head">
-        <h2>Pagos mensuales</h2>
+        <h2>Pagos del periodo</h2>
         <span className="dash-panel-total">{formatMoney(pagos.totalPeriodo)}</span>
       </div>
       <DashboardBarChart items={items} format="money" emptyLabel="Sin pagos en el periodo" />
@@ -87,7 +139,7 @@ function PanelAsistencia({ resumen, hoy }) {
   return (
     <div className="dash-panel">
       <div className="dash-panel-head">
-        <h2>Asistencia del mes</h2>
+        <h2>Asistencia del periodo</h2>
       </div>
       <DashboardAsistenciaChart resumen={resumen} />
       <div className="dash-asist-stats">
@@ -114,7 +166,7 @@ function DashboardAdmin({ data }) {
   const kpis = [
     { key: "est", valor: k.estudiantesActivos ?? 0, etiqueta: "Estudiantes", icon: "estudiantes", tono: "primary" },
     { key: "deuda", valor: formatMoney(k.deudaTotal), etiqueta: "Deuda total", icon: "deuda", tono: "danger" },
-    { key: "cobrado", valor: formatMoney(k.pagosMes), etiqueta: "Cobrado", icon: "cobrado", tono: "money" },
+    { key: "cobrado", valor: formatMoney(k.pagosMes), etiqueta: "Cobrado periodo", icon: "cobrado", tono: "money" },
     { key: "conDeuda", valor: k.mensualidadesConDeuda ?? 0, etiqueta: "Con deuda", icon: "conDeuda", tono: "warn" },
   ];
 
@@ -137,8 +189,8 @@ function DashboardDocente({ data }) {
   const kpis = [
     { key: "est", valor: k.estudiantesActivos ?? 0, etiqueta: "Estudiantes", icon: "estudiantes", tono: "primary" },
     { key: "hoy", valor: k.asistenciasHoy ?? 0, etiqueta: "Marcas hoy", icon: "asistencia", tono: "asist" },
-    { key: "pct", valor: `${k.asistenciaPct ?? 0}%`, etiqueta: "Asistencia mes", icon: "presentes", tono: "asist" },
-    { key: "faltas", valor: k.faltasMes ?? 0, etiqueta: "Faltas mes", icon: "deuda", tono: "falta" },
+    { key: "pct", valor: `${k.asistenciaPct ?? 0}%`, etiqueta: "Asistencia periodo", icon: "presentes", tono: "asist" },
+    { key: "faltas", valor: k.faltasMes ?? 0, etiqueta: "Faltas periodo", icon: "deuda", tono: "falta" },
   ];
 
   return (
@@ -166,6 +218,8 @@ function DashboardDocente({ data }) {
 }
 
 export default function DashboardPage({ role, idusuario, onChangePage }) {
+  const [filtros, setFiltros] = useState(rangoInicial);
+  const [filtrosAplicados, setFiltrosAplicados] = useState(rangoInicial);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -177,7 +231,12 @@ export default function DashboardPage({ role, idusuario, onChangePage }) {
       setError("");
       try {
         const uid = idusuario || localStorage.getItem("idusuario");
-        const res = await fetch(`/api/dashboard/?idusuario=${encodeURIComponent(uid || "")}`);
+        const params = new URLSearchParams({
+          idusuario: uid || "",
+          fecha_desde: filtrosAplicados.fechaDesde,
+          fecha_hasta: filtrosAplicados.fechaHasta,
+        });
+        const res = await fetch(`/api/dashboard/?${params.toString()}`);
         const json = await parseJsonResponse(res);
         if (!res.ok) throw new Error(json.error || "No se pudo cargar el dashboard");
         if (!cancelled) setData(json.data);
@@ -188,7 +247,22 @@ export default function DashboardPage({ role, idusuario, onChangePage }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [idusuario]);
+  }, [idusuario, filtrosAplicados]);
+
+  const aplicarFiltros = (event) => {
+    event.preventDefault();
+    if (filtros.fechaDesde > filtros.fechaHasta) {
+      setError("La fecha inicial no puede ser mayor que la fecha final.");
+      return;
+    }
+    setFiltrosAplicados({ ...filtros });
+  };
+
+  const restablecerFiltros = () => {
+    const inicial = rangoInicial();
+    setFiltros(inicial);
+    setFiltrosAplicados(inicial);
+  };
 
   const rol = data?.rol || role;
   const esAdmin = rol === "administrador" || rol === "admin";
@@ -231,6 +305,14 @@ export default function DashboardPage({ role, idusuario, onChangePage }) {
         <h1>Dashboard</h1>
         <Shortcuts acciones={data.acciones} onNavigate={onChangePage} />
       </header>
+
+      <DashboardFiltros
+        filtros={filtros}
+        onChange={setFiltros}
+        onSubmit={aplicarFiltros}
+        onReset={restablecerFiltros}
+        loading={loading}
+      />
 
       {esAdmin && <DashboardAdmin data={data} />}
       {esDocente && !esAdmin && <DashboardDocente data={data} />}

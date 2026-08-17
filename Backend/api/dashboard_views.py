@@ -17,7 +17,11 @@ def dashboard_api(request):
         return JsonResponse({'error': 'Indica idusuario.'}, status=400)
 
     try:
-        data = obtener_dashboard(str(id_usuario).strip())
+        data = obtener_dashboard(
+            str(id_usuario).strip(),
+            request.GET.get('fecha_desde'),
+            request.GET.get('fecha_hasta'),
+        )
         return JsonResponse({'data': data})
     except ValueError as exc:
         return JsonResponse({'error': str(exc)}, status=400)

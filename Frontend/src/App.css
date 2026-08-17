@@ -366,7 +366,8 @@ option {
   display: flex;
   align-items: center;
   gap: 16px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .navbar-toggle {
@@ -376,6 +377,7 @@ option {
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.95rem;
+  flex: 0 0 auto;
 }
 
 .navbar-brand {
@@ -383,13 +385,17 @@ option {
   font-size: 0.85rem;
   letter-spacing: 0.06em;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .navbar-right {
   display: flex;
   align-items: center;
   gap: 14px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .navbar-icon-btn {
@@ -400,6 +406,7 @@ option {
   cursor: pointer;
   position: relative;
   font-size: 0.9rem;
+  flex: 0 0 auto;
 }
 
 .navbar-badge {
@@ -417,6 +424,7 @@ option {
   font-weight: 600;
   font-size: 0.85rem;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .navbar-user {
@@ -712,5 +720,38 @@ option {
 
   .content {
     padding: 18px;
+  }
+
+  .app-navbar {
+    padding: 10px 12px;
+  }
+
+  .navbar-left {
+    gap: 10px;
+  }
+
+  .navbar-right {
+    gap: 8px;
+  }
+
+  .navbar-role {
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .navbar-brand {
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+  }
+
+  .navbar-toggle,
+  .navbar-icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .navbar-role {
+    display: none;
   }
 }

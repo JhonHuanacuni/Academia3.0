@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 
 from django.db import connection
 from django.utils import timezone
@@ -6,7 +6,7 @@ from django.utils import timezone
 from .informes_service import _calcular_resumen, _hoy_db, informe_asistencias
 from .usuario_crud_service import obtener_usuario
 from .examen_estudiante_service import ranking_aula_ultimo_examen
-from .sql_compat import is_mysql, isnull, ym_from_fechapago, len_expr
+from .sql_compat import fecha_sort_expr, is_mysql, isnull, ym_from_fechapago, len_expr
 
 
 def _cursor_rows(cursor):
@@ -21,6 +21,27 @@ def _inicio_mes_db():
 
 def _fecha_db(d):
     return d.strftime('%d%m%Y')
+
+
+def _normalizar_rango(fecha_desde=None, fecha_hasta=None):
+    hoy = timezone.localdate()
+
+    def parsear(valor, predeterminado):
+        valor = str(valor or '').strip()
+        if not valor:
+            return predeterminado
+        for formato in ('%Y-%m-%d', '%d%m%Y'):
+            try:
+                return datetime.strptime(valor, formato).date()
+            except ValueError:
+                continue
+        raise ValueError('Las fechas del dashboard no tienen un formato válido.')
+
+    desde = parsear(fecha_desde, hoy.replace(day=1))
+    hasta = parsear(fecha_hasta, hoy)
+    if desde > hasta:
+        raise ValueError('La fecha inicial no puede ser mayor que la fecha final.')
+    return desde, hasta
 
 
 def _rol_desde_tipo(id_tipo):
@@ -192,25 +213,29 @@ def _stats_mensualidades():
     }
 
 
-def _stats_pagos():
-    hoy = _hoy_db()
-    inicio_mes = _inicio_mes_db()
+def _stats_pagos(fecha_desde, fecha_hasta):
+    desde_db = _fecha_db(fecha_desde)
+    hasta_db = _fecha_db(fecha_hasta)
+    fs_pago = fecha_sort_expr('p.FECHAPAGO')
+    fs_desde = fecha_desde.strftime('%Y%m%d')
+    fs_hasta = fecha_hasta.strftime('%Y%m%d')
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
             SELECT
-                COUNT(CASE WHEN p.FECHAPAGO = %s THEN 1 END) AS CANT_HOY,
-                {isnull("SUM(CASE WHEN p.FECHAPAGO = %s THEN p.MONTO ELSE 0 END)", '0')} AS HOY,
-                {isnull("SUM(CASE WHEN p.FECHAPAGO >= %s AND p.FECHAPAGO <= %s THEN p.MONTO ELSE 0 END)", '0')} AS MES
+                COUNT(*) AS CANTIDAD,
+                {isnull("SUM(p.MONTO)", '0')} AS TOTAL
             FROM PAGOMENSUALIDAD p
+            WHERE {fs_pago} >= %s AND {fs_pago} <= %s
             """,
-            [hoy, hoy, inicio_mes, hoy],
+            [fs_desde, fs_hasta],
         )
         row = cursor.fetchone()
     return {
-        'cantHoy': int(row[0] or 0) if row else 0,
-        'hoy': float(row[1] or 0) if row else 0,
-        'mes': float(row[2] or 0) if row else 0,
+        'cantidad': int(row[0] or 0) if row else 0,
+        'periodo': float(row[1] or 0) if row else 0,
+        'fechaDesde': desde_db,
+        'fechaHasta': hasta_db,
     }
 
 
@@ -240,9 +265,13 @@ def _asistencias_hoy():
     return stats
 
 
-def _resumen_asistencia_mes():
+def _resumen_asistencia(fecha_desde, fecha_hasta):
     try:
-        data = informe_asistencias(_inicio_mes_db(), _hoy_db(), estado_usuario='Activo')
+        data = informe_asistencias(
+            _fecha_db(fecha_desde),
+            _fecha_db(fecha_hasta),
+            estado_usuario='Activo',
+        )
         resumen = data.get('resumen') or _calcular_resumen(data.get('filas') or [])
         return {
             **resumen,
@@ -293,15 +322,14 @@ def _pagos_diarios_mes():
     return items
 
 
-def _pagos_mensuales(cant_meses=6):
-    """Pagos agrupados por mes (últimos N meses)."""
-    hoy = timezone.localdate().replace(day=1)
+def _pagos_mensuales(fecha_desde, fecha_hasta):
+    """Pagos agrupados por cada mes incluido en el rango."""
     meses = []
-    for i in range(cant_meses - 1, -1, -1):
-        d = hoy
-        for _ in range(i):
-            d = (d.replace(day=1) - timedelta(days=1)).replace(day=1)
-        meses.append(d)
+    actual = fecha_desde.replace(day=1)
+    ultimo = fecha_hasta.replace(day=1)
+    while actual <= ultimo:
+        meses.append(actual)
+        actual = (actual.replace(day=28) + timedelta(days=4)).replace(day=1)
 
     labels = {
         1: 'Ene', 2: 'Feb', 3: 'Mar', 4: 'Abr', 5: 'May', 6: 'Jun',
@@ -311,6 +339,7 @@ def _pagos_mensuales(cant_meses=6):
     with connection.cursor() as cursor:
         ym_expr = ym_from_fechapago()
         len_col = len_expr('p.FECHAPAGO')
+        fs_pago = fecha_sort_expr('p.FECHAPAGO')
         cursor.execute(
             f"""
             SELECT
@@ -318,8 +347,11 @@ def _pagos_mensuales(cant_meses=6):
                 SUM(p.MONTO) AS TOTAL
             FROM PAGOMENSUALIDAD p
             WHERE {len_col} = 8
+              AND {fs_pago} >= %s
+              AND {fs_pago} <= %s
             GROUP BY {ym_expr}
             """,
+            [fecha_desde.strftime('%Y%m%d'), fecha_hasta.strftime('%Y%m%d')],
         )
         por_mes = {row[0]: float(row[1] or 0) for row in cursor.fetchall()}
 
@@ -349,15 +381,15 @@ def _chart_estudiantes(usuarios, finanzas=None):
     return data
 
 
-def _chart_pagos():
-    mensuales = _pagos_mensuales(6)
+def _chart_pagos(fecha_desde, fecha_hasta):
+    mensuales = _pagos_mensuales(fecha_desde, fecha_hasta)
     return {
         'mensuales': mensuales,
         'totalPeriodo': sum(i['valor'] for i in mensuales),
     }
 
 
-def obtener_dashboard(id_usuario):
+def obtener_dashboard(id_usuario, fecha_desde=None, fecha_hasta=None):
     if not id_usuario:
         raise ValueError('Indica el usuario de sesión.')
 
@@ -367,28 +399,33 @@ def obtener_dashboard(id_usuario):
 
     id_tipo = str(usuario.get('IDTIPOUSUARIO') or '').strip()
     rol = _rol_desde_tipo(id_tipo)
+    desde, hasta = _normalizar_rango(fecha_desde, fecha_hasta)
 
     base = {
         'rol': rol,
         'idtipousuario': id_tipo,
+        'filtros': {
+            'fechaDesde': desde.isoformat(),
+            'fechaHasta': hasta.isoformat(),
+        },
         'asistenciasHoy': _asistencias_hoy(),
-        'asistenciaMes': _resumen_asistencia_mes(),
+        'asistenciaMes': _resumen_asistencia(desde, hasta),
     }
 
     if _es_admin(id_tipo):
         usuarios = _conteo_usuarios()
         finanzas = _stats_mensualidades()
-        pagos = _stats_pagos()
+        pagos = _stats_pagos(desde, hasta)
         base.update({
             'kpis': {
                 'estudiantesActivos': usuarios.get('ESTUDIANTES_ACTIVOS', 0),
                 'deudaTotal': finanzas.get('deudaTotal', 0),
-                'pagosMes': pagos.get('mes', 0),
+                'pagosMes': pagos.get('periodo', 0),
                 'mensualidadesConDeuda': finanzas.get('conDeuda', 0),
             },
             'graficos': {
                 'estudiantes': _chart_estudiantes(usuarios, finanzas),
-                'pagos': _chart_pagos(),
+                'pagos': _chart_pagos(desde, hasta),
             },
             'acciones': [
                 {'page': 'mensualidades', 'label': 'Mensualidades'},
