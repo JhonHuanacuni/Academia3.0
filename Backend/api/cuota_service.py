@@ -504,6 +504,97 @@ def sql_deuda_exigible_expr(alias_m='m') -> str:
         """
 
 
+def _vence_periodo_derivado(fecha_inicio_db, fecha_fin_db, hoy_db: str) -> str | None:
+    """Fin del periodo mensual vigente derivado del día de cobro del contrato."""
+    periodos = generar_periodos_cuota(fecha_inicio_db, fecha_fin_db)
+    if not periodos:
+        return str(fecha_fin_db or '').strip() or None
+    hoy = _db_to_date(hoy_db)
+    if hoy:
+        for _ini, fin in periodos:
+            f = _db_to_date(fin)
+            if f and f >= hoy:
+                return fin
+    return periodos[-1][1]
+
+
+def vence_cuota_vigente_map(id_usuarios, hoy_db: str | None = None) -> dict[str, str]:
+    """Fecha de vencimiento del periodo mensual vigente por estudiante.
+
+    Usa la cuota vigente cuando ya existen cuotas generadas; en mensualidades
+    legadas deriva el periodo desde el día de cobro para no exponer la fecha fin
+    del contrato completo.
+    """
+    ids = [str(u) for u in dict.fromkeys(id_usuarios or []) if u]
+    if not ids:
+        return {}
+    hoy = hoy_db or _hoy_db()
+    hoy_date = _db_to_date(hoy)
+    resultado: dict[str, str] = {}
+
+    with connection.cursor() as cursor:
+        hay_cuotas = tabla_cuotas_existe(cursor)
+        for i in range(0, len(ids), 500):
+            grupo = ids[i:i + 500]
+            marcas = ','.join(['%s'] * len(grupo))
+
+            if hay_cuotas:
+                fs_ini = fecha_sort_expr('c.FECHAINICIO')
+                fs_fin = fecha_sort_expr('c.FECHAFIN')
+                fs_reg = fecha_sort_expr('m.FECHAREGISTRO')
+                fs_hoy = (
+                    "CONCAT(SUBSTRING(%s,5,4), SUBSTRING(%s,3,2), SUBSTRING(%s,1,2))"
+                    if sp.is_mysql()
+                    else "SUBSTRING(%s,5,4) + SUBSTRING(%s,3,2) + SUBSTRING(%s,1,2)"
+                )
+                cursor.execute(
+                    f"""
+                    SELECT m.IDUSUARIO, c.FECHAFIN
+                    FROM MENSUALIDAD_CUOTA c
+                    INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = c.IDMENSUALIDAD
+                    WHERE m.IDUSUARIO IN ({marcas})
+                      AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                      AND {fs_ini} <= {fs_hoy}
+                      AND {fs_fin} >= {fs_hoy}
+                    ORDER BY {fs_reg} DESC, c.NUMERO DESC
+                    """,
+                    grupo + [hoy, hoy, hoy, hoy, hoy, hoy],
+                )
+                for uid, fin in cursor.fetchall():
+                    if fin:
+                        resultado.setdefault(str(uid), fin)
+
+            pendientes = [u for u in grupo if u not in resultado]
+            if not pendientes:
+                continue
+            marcas_p = ','.join(['%s'] * len(pendientes))
+            cursor.execute(
+                f"""
+                SELECT m.IDUSUARIO, m.FECHAINICIO, m.FECHAFIN, m.FECHAREGISTRO
+                FROM MENSUALIDAD m
+                WHERE m.IDUSUARIO IN ({marcas_p})
+                  AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                """,
+                pendientes,
+            )
+            mejores: dict[str, tuple] = {}
+            for uid, f_ini, f_fin, f_reg in cursor.fetchall():
+                uid = str(uid)
+                d_ini, d_fin, d_reg = _db_to_date(f_ini), _db_to_date(f_fin), _db_to_date(f_reg)
+                vigente = bool(
+                    hoy_date and d_ini and d_fin and d_ini <= hoy_date <= d_fin
+                )
+                orden = (1 if vigente else 0, d_reg or date.min, d_ini or date.min)
+                if uid not in mejores or orden > mejores[uid][0]:
+                    mejores[uid] = (orden, f_ini, f_fin)
+            for uid, (_orden, f_ini, f_fin) in mejores.items():
+                fecha = _vence_periodo_derivado(f_ini, f_fin, hoy)
+                if fecha:
+                    resultado[uid] = fecha
+
+    return resultado
+
+
 def fecha_vence_cuota_vigente(id_usuario: str, hoy_db: str | None = None) -> str | None:
     """FECHAFIN de la cuota vigente del estudiante; fallback FECHAFIN de mensualidad."""
     hoy = hoy_db or _hoy_db()

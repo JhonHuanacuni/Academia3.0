@@ -259,7 +259,7 @@ def _construir_filas(estudiantes, asistencias, dias, justificaciones=None):
         else:
             asist_pct = 0
 
-        fecha_vence = est.get('FECHA_VENCE')
+        fecha_vence = est.get('FECHA_VENCE_CUOTA') or est.get('FECHA_VENCE')
         estado_vence = _estado_vencimiento_mensualidad(fecha_vence)
         filas.append({
             'numero': idx,
@@ -326,6 +326,20 @@ def _respuesta_informe(fecha_desde, fecha_hasta, dias, filas):
     }
 
 
+def _aplicar_vence_cuota(estudiantes):
+    """Completa FECHA_VENCE_CUOTA con el vencimiento de la cuota vigente."""
+    try:
+        from .cuota_service import vence_cuota_vigente_map
+        mapa = vence_cuota_vigente_map([e.get('IDUSUARIO') for e in estudiantes])
+    except Exception:
+        return estudiantes
+    for est in estudiantes:
+        vence = mapa.get(str(est.get('IDUSUARIO') or ''))
+        if vence:
+            est['FECHA_VENCE_CUOTA'] = vence
+    return estudiantes
+
+
 def _normalizar_estado_usuario(estado):
     e = (estado or '').strip()
     if not e or e.lower() in ('todos', 'all'):
@@ -372,7 +386,7 @@ def informe_asistencias(fecha_desde, fecha_hasta, buscar=None, id_plan=None, est
             asistencias = _cursor_rows(cursor)
 
     justificaciones = _cargar_justificaciones_rango(fecha_desde, fecha_hasta)
-    filas = _construir_filas(estudiantes, asistencias, dias, justificaciones)
+    filas = _construir_filas(_aplicar_vence_cuota(estudiantes), asistencias, dias, justificaciones)
     return _respuesta_informe(fecha_desde, fecha_hasta, dias, filas)
 
 
@@ -437,7 +451,7 @@ def informe_asistencias_orm(fecha_desde, fecha_hasta, buscar=None, id_plan=None,
     ]
 
     justificaciones = _cargar_justificaciones_rango(fecha_desde, fecha_hasta)
-    filas = _construir_filas(estudiantes, asistencias, dias, justificaciones)
+    filas = _construir_filas(_aplicar_vence_cuota(estudiantes), asistencias, dias, justificaciones)
     return _respuesta_informe(fecha_desde, fecha_hasta, dias, filas)
 
 
@@ -536,17 +550,6 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                 params,
             )
             rows = _cursor_rows(cursor)
-        out = {r['IDUSUARIO']: r for r in rows}
-        try:
-            from .cuota_service import fecha_vence_cuota_vigente, tabla_cuotas_existe
-            with connection.cursor() as cursor:
-                if tabla_cuotas_existe(cursor):
-                    for uid, meta in out.items():
-                        vence_cuota = fecha_vence_cuota_vigente(uid)
-                        if vence_cuota:
-                            meta['FECHA_VENCE'] = vence_cuota
-        except Exception:
-            pass
-        return out
+        return {r['IDUSUARIO']: r for r in rows}
     except Exception:
         return {}
