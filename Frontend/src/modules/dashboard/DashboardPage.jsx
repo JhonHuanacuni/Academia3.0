@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faArrowRight,
   faFilter,
   faRotateLeft,
   faSpinner,
@@ -33,6 +32,7 @@ function rangoInicial() {
   return {
     fechaDesde: fechaLocalIso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)),
     fechaHasta: fechaLocalIso(hoy),
+    estadoEstudiante: "Activo",
   };
 }
 
@@ -59,6 +59,17 @@ function DashboardFiltros({ filtros, onChange, onSubmit, onReset, loading }) {
           required
         />
       </label>
+      <label className="dash-filtro-campo">
+        <span>Estado del estudiante</span>
+        <select
+          value={filtros.estadoEstudiante}
+          onChange={(event) => onChange({ ...filtros, estadoEstudiante: event.target.value })}
+        >
+          <option value="Activo">Activos</option>
+          <option value="Retirado">Retirados</option>
+          <option value="Todos">Todos</option>
+        </select>
+      </label>
       <div className="dash-filtro-acciones">
         <button className="dash-filtro-btn dash-filtro-btn--primary" type="submit" disabled={loading}>
           <FontAwesomeIcon icon={loading ? faSpinner : faFilter} spin={loading} />
@@ -73,33 +84,13 @@ function DashboardFiltros({ filtros, onChange, onSubmit, onReset, loading }) {
   );
 }
 
-function Shortcuts({ acciones, onNavigate }) {
-  if (!acciones?.length) return null;
-  return (
-    <div className="dash-shortcuts">
-      {acciones.map((a) => (
-        <button
-          key={a.page}
-          type="button"
-          className="dash-shortcut"
-          onClick={() => onNavigate(a.page)}
-        >
-          {a.label}
-          <FontAwesomeIcon icon={faArrowRight} />
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function PanelEstudiantes({ estudiantes, admin = false }) {
   if (!estudiantes) return null;
 
   const segments = admin
     ? [
-        { key: "alDia", valor: estudiantes.alDia ?? 0, etiqueta: "Al día", tono: "asist" },
+        { key: "alDia", valor: estudiantes.alDia ?? 0, etiqueta: "Sin deuda", tono: "asist" },
         { key: "deuda", valor: estudiantes.conDeuda ?? 0, etiqueta: "Con deuda", tono: "warn" },
-        { key: "ret", valor: estudiantes.retirados ?? 0, etiqueta: "Retirados", tono: "muted" },
       ]
     : [
         { key: "act", valor: estudiantes.activos ?? 0, etiqueta: "Activos", tono: "primary" },
@@ -113,8 +104,8 @@ function PanelEstudiantes({ estudiantes, admin = false }) {
       </div>
       <DashboardDonutChart
         segments={segments.filter((s) => s.valor > 0)}
-        centerValue={estudiantes.activos ?? 0}
-        centerLabel="Activos"
+        centerValue={estudiantes.seleccionados ?? estudiantes.activos ?? 0}
+        centerLabel={estudiantes.etiquetaSeleccion || "Estudiantes"}
       />
     </div>
   );
@@ -164,9 +155,10 @@ function DashboardAdmin({ data }) {
   const k = data.kpis || {};
 
   const kpis = [
-    { key: "est", valor: k.estudiantesActivos ?? 0, etiqueta: "Estudiantes", icon: "estudiantes", tono: "primary" },
-    { key: "deuda", valor: formatMoney(k.deudaTotal), etiqueta: "Deuda total", icon: "deuda", tono: "danger" },
-    { key: "cobrado", valor: formatMoney(k.pagosMes), etiqueta: "Cobrado periodo", icon: "cobrado", tono: "money" },
+    { key: "deuda", valor: formatMoney(k.deudaTotal), etiqueta: "Deuda total actual", icon: "deuda", tono: "danger" },
+    { key: "deudaPeriodo", valor: formatMoney(k.deudaPeriodo), etiqueta: "Deuda cuotas del rango", icon: "deuda", tono: "warn" },
+    { key: "cobradoTotal", valor: formatMoney(k.cobradoTotal), etiqueta: "Cobrado histórico", icon: "cobrado", tono: "money" },
+    { key: "cobrado", valor: formatMoney(k.pagosMes), etiqueta: "Cobrado en el rango", icon: "cobrado", tono: "primary" },
     { key: "conDeuda", valor: k.mensualidadesConDeuda ?? 0, etiqueta: "Con deuda", icon: "conDeuda", tono: "warn" },
   ];
 
@@ -235,6 +227,7 @@ export default function DashboardPage({ role, idusuario, onChangePage }) {
           idusuario: uid || "",
           fecha_desde: filtrosAplicados.fechaDesde,
           fecha_hasta: filtrosAplicados.fechaHasta,
+          estado_estudiante: filtrosAplicados.estadoEstudiante,
         });
         const res = await fetch(`/api/dashboard/?${params.toString()}`);
         const json = await parseJsonResponse(res);
@@ -301,11 +294,6 @@ export default function DashboardPage({ role, idusuario, onChangePage }) {
 
   return (
     <div className="dashboard-page mantenedor-page">
-      <header className="dash-head">
-        <h1>Dashboard</h1>
-        <Shortcuts acciones={data.acciones} onNavigate={onChangePage} />
-      </header>
-
       <DashboardFiltros
         filtros={filtros}
         onChange={setFiltros}

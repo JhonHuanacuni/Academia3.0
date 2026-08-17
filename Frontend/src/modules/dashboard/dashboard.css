@@ -5,53 +5,6 @@
   min-width: 0;
 }
 
-.dash-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.dash-head h1 {
-  margin: 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--color-text, #1c2333);
-}
-
-.dash-shortcuts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.dash-shortcut {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid var(--color-border, #e3e6ef);
-  border-radius: 8px;
-  background: var(--color-surface, #fff);
-  color: var(--color-text, #1c2333);
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-}
-
-.dash-shortcut:hover {
-  border-color: var(--color-primary, #6a42e5);
-  color: var(--color-primary, #6a42e5);
-  background: var(--color-primary-soft, #ede8fc);
-}
-
-.dash-shortcut svg {
-  color: var(--color-primary, #6a42e5);
-  font-size: 0.85rem;
-}
-
 .dash-filtros {
   display: flex;
   align-items: flex-end;
@@ -76,7 +29,8 @@
   color: var(--color-muted, #6b7280);
 }
 
-.dash-filtro-campo input {
+.dash-filtro-campo input,
+.dash-filtro-campo select {
   height: 2.25rem;
   padding: 0 0.65rem;
   border: 1px solid var(--color-border, #e3e6ef);
@@ -87,7 +41,8 @@
   font-size: 0.8rem;
 }
 
-.dash-filtro-campo input:focus {
+.dash-filtro-campo input:focus,
+.dash-filtro-campo select:focus {
   outline: none;
   border-color: var(--color-primary, #6a42e5);
   box-shadow: 0 0 0 3px rgba(106, 66, 229, 0.12);
@@ -126,10 +81,10 @@
   opacity: 0.65;
 }
 
-/* KPI — 4 columnas fijas */
+/* KPI */
 .dash-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -666,7 +621,6 @@
 
 @media (max-width: 560px) {
   .dash-kpis { grid-template-columns: 1fr; }
-  .dash-head { flex-direction: column; align-items: flex-start; }
   .dash-filtros { align-items: stretch; flex-direction: column; }
   .dash-filtro-campo { min-width: 0; width: 100%; }
   .dash-filtro-acciones { display: grid; grid-template-columns: 1fr 1fr; }

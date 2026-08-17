@@ -21,6 +21,7 @@ def dashboard_api(request):
             str(id_usuario).strip(),
             request.GET.get('fecha_desde'),
             request.GET.get('fecha_hasta'),
+            request.GET.get('estado_estudiante', 'Activo'),
         )
         return JsonResponse({'data': data})
     except ValueError as exc:

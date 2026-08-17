@@ -65,13 +65,15 @@ def _es_docente(id_tipo):
     return str(id_tipo or '').strip() == '2'
 
 
-def _conteo_usuarios():
+def _conteo_usuarios(estado_usuario=None):
+    estado = estado_usuario if estado_usuario in ('Activo', 'Retirado') else None
+    filtro_estado = f" AND ESTADO = '{estado}'" if estado else ''
     with connection.cursor() as cursor:
         cursor.execute(
-            """
+            f"""
             SELECT
-                SUM(CASE WHEN IDTIPOUSUARIO = '1' AND ESTADO = 'Activo' THEN 1 ELSE 0 END) AS ESTUDIANTES_ACTIVOS,
-                SUM(CASE WHEN IDTIPOUSUARIO = '1' AND ESTADO = 'Retirado' THEN 1 ELSE 0 END) AS ESTUDIANTES_RETIRADOS,
+                SUM(CASE WHEN IDTIPOUSUARIO = '1' AND ESTADO = 'Activo'{filtro_estado} THEN 1 ELSE 0 END) AS ESTUDIANTES_ACTIVOS,
+                SUM(CASE WHEN IDTIPOUSUARIO = '1' AND ESTADO = 'Retirado'{filtro_estado} THEN 1 ELSE 0 END) AS ESTUDIANTES_RETIRADOS,
                 SUM(CASE WHEN IDTIPOUSUARIO = '2' AND ESTADO = 'Activo' THEN 1 ELSE 0 END) AS DOCENTES_ACTIVOS,
                 SUM(CASE WHEN IDTIPOUSUARIO = '3' AND ESTADO = 'Activo' THEN 1 ELSE 0 END) AS ADMINS_ACTIVOS
             FROM USUARIO
@@ -84,9 +86,11 @@ def _conteo_usuarios():
     return dict(zip(cols, [int(v or 0) for v in row]))
 
 
-def _stats_mensualidades():
+def _stats_mensualidades(estado_usuario=None):
     hoy = _hoy_db()
     limite_prox = _fecha_db(timezone.localdate() + timedelta(days=3))
+    estado = estado_usuario if estado_usuario in ('Activo', 'Retirado') else None
+    filtro_estado = f"AND us.ESTADO = '{estado}'" if estado else ''
     from .cuota_service import sql_deuda_exigible_expr, tabla_cuotas_existe
     from .sql_compat import fecha_sort_expr
 
@@ -158,7 +162,7 @@ def _stats_mensualidades():
                     FROM MENSUALIDAD m
                     INNER JOIN USUARIO us ON us.IDUSUARIO = m.IDUSUARIO
                         AND us.IDTIPOUSUARIO = '1'
-                        AND us.ESTADO = 'Activo'
+                        {filtro_estado}
                     LEFT JOIN (
                         SELECT IDMENSUALIDAD, SUM(MONTO) AS PAGADO
                         FROM PAGOMENSUALIDAD
@@ -182,7 +186,7 @@ def _stats_mensualidades():
                     FROM MENSUALIDAD m
                     INNER JOIN USUARIO us ON us.IDUSUARIO = m.IDUSUARIO
                         AND us.IDTIPOUSUARIO = '1'
-                        AND us.ESTADO = 'Activo'
+                        {filtro_estado}
                     OUTER APPLY (
                         SELECT SUM(p.MONTO) AS PAGADO FROM PAGOMENSUALIDAD p WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
                     ) pag
@@ -213,42 +217,90 @@ def _stats_mensualidades():
     }
 
 
-def _stats_pagos(fecha_desde, fecha_hasta):
+def _deuda_cuotas_periodo(fecha_desde, fecha_hasta, estado_usuario=None):
+    from .cuota_service import tabla_cuotas_existe
+
+    estado = estado_usuario if estado_usuario in ('Activo', 'Retirado') else None
+    filtro_estado = f"AND u.ESTADO = '{estado}'" if estado else ''
+    with connection.cursor() as cursor:
+        if not tabla_cuotas_existe(cursor):
+            return 0
+        fs_inicio = fecha_sort_expr('c.FECHAINICIO')
+        fs_fin = fecha_sort_expr('c.FECHAFIN')
+        cursor.execute(
+            f"""
+            SELECT COALESCE(SUM(
+                CASE WHEN q.SALDO < 0 THEN 0 ELSE q.SALDO END
+            ), 0)
+            FROM (
+                SELECT
+                    c.IDCUOTA,
+                    COALESCE(c.MONTO, 0) - COALESCE(SUM(p.MONTO), 0) AS SALDO
+                FROM MENSUALIDAD_CUOTA c
+                INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = c.IDMENSUALIDAD
+                INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+                    AND u.IDTIPOUSUARIO = '1'
+                    {filtro_estado}
+                LEFT JOIN PAGOMENSUALIDAD p ON p.IDCUOTA = c.IDCUOTA
+                WHERE (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                  AND {fs_inicio} <= %s
+                  AND {fs_fin} >= %s
+                GROUP BY c.IDCUOTA, c.MONTO
+            ) q
+            """,
+            [fecha_hasta.strftime('%Y%m%d'), fecha_desde.strftime('%Y%m%d')],
+        )
+        row = cursor.fetchone()
+    return float(row[0] or 0) if row else 0
+
+
+def _stats_pagos(fecha_desde, fecha_hasta, estado_usuario=None):
     desde_db = _fecha_db(fecha_desde)
     hasta_db = _fecha_db(fecha_hasta)
     fs_pago = fecha_sort_expr('p.FECHAPAGO')
     fs_desde = fecha_desde.strftime('%Y%m%d')
     fs_hasta = fecha_hasta.strftime('%Y%m%d')
+    estado = estado_usuario if estado_usuario in ('Activo', 'Retirado') else None
+    filtro_estado = f"AND u.ESTADO = '{estado}'" if estado else ''
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
             SELECT
-                COUNT(*) AS CANTIDAD,
-                {isnull("SUM(p.MONTO)", '0')} AS TOTAL
+                COUNT(CASE WHEN {fs_pago} >= %s AND {fs_pago} <= %s THEN 1 END) AS CANTIDAD,
+                {isnull("SUM(COALESCE(p.MONTO, 0) + COALESCE(p.MORA, 0))", '0')} AS TOTAL_HISTORICO,
+                {isnull(f"SUM(CASE WHEN {fs_pago} >= %s AND {fs_pago} <= %s THEN COALESCE(p.MONTO, 0) + COALESCE(p.MORA, 0) ELSE 0 END)", '0')} AS TOTAL_PERIODO
             FROM PAGOMENSUALIDAD p
-            WHERE {fs_pago} >= %s AND {fs_pago} <= %s
+            INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = p.IDMENSUALIDAD
+            INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+                AND u.IDTIPOUSUARIO = '1'
+                {filtro_estado}
             """,
-            [fs_desde, fs_hasta],
+            [fs_desde, fs_hasta, fs_desde, fs_hasta],
         )
         row = cursor.fetchone()
     return {
         'cantidad': int(row[0] or 0) if row else 0,
-        'periodo': float(row[1] or 0) if row else 0,
+        'totalHistorico': float(row[1] or 0) if row else 0,
+        'periodo': float(row[2] or 0) if row else 0,
         'fechaDesde': desde_db,
         'fechaHasta': hasta_db,
     }
 
 
-def _asistencias_hoy():
+def _asistencias_hoy(estado_usuario=None):
     hoy = _hoy_db()
+    estado = estado_usuario if estado_usuario in ('Activo', 'Retirado') else None
+    filtro_estado = f"AND u.ESTADO = '{estado}'" if estado else ''
     stats = {'total': 0, 'presente': 0, 'tarde': 0, 'falta': 0}
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT {isnull('ESTADO', "''")}, COUNT(*)
-            FROM ASISTENCIA
-            WHERE FECHAREGISTRO = %s
-            GROUP BY ESTADO
+            SELECT {isnull('a.ESTADO', "''")}, COUNT(*)
+            FROM ASISTENCIA a
+            INNER JOIN USUARIO u ON u.IDUSUARIO = a.IDUSUARIO
+                {filtro_estado}
+            WHERE a.FECHAREGISTRO = %s
+            GROUP BY a.ESTADO
             """,
             [hoy],
         )
@@ -265,12 +317,12 @@ def _asistencias_hoy():
     return stats
 
 
-def _resumen_asistencia(fecha_desde, fecha_hasta):
+def _resumen_asistencia(fecha_desde, fecha_hasta, estado_usuario=None):
     try:
         data = informe_asistencias(
             _fecha_db(fecha_desde),
             _fecha_db(fecha_hasta),
-            estado_usuario='Activo',
+            estado_usuario=estado_usuario,
         )
         resumen = data.get('resumen') or _calcular_resumen(data.get('filas') or [])
         return {
@@ -322,7 +374,7 @@ def _pagos_diarios_mes():
     return items
 
 
-def _pagos_mensuales(fecha_desde, fecha_hasta):
+def _pagos_mensuales(fecha_desde, fecha_hasta, estado_usuario=None):
     """Pagos agrupados por cada mes incluido en el rango."""
     meses = []
     actual = fecha_desde.replace(day=1)
@@ -340,12 +392,18 @@ def _pagos_mensuales(fecha_desde, fecha_hasta):
         ym_expr = ym_from_fechapago()
         len_col = len_expr('p.FECHAPAGO')
         fs_pago = fecha_sort_expr('p.FECHAPAGO')
+        estado = estado_usuario if estado_usuario in ('Activo', 'Retirado') else None
+        filtro_estado = f"AND u.ESTADO = '{estado}'" if estado else ''
         cursor.execute(
             f"""
             SELECT
                 {ym_expr} AS YM,
-                SUM(p.MONTO) AS TOTAL
+                SUM(COALESCE(p.MONTO, 0) + COALESCE(p.MORA, 0)) AS TOTAL
             FROM PAGOMENSUALIDAD p
+            INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = p.IDMENSUALIDAD
+            INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+                AND u.IDTIPOUSUARIO = '1'
+                {filtro_estado}
             WHERE {len_col} = 8
               AND {fs_pago} >= %s
               AND {fs_pago} <= %s
@@ -366,30 +424,32 @@ def _pagos_mensuales(fecha_desde, fecha_hasta):
     return items
 
 
-def _chart_estudiantes(usuarios, finanzas=None):
+def _chart_estudiantes(usuarios, finanzas=None, estado_usuario=None):
     activos = int(usuarios.get('ESTUDIANTES_ACTIVOS') or 0)
     retirados = int(usuarios.get('ESTUDIANTES_RETIRADOS') or 0)
     data = {
         'activos': activos,
         'retirados': retirados,
         'total': activos + retirados,
+        'seleccionados': retirados if estado_usuario == 'Retirado' else activos + (retirados if not estado_usuario else 0),
+        'etiquetaSeleccion': estado_usuario or 'Todos',
     }
     if finanzas is not None:
         con_deuda = int(finanzas.get('conDeuda') or 0)
         data['conDeuda'] = con_deuda
-        data['alDia'] = max(activos - con_deuda, 0)
+        data['alDia'] = max(data['seleccionados'] - con_deuda, 0)
     return data
 
 
-def _chart_pagos(fecha_desde, fecha_hasta):
-    mensuales = _pagos_mensuales(fecha_desde, fecha_hasta)
+def _chart_pagos(fecha_desde, fecha_hasta, estado_usuario=None):
+    mensuales = _pagos_mensuales(fecha_desde, fecha_hasta, estado_usuario)
     return {
         'mensuales': mensuales,
         'totalPeriodo': sum(i['valor'] for i in mensuales),
     }
 
 
-def obtener_dashboard(id_usuario, fecha_desde=None, fecha_hasta=None):
+def obtener_dashboard(id_usuario, fecha_desde=None, fecha_hasta=None, estado_usuario='Activo'):
     if not id_usuario:
         raise ValueError('Indica el usuario de sesión.')
 
@@ -400,6 +460,11 @@ def obtener_dashboard(id_usuario, fecha_desde=None, fecha_hasta=None):
     id_tipo = str(usuario.get('IDTIPOUSUARIO') or '').strip()
     rol = _rol_desde_tipo(id_tipo)
     desde, hasta = _normalizar_rango(fecha_desde, fecha_hasta)
+    estado = str(estado_usuario or '').strip().capitalize()
+    if estado in ('Todos', ''):
+        estado = None
+    elif estado not in ('Activo', 'Retirado'):
+        raise ValueError('El estado del estudiante no es válido.')
 
     base = {
         'rol': rol,
@@ -407,25 +472,29 @@ def obtener_dashboard(id_usuario, fecha_desde=None, fecha_hasta=None):
         'filtros': {
             'fechaDesde': desde.isoformat(),
             'fechaHasta': hasta.isoformat(),
+            'estadoEstudiante': estado or 'Todos',
         },
-        'asistenciasHoy': _asistencias_hoy(),
-        'asistenciaMes': _resumen_asistencia(desde, hasta),
+        'asistenciasHoy': _asistencias_hoy(estado),
+        'asistenciaMes': _resumen_asistencia(desde, hasta, estado),
     }
 
     if _es_admin(id_tipo):
-        usuarios = _conteo_usuarios()
-        finanzas = _stats_mensualidades()
-        pagos = _stats_pagos(desde, hasta)
+        usuarios = _conteo_usuarios(estado)
+        finanzas = _stats_mensualidades(estado)
+        deuda_periodo = _deuda_cuotas_periodo(desde, hasta, estado)
+        pagos = _stats_pagos(desde, hasta, estado)
         base.update({
             'kpis': {
                 'estudiantesActivos': usuarios.get('ESTUDIANTES_ACTIVOS', 0),
                 'deudaTotal': finanzas.get('deudaTotal', 0),
+                'deudaPeriodo': deuda_periodo,
+                'cobradoTotal': pagos.get('totalHistorico', 0),
                 'pagosMes': pagos.get('periodo', 0),
                 'mensualidadesConDeuda': finanzas.get('conDeuda', 0),
             },
             'graficos': {
-                'estudiantes': _chart_estudiantes(usuarios, finanzas),
-                'pagos': _chart_pagos(desde, hasta),
+                'estudiantes': _chart_estudiantes(usuarios, finanzas, estado),
+                'pagos': _chart_pagos(desde, hasta, estado),
             },
             'acciones': [
                 {'page': 'mensualidades', 'label': 'Mensualidades'},
@@ -437,7 +506,7 @@ def obtener_dashboard(id_usuario, fecha_desde=None, fecha_hasta=None):
         return base
 
     if _es_docente(id_tipo):
-        usuarios = _conteo_usuarios()
+        usuarios = _conteo_usuarios(estado)
         base.update({
             'kpis': {
                 'estudiantesActivos': usuarios.get('ESTUDIANTES_ACTIVOS', 0),
