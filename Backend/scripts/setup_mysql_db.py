@@ -132,6 +132,7 @@ ORDER = [
     '16_08_2026/1.trabajador_y_mora.sql',
     '24_08_2026/1.usp_pago_listar_agrupado.sql',
     '24_08_2026/2.usp_pagoextra_filtro_concepto.sql',
+    '24_08_2026/3.usuario_email_opcional.sql',
 ]
 
 

@@ -5,8 +5,9 @@ from .models import TipoUsuario
 from . import sp_runner as sp
 
 
-def _read_sp_write_result(cursor):
-    return sp.read_write_result(cursor)
+def _email_guardar(payload):
+    email = (payload.get('EMAIL') or '').strip()
+    return email or None
 
 
 def listar_usuarios(
@@ -49,7 +50,7 @@ def insertar_usuario(payload: dict, id_usuario=None):
     contra_val = payload.get('CONTRA') or payload.get('DNI') or payload.get('IDUSUARIO')
     rest = [
         payload['NOMBRE'],
-        payload['APELLIDO'], payload['DNI'], payload['EMAIL'],
+        payload['APELLIDO'], payload['DNI'], _email_guardar(payload),
         payload['IDTIPOUSUARIO'], payload.get('ESTADO', 'Activo'),
         payload.get('FECHANACIMIENTO'), payload.get('DIRECCION'),
         payload.get('DISTRITO'), payload.get('COLEGIO'), payload.get('GRADO'),
@@ -86,7 +87,7 @@ def actualizar_usuario(id_usuario: str, payload: dict, id_actor=None):
         id_usuario,
         payload.get('CONTRA') or None,
         payload['NOMBRE'], payload['APELLIDO'], payload['DNI'],
-        payload['EMAIL'], payload['IDTIPOUSUARIO'], payload['ESTADO'],
+        _email_guardar(payload), payload['IDTIPOUSUARIO'], payload['ESTADO'],
         payload.get('FECHANACIMIENTO'), payload.get('DIRECCION'),
         payload.get('DISTRITO'), payload.get('COLEGIO'), payload.get('GRADO'),
         payload.get('TELPERSONAL'), payload.get('TELAPODERADO'),

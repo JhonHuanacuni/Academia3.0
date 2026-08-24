@@ -29,6 +29,19 @@ function filtrarCampo(campo, modo) {
   return true;
 }
 
+function visibleParaTipo(item, values) {
+  if (!item.soloTiposUsuario?.length) return true;
+  return item.soloTiposUsuario.map(String).includes(String(values.IDTIPOUSUARIO ?? ""));
+}
+
+function campoVisibleEnFormulario(campo, values, secciones) {
+  if (!visibleParaTipo(campo, values)) return false;
+  if (!secciones?.length) return true;
+  const seccion = secciones.find((s) => (s.campos || []).some((c) => c.campo === campo.campo));
+  if (seccion && !visibleParaTipo(seccion, values)) return false;
+  return true;
+}
+
 export default function FormModal({
   abierto,
   modo,
@@ -85,7 +98,9 @@ export default function FormModal({
 
   const validate = () => {
     const next = {};
-    const camposValidar = todosLosCampos.filter((c) => filtrarCampo(c, modo));
+    const camposValidar = todosLosCampos.filter(
+      (c) => filtrarCampo(c, modo) && campoVisibleEnFormulario(c, values, secciones),
+    );
     camposValidar.forEach((c) => {
       if (soloLectura) return;
       if (c.obligatorio && modo === "crear" && !String(values[c.campo] ?? "").trim()) {
@@ -102,8 +117,8 @@ export default function FormModal({
       ) {
         next[c.campo] = `Ingresa ${c.etiqueta.toLowerCase()}.`;
       }
-      if (c.validacion === "email" && values[c.campo]) {
-        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values[c.campo]);
+      if (c.validacion === "email" && String(values[c.campo] ?? "").trim()) {
+        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values[c.campo]).trim());
         if (!ok) next[c.campo] = "Ingresa un email válido.";
       }
       if (c.control === "diasSemana" && modo !== "ver") {
@@ -137,6 +152,10 @@ export default function FormModal({
 
     const payload = { ...values };
     todosLosCampos.forEach((c) => {
+      if (!campoVisibleEnFormulario(c, values, secciones)) {
+        delete payload[c.campo];
+        return;
+      }
       if (c.control === "date") {
         payload[c.campo] = inputToDb(values[c.campo]) || null;
       }
@@ -207,10 +226,15 @@ export default function FormModal({
   };
 
   const bloques = secciones
-    ? secciones.map((sec) => ({
-        titulo: sec.titulo,
-        campos: sec.campos.filter((c) => filtrarCampo(c, modo)),
-      })).filter((sec) => sec.campos.length > 0)
+    ? secciones
+        .filter((sec) => visibleParaTipo(sec, values))
+        .map((sec) => ({
+          titulo: sec.titulo,
+          campos: sec.campos.filter(
+            (c) => filtrarCampo(c, modo) && campoVisibleEnFormulario(c, values, secciones),
+          ),
+        }))
+        .filter((sec) => sec.campos.length > 0)
     : [{ titulo: null, campos: (campos || []).filter((c) => filtrarCampo(c, modo)) }];
 
   return (

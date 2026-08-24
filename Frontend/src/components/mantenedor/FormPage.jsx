@@ -32,6 +32,14 @@ function visibleParaTipo(item, values) {
   return item.soloTiposUsuario.map(String).includes(String(values.IDTIPOUSUARIO ?? ""));
 }
 
+function campoVisibleEnFormulario(campo, values, secciones) {
+  if (!visibleParaTipo(campo, values)) return false;
+  if (!secciones?.length) return true;
+  const seccion = secciones.find((s) => (s.campos || []).some((c) => c.campo === campo.campo));
+  if (seccion && !visibleParaTipo(seccion, values)) return false;
+  return true;
+}
+
 function esCampoPersistente(campo) {
   return !campo.soloFrontend && campo.control !== "action" && !campo.bloqueado;
 }
@@ -124,7 +132,7 @@ export default function FormPage({
   const validate = () => {
     const next = {};
     const camposValidar = todosLosCampos.filter(
-      (c) => filtrarCampo(c, modo) && visibleParaTipo(c, values) && c.control !== "action",
+      (c) => filtrarCampo(c, modo) && campoVisibleEnFormulario(c, values, secciones) && c.control !== "action",
     );
     camposValidar.forEach((c) => {
       if (soloLectura) return;
@@ -143,8 +151,8 @@ export default function FormPage({
       ) {
         next[c.campo] = `Ingresa ${c.etiqueta.toLowerCase()}.`;
       }
-      if (c.validacion === "email" && values[c.campo]) {
-        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values[c.campo]);
+      if (c.validacion === "email" && String(values[c.campo] ?? "").trim()) {
+        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values[c.campo]).trim());
         if (!ok) next[c.campo] = "Ingresa un email válido.";
       }
       if (c.validacion === "dni" && values[c.campo]) {
@@ -177,7 +185,7 @@ export default function FormPage({
 
     const payload = {};
     todosLosCampos.forEach((c) => {
-      if (!esCampoPersistente(c) || !visibleParaTipo(c, values)) return;
+      if (!esCampoPersistente(c) || !campoVisibleEnFormulario(c, values, secciones)) return;
       if (c.control === "date") {
         payload[c.campo] = inputToDb(values[c.campo]) || null;
       } else {
@@ -259,7 +267,7 @@ export default function FormPage({
           titulo: sec.titulo,
           grupo: sec.grupo || null,
           campos: sec.campos.filter(
-            (c) => filtrarCampo(c, modo) && visibleParaTipo(c, values),
+            (c) => filtrarCampo(c, modo) && campoVisibleEnFormulario(c, values, secciones),
           ),
         }))
         .filter((sec) => sec.campos.length > 0)

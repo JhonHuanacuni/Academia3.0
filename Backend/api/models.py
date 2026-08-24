@@ -36,7 +36,7 @@ class Usuario(models.Model):
     APELLIDO = models.CharField(max_length=100)
     DNI = models.CharField(max_length=20)
     ESTADO = models.CharField(max_length=50, default='Activo')
-    EMAIL = models.CharField(max_length=150)
+    EMAIL = models.CharField(max_length=150, blank=True, null=True)
     FOTO = models.TextField(blank=True, null=True)
     IDTIPOUSUARIO = models.ForeignKey(
         TipoUsuario, on_delete=models.DO_NOTHING, db_column='IDTIPOUSUARIO',
