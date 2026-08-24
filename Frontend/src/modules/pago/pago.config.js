@@ -41,6 +41,30 @@ export const pagoConfig = {
       bloqueado: true,
     },
     {
+      campo: "CUOTA_NUMERO",
+      etiqueta: "N.º cuota",
+      control: "text",
+      bloqueado: true,
+    },
+    {
+      campo: "MONTO_CUOTA",
+      etiqueta: "Total de la cuota",
+      control: "number",
+      bloqueado: true,
+    },
+    {
+      campo: "FECHAINICIO_CUOTA",
+      etiqueta: "Inicio de la cuota",
+      control: "date",
+      bloqueado: true,
+    },
+    {
+      campo: "FECHAFIN_CUOTA",
+      etiqueta: "Fin de la cuota",
+      control: "date",
+      bloqueado: true,
+    },
+    {
       campo: "MONTO",
       etiqueta: "Monto aplicado a la cuota",
       control: "number",

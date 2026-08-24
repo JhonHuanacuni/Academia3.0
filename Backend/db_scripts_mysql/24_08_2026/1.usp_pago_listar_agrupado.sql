@@ -35,8 +35,11 @@ main: BEGIN
         u.DNI AS ESTUDIANTE_DNI,
         pl.NOMBRE AS PLAN_NOMBRE,
         ca.NUMERO AS CUOTA_NUMERO,
-        IFNULL(m.MONTOTOTAL, 0) AS TOTAL,
-        IFNULL(pag.PAGADO, 0) AS PAGADO,
+        IFNULL(ca.MONTO, m.MONTOTOTAL) AS TOTAL,
+        CASE
+            WHEN ca.IDCUOTA IS NOT NULL THEN IFNULL(pagc.PAGADO, 0)
+            ELSE IFNULL(pag.PAGADO, 0)
+        END AS PAGADO,
         CASE
             WHEN EXISTS (
                 SELECT 1 FROM MENSUALIDAD_CUOTA cx WHERE cx.IDMENSUALIDAD = m.IDMENSUALIDAD
@@ -103,6 +106,12 @@ main: BEGIN
             END
         LIMIT 1
     )
+    LEFT JOIN (
+        SELECT IDCUOTA, SUM(MONTO) AS PAGADO
+        FROM PAGOMENSUALIDAD
+        WHERE IDCUOTA IS NOT NULL
+        GROUP BY IDCUOTA
+    ) pagc ON pagc.IDCUOTA = ca.IDCUOTA
     WHERE (p_Buscar IS NULL OR p_Buscar = '' OR
            u.NOMBRE LIKE CONCAT('%', p_Buscar, '%') OR
            u.APELLIDO LIKE CONCAT('%', p_Buscar, '%') OR

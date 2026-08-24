@@ -34,7 +34,7 @@ export default function PagoDetalleModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-panel modal-panel--wide pex-detalle-modal"
+        className="modal-panel modal-panel--wide pago-detalle-modal pex-detalle-modal"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

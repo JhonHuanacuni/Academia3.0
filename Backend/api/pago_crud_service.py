@@ -123,6 +123,12 @@ def _listar_pagos_agrupado_mysql(
             GROUP BY IDMENSUALIDAD
         ) pag ON pag.IDMENSUALIDAD = m.IDMENSUALIDAD
         {cuota_join}
+        LEFT JOIN (
+            SELECT IDCUOTA, SUM(MONTO) AS PAGADO
+            FROM PAGOMENSUALIDAD
+            WHERE IDCUOTA IS NOT NULL
+            GROUP BY IDCUOTA
+        ) pagc ON pagc.IDCUOTA = ca.IDCUOTA
         {where}
     """
 
@@ -133,15 +139,15 @@ def _listar_pagos_agrupado_mysql(
         'ESTUDIANTE_NOMBRE': 'u.APELLIDO',
         'PLAN_NOMBRE': 'pl.NOMBRE',
         'CUOTA_NUMERO': 'ca.NUMERO',
-        'TOTAL': 'm.MONTOTOTAL',
+        'TOTAL': 'IFNULL(ca.MONTO, m.MONTOTOTAL)',
         'DEUDA': 'DEUDA',
-        'PAGADO': 'pag.PAGADO',
+        'PAGADO': 'PAGADO',
         'FECHAINICIO_CUOTA': "STR_TO_DATE(IFNULL(ca.FECHAINICIO, m.FECHAINICIO), '%%d%%m%%Y')",
         'FECHA': "STR_TO_DATE(IFNULL(ca.FECHAINICIO, m.FECHAINICIO), '%%d%%m%%Y')",
     }
     col_orden = columnas_orden.get(ordenar_por.upper(), 'u.APELLIDO')
-    if col_orden == 'DEUDA':
-        order_sql = f'ORDER BY DEUDA {direccion}, u.APELLIDO ASC LIMIT %s OFFSET %s'
+    if col_orden in ('DEUDA', 'PAGADO'):
+        order_sql = f'ORDER BY {col_orden} {direccion}, u.APELLIDO ASC LIMIT %s OFFSET %s'
     else:
         order_sql = f'ORDER BY {col_orden} {direccion}, u.APELLIDO ASC LIMIT %s OFFSET %s'
 
@@ -155,8 +161,11 @@ def _listar_pagos_agrupado_mysql(
             u.DNI AS ESTUDIANTE_DNI,
             pl.NOMBRE AS PLAN_NOMBRE,
             ca.NUMERO AS CUOTA_NUMERO,
-            IFNULL(m.MONTOTOTAL, 0) AS TOTAL,
-            IFNULL(pag.PAGADO, 0) AS PAGADO,
+            IFNULL(ca.MONTO, m.MONTOTOTAL) AS TOTAL,
+            CASE
+                WHEN ca.IDCUOTA IS NOT NULL THEN IFNULL(pagc.PAGADO, 0)
+                ELSE IFNULL(pag.PAGADO, 0)
+            END AS PAGADO,
             ({deuda_sql}) AS DEUDA,
             IFNULL(ca.FECHAINICIO, m.FECHAINICIO) AS FECHAINICIO_CUOTA,
             IFNULL(ca.FECHAFIN, m.FECHAFIN) AS FECHAFIN_CUOTA
@@ -525,15 +534,17 @@ def obtener_pago(id_pago: str):
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT ISNULL(MORA, 0), IDCUOTA
-            FROM PAGOMENSUALIDAD
-            WHERE IDPAGOMENSUALIDAD = %s
+            SELECT ISNULL(p.MORA, 0), p.IDCUOTA, c.NUMERO, c.MONTO, c.FECHAINICIO, c.FECHAFIN
+            FROM PAGOMENSUALIDAD p
+            LEFT JOIN MENSUALIDAD_CUOTA c ON c.IDCUOTA = p.IDCUOTA
+            WHERE p.IDPAGOMENSUALIDAD = %s
             """
             if not sp.is_mysql()
             else """
-            SELECT IFNULL(MORA, 0), IDCUOTA
-            FROM PAGOMENSUALIDAD
-            WHERE IDPAGOMENSUALIDAD = %s
+            SELECT IFNULL(p.MORA, 0), p.IDCUOTA, c.NUMERO, c.MONTO, c.FECHAINICIO, c.FECHAFIN
+            FROM PAGOMENSUALIDAD p
+            LEFT JOIN MENSUALIDAD_CUOTA c ON c.IDCUOTA = p.IDCUOTA
+            WHERE p.IDPAGOMENSUALIDAD = %s
             """,
             [id_pago],
         )
@@ -541,6 +552,10 @@ def obtener_pago(id_pago: str):
     mora = float(extra[0] or 0) if extra else 0.0
     row['MORA'] = mora
     row['IDCUOTA'] = extra[1] if extra else None
+    row['CUOTA_NUMERO'] = extra[2] if extra else None
+    row['MONTO_CUOTA'] = float(extra[3] or 0) if extra and extra[3] is not None else None
+    row['FECHAINICIO_CUOTA'] = extra[4] if extra else None
+    row['FECHAFIN_CUOTA'] = extra[5] if extra else None
     row['TOTAL_COBRADO'] = float(row.get('MONTO') or 0) + mora
     return row
 

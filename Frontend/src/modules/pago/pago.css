@@ -238,3 +238,13 @@
 .pex-detalle-modal .pex-detalle-tabla .data-table-wrap {
   border: none;
 }
+
+.modal-panel.pago-detalle-modal {
+  width: min(1180px, 98vw);
+}
+
+.pago-detalle-modal .data-table th,
+.pago-detalle-modal .data-table td {
+  padding: 0.55rem 0.75rem;
+  white-space: nowrap;
+}
