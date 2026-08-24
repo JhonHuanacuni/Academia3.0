@@ -43,6 +43,7 @@ export default function PagoExtraPage() {
     entidad: cfg.entidad,
     pk: cfg.pk,
     ordenInicial: { campo: "DEUDA", direccion: "DESC" },
+    filtrosIniciales: { idConcepto: "" },
   });
 
   const [grupoSel, setGrupoSel] = useState(null);
@@ -57,6 +58,7 @@ export default function PagoExtraPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoDetalle, setModoDetalle] = useState("ver");
   const [conceptos, setConceptos] = useState([]);
+  const [conceptosFiltro, setConceptosFiltro] = useState([]);
   const [estudiante, setEstudiante] = useState(null);
   const [conceptosEst, setConceptosEst] = useState([]);
   const [cargandoConceptos, setCargandoConceptos] = useState(false);
@@ -82,6 +84,12 @@ export default function PagoExtraPage() {
               })}`,
               costo: Number(c.COSTO) || 0,
               nombre: c.NOMBRE,
+            })),
+          );
+          setConceptosFiltro(
+            (data.data?.conceptosFiltro || data.data?.conceptos || []).map((c) => ({
+              value: c.IDCONCEPTO,
+              label: c.NOMBRE,
             })),
           );
         }
@@ -586,6 +594,15 @@ export default function PagoExtraPage() {
           buscar={crud.buscar}
           onBuscarChange={crud.onBuscarChange}
           placeholder="Buscar estudiante, DNI, concepto..."
+          filtros={[
+            {
+              key: "idConcepto",
+              etiqueta: "Concepto",
+              value: crud.filtros.idConcepto || "",
+              opciones: conceptosFiltro,
+              onChange: (v) => crud.setFiltro("idConcepto", v),
+            },
+          ]}
         />
 
         <DataTable

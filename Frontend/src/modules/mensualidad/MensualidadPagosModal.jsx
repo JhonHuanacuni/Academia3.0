@@ -94,7 +94,13 @@ export default function MensualidadPagosModal({
                           <td>{dinero(c.MONTO)}</td>
                           <td>{dinero(c.PAGADO)}</td>
                           <td>{dinero(c.DEUDA)}</td>
-                          <td>{c.ESTADO_CALC || c.ESTADO || "—"}</td>
+                          <td>
+                            <span
+                              className={`pago-cuota-estado estado-${String(c.ESTADO_CALC || c.ESTADO || "").toLowerCase()}`}
+                            >
+                              {c.ESTADO_CALC || c.ESTADO || "—"}
+                            </span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -125,8 +131,6 @@ export default function MensualidadPagosModal({
                       <th>Total cobrado</th>
                       <th>N.º cuota</th>
                       <th>Método</th>
-                      <th>Registrado por</th>
-                      <th>Observación</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -139,8 +143,6 @@ export default function MensualidadPagosModal({
                         <td>{dinero(pago.TOTAL_COBRADO ?? Number(pago.MONTO || 0) + Number(pago.MORA || 0))}</td>
                         <td>{pago.CUOTA_NUMERO || "—"}</td>
                         <td>{pago.METODOPAGO_TITULO || "—"}</td>
-                        <td>{pago.REGISTRADO_POR || "—"}</td>
-                        <td>{pago.OBSERVACIONES || "—"}</td>
                       </tr>
                     ))}
                   </tbody>

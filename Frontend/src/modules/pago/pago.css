@@ -67,6 +67,18 @@
   font-weight: 600;
 }
 
+.pago-cuota-estado.estado-deuda {
+  color: #991b1b;
+}
+
+.pago-cuota-estado.estado-cancelado {
+  color: #166534;
+}
+
+.pago-cuota-estado.estado-pendiente {
+  color: #6b7280;
+}
+
 .pago-cuota-estado.estado-vencida {
   color: #991b1b;
 }
@@ -216,4 +228,13 @@
   .pago-nuevo-layout {
     grid-template-columns: 1fr;
   }
+}
+
+.pex-detalle-modal .pex-detalle-tabla {
+  padding: 0;
+  overflow: hidden;
+}
+
+.pex-detalle-modal .pex-detalle-tabla .data-table-wrap {
+  border: none;
 }

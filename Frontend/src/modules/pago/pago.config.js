@@ -5,14 +5,27 @@ export const pagoConfig = {
   pk: "IDPAGOMENSUALIDAD",
   columnas: [
     { campo: "ESTUDIANTE_NOMBRE", etiqueta: "Estudiante", ordenable: true },
-    { campo: "ESTUDIANTE_DNI", etiqueta: "DNI", ordenable: false },
-    { campo: "PLAN_NOMBRE", etiqueta: "Plan", ordenable: false },
-    { campo: "MONTO", etiqueta: "Cuota", tipo: "decimal", ordenable: true },
+    { campo: "PLAN_NOMBRE", etiqueta: "Plan", ordenable: true },
+    { campo: "CUOTA_NUMERO", etiqueta: "N° Cuota", ordenable: true },
+    { campo: "TOTAL", etiqueta: "Total", tipo: "decimal", ordenable: true },
+    { campo: "DEUDA", etiqueta: "Deuda", tipo: "deudaCompletado", ordenable: true },
+    { campo: "PAGADO", etiqueta: "Pagado", tipo: "decimal", ordenable: true },
+    {
+      campo: "FECHAINICIO_CUOTA",
+      etiqueta: "Fecha",
+      tipo: "rangoFecha",
+      campoFin: "FECHAFIN_CUOTA",
+      ordenable: true,
+    },
+  ],
+  columnasDetalle: [
+    { campo: "FECHAPAGO", etiqueta: "Fecha", tipo: "fecha", ordenable: false },
+    { campo: "HORAPAGO", etiqueta: "Hora", tipo: "hora", ordenable: false },
+    { campo: "MONTO", etiqueta: "Cuota", tipo: "decimal", ordenable: false },
     { campo: "MORA", etiqueta: "Mora", tipo: "decimal", ordenable: false },
     { campo: "TOTAL_COBRADO", etiqueta: "Total cobrado", tipo: "decimal", ordenable: false },
+    { campo: "CUOTA_NUMERO", etiqueta: "N.º cuota", ordenable: false },
     { campo: "METODOPAGO_TITULO", etiqueta: "Método", ordenable: false },
-    { campo: "FECHAPAGO", etiqueta: "Fecha", tipo: "fecha", ordenable: true },
-    { campo: "OBSERVACIONES", etiqueta: "Detalle", ordenable: false },
   ],
   camposEdicion: [
     {

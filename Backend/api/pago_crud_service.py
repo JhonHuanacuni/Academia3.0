@@ -1,7 +1,7 @@
 from django.db import connection
 from .db_context import prepare_write_cursor
 from . import sp_runner as sp
-from .sql_compat import plan_table, fecha_sort_expr, concat_nombre_usuario
+from .sql_compat import plan_table, concat_nombre_usuario
 
 
 def _read_sp_write_result(cursor):
@@ -38,41 +38,91 @@ def _enriquecer_mora(cursor, pagos):
     return pagos
 
 
-def _listar_pagos_mysql(
+def _sp_ausente(exc):
+    msg = str(exc).lower()
+    return '1305' in str(exc) or 'does not exist' in msg or 'could not find stored procedure' in msg
+
+
+def _listar_pagos_agrupado_mysql(
     cursor,
     buscar=None,
-    ordenar_por='FECHAPAGO',
-    direccion='DESC',
+    ordenar_por='ESTUDIANTE_NOMBRE',
+    direccion='ASC',
     pagina=1,
     tamanio=10,
 ):
     buscar = (buscar or '').strip() or None
-    ordenar_por = (ordenar_por or 'FECHAPAGO').strip()
-    direccion = 'DESC' if (direccion or 'DESC').upper() == 'DESC' else 'ASC'
+    ordenar_por = (ordenar_por or 'ESTUDIANTE_NOMBRE').strip()
+    direccion = 'DESC' if (direccion or 'ASC').upper() == 'DESC' else 'ASC'
     pagina = max(1, int(pagina or 1))
     tamanio = max(1, int(tamanio or 10))
     offset = (pagina - 1) * tamanio
     nombre = concat_nombre_usuario('u')
-    fs_pago = fecha_sort_expr('p.FECHAPAGO')
 
     where = """
         WHERE (%s IS NULL OR
-               p.IDPAGOMENSUALIDAD LIKE CONCAT('%%', %s, '%%') OR
-               m.IDMENSUALIDAD LIKE CONCAT('%%', %s, '%%') OR
-               u.DNI LIKE CONCAT('%%', %s, '%%') OR
                u.NOMBRE LIKE CONCAT('%%', %s, '%%') OR
                u.APELLIDO LIKE CONCAT('%%', %s, '%%') OR
-               pl.NOMBRE LIKE CONCAT('%%', %s, '%%') OR
-               IFNULL(mp.TITULO, '') LIKE CONCAT('%%', %s, '%%'))
+               CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')) LIKE CONCAT('%%', %s, '%%') OR
+               u.DNI LIKE CONCAT('%%', %s, '%%') OR
+               pl.NOMBRE LIKE CONCAT('%%', %s, '%%'))
     """
-    filtros = [buscar] * 8
+    filtros = [buscar] * 6
+
+    from .cuota_service import sql_deuda_exigible_expr, tabla_cuotas_existe
+
+    hay_cuotas = tabla_cuotas_existe(cursor)
+    deuda_sql = sql_deuda_exigible_expr('m') if hay_cuotas else """
+        CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
+             ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END
+    """
+    cuota_join = """
+        LEFT JOIN MENSUALIDAD_CUOTA ca ON ca.IDCUOTA = (
+            SELECT c.IDCUOTA
+            FROM MENSUALIDAD_CUOTA c
+            WHERE c.IDMENSUALIDAD = m.IDMENSUALIDAD
+            ORDER BY
+                CASE
+                    WHEN STR_TO_DATE(c.FECHAINICIO, '%%d%%m%%Y') <= CURDATE()
+                     AND STR_TO_DATE(c.FECHAFIN, '%%d%%m%%Y') >= CURDATE() THEN 0
+                    WHEN STR_TO_DATE(c.FECHAINICIO, '%%d%%m%%Y') <= CURDATE() THEN 1
+                    ELSE 2
+                END,
+                CASE
+                    WHEN STR_TO_DATE(c.FECHAINICIO, '%%d%%m%%Y') <= CURDATE()
+                     AND STR_TO_DATE(c.FECHAFIN, '%%d%%m%%Y') >= CURDATE() THEN c.NUMERO
+                    WHEN STR_TO_DATE(c.FECHAINICIO, '%%d%%m%%Y') <= CURDATE() THEN -c.NUMERO
+                    ELSE c.NUMERO
+                END
+            LIMIT 1
+        )
+    """ if hay_cuotas else 'LEFT JOIN (SELECT NULL AS IDCUOTA, NULL AS NUMERO, NULL AS FECHAINICIO, NULL AS FECHAFIN) ca ON 1 = 0'
 
     from_sql = f"""
-        FROM PAGOMENSUALIDAD p
-        INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = p.IDMENSUALIDAD
+        FROM MENSUALIDAD m
         INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
         INNER JOIN {plan_table()} pl ON pl.IDPLAN = m.IDPLAN
-        LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
+        INNER JOIN (
+            SELECT p1.IDMENSUALIDAD, p1.IDPAGOMENSUALIDAD
+            FROM PAGOMENSUALIDAD p1
+            INNER JOIN (
+                SELECT p.IDMENSUALIDAD, MAX(p.IDPAGOMENSUALIDAD) AS ID_ULT
+                FROM PAGOMENSUALIDAD p
+                INNER JOIN (
+                    SELECT IDMENSUALIDAD, MAX(STR_TO_DATE(FECHAPAGO, '%%d%%m%%Y')) AS MAX_F
+                    FROM PAGOMENSUALIDAD
+                    GROUP BY IDMENSUALIDAD
+                ) mx ON mx.IDMENSUALIDAD = p.IDMENSUALIDAD
+                   AND STR_TO_DATE(p.FECHAPAGO, '%%d%%m%%Y') = mx.MAX_F
+                GROUP BY p.IDMENSUALIDAD
+            ) pick ON pick.ID_ULT = p1.IDPAGOMENSUALIDAD
+        ) ult ON ult.IDMENSUALIDAD = m.IDMENSUALIDAD
+        LEFT JOIN (
+            SELECT IDMENSUALIDAD, SUM(MONTO) AS PAGADO
+            FROM PAGOMENSUALIDAD
+            GROUP BY IDMENSUALIDAD
+        ) pag ON pag.IDMENSUALIDAD = m.IDMENSUALIDAD
+        {cuota_join}
         {where}
     """
 
@@ -80,33 +130,36 @@ def _listar_pagos_mysql(
     total = int((cursor.fetchone() or [0])[0])
 
     columnas_orden = {
-        'FECHAPAGO': fs_pago,
-        'MONTO': 'p.MONTO',
         'ESTUDIANTE_NOMBRE': 'u.APELLIDO',
-        'IDPAGOMENSUALIDAD': 'p.IDPAGOMENSUALIDAD',
+        'PLAN_NOMBRE': 'pl.NOMBRE',
+        'CUOTA_NUMERO': 'ca.NUMERO',
+        'TOTAL': 'm.MONTOTOTAL',
+        'DEUDA': 'DEUDA',
+        'PAGADO': 'pag.PAGADO',
+        'FECHAINICIO_CUOTA': "STR_TO_DATE(IFNULL(ca.FECHAINICIO, m.FECHAINICIO), '%%d%%m%%Y')",
+        'FECHA': "STR_TO_DATE(IFNULL(ca.FECHAINICIO, m.FECHAINICIO), '%%d%%m%%Y')",
     }
-    col_orden = columnas_orden.get(ordenar_por.upper(), fs_pago)
-    order_sql = (
-        f'ORDER BY {col_orden} {direccion}, {fs_pago} DESC, '
-        f'p.HORAPAGO DESC, p.IDPAGOMENSUALIDAD DESC LIMIT %s OFFSET %s'
-    )
+    col_orden = columnas_orden.get(ordenar_por.upper(), 'u.APELLIDO')
+    if col_orden == 'DEUDA':
+        order_sql = f'ORDER BY DEUDA {direccion}, u.APELLIDO ASC LIMIT %s OFFSET %s'
+    else:
+        order_sql = f'ORDER BY {col_orden} {direccion}, u.APELLIDO ASC LIMIT %s OFFSET %s'
 
     cursor.execute(
         f"""
         SELECT
-            p.IDPAGOMENSUALIDAD,
-            p.IDMENSUALIDAD,
-            p.MONTO,
-            IFNULL(p.MORA, 0) AS MORA,
-            p.MONTO + IFNULL(p.MORA, 0) AS TOTAL_COBRADO,
-            p.FECHAPAGO,
-            p.HORAPAGO,
-            p.OBSERVACIONES,
-            p.IDMETODOPAGO,
-            IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
+            ult.IDPAGOMENSUALIDAD,
+            m.IDMENSUALIDAD,
+            m.IDUSUARIO,
             {nombre} AS ESTUDIANTE_NOMBRE,
             u.DNI AS ESTUDIANTE_DNI,
-            pl.NOMBRE AS PLAN_NOMBRE
+            pl.NOMBRE AS PLAN_NOMBRE,
+            ca.NUMERO AS CUOTA_NUMERO,
+            IFNULL(m.MONTOTOTAL, 0) AS TOTAL,
+            IFNULL(pag.PAGADO, 0) AS PAGADO,
+            ({deuda_sql}) AS DEUDA,
+            IFNULL(ca.FECHAINICIO, m.FECHAINICIO) AS FECHAINICIO_CUOTA,
+            IFNULL(ca.FECHAFIN, m.FECHAFIN) AS FECHAFIN_CUOTA
         {from_sql}
         {order_sql}
         """,
@@ -117,35 +170,110 @@ def _listar_pagos_mysql(
 
 def listar_pagos(
     buscar=None,
-    ordenar_por='FECHAPAGO',
-    direccion='DESC',
+    ordenar_por='ESTUDIANTE_NOMBRE',
+    direccion='ASC',
     pagina=1,
     tamanio=10,
 ):
     params = [buscar or None, ordenar_por, direccion, pagina, tamanio]
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            return _listar_pagos_mysql(
-                cursor, buscar, ordenar_por, direccion, pagina, tamanio
+            try:
+                return sp.call_list(cursor, 'usp_pago_listar_agrupado', params)
+            except Exception as exc:
+                if not _sp_ausente(exc):
+                    raise
+                return _listar_pagos_agrupado_mysql(
+                    cursor, buscar, ordenar_por, direccion, pagina, tamanio
+                )
+        try:
+            cursor.execute(
+                """
+                DECLARE @Total INT;
+                EXEC dbo.usp_pago_listar_agrupado
+                    @Buscar=%s, @OrdenarPor=%s, @Direccion=%s,
+                    @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
+                SELECT @Total AS TotalRegistros;
+                """,
+                params,
             )
+            data = sp.cursor_rows(cursor)
+            total = 0
+            if cursor.nextset() and cursor.description:
+                row = cursor.fetchone()
+                if row:
+                    total = int(row[0])
+            return data, total
+        except Exception as exc:
+            if not _sp_ausente(exc):
+                raise
+            cursor.execute(
+                """
+                DECLARE @Total INT;
+                EXEC dbo.usp_pago_listar
+                    @Buscar=%s, @OrdenarPor=%s, @Direccion=%s,
+                    @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
+                SELECT @Total AS TotalRegistros;
+                """,
+                params,
+            )
+            data = sp.cursor_rows(cursor)
+            total = 0
+            if cursor.nextset() and cursor.description:
+                row = cursor.fetchone()
+                if row:
+                    total = int(row[0])
+            data = _enriquecer_mora(cursor, data)
+            return data, total
+
+
+def listar_pagos_detalle(id_mensualidad: str):
+    with connection.cursor() as cursor:
+        if sp.is_mysql():
+            try:
+                return sp.call_simple(cursor, 'usp_pago_listar_detalle', [id_mensualidad])
+            except Exception as exc:
+                if not _sp_ausente(exc):
+                    raise
+        else:
+            cursor.execute(
+                'EXEC dbo.usp_pago_listar_detalle @IdMensualidad=%s',
+                [id_mensualidad],
+            )
+            return sp.cursor_rows(cursor)
         cursor.execute(
             """
-            DECLARE @Total INT;
-            EXEC dbo.usp_pago_listar
-                @Buscar=%s, @OrdenarPor=%s, @Direccion=%s,
-                @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
-            SELECT @Total AS TotalRegistros;
-            """,
-            params,
+            SELECT
+                p.IDPAGOMENSUALIDAD,
+                p.IDMENSUALIDAD,
+                p.IDCUOTA,
+                c.NUMERO AS CUOTA_NUMERO,
+                p.MONTO,
+                IFNULL(p.MORA, 0) AS MORA,
+                p.MONTO + IFNULL(p.MORA, 0) AS TOTAL_COBRADO,
+                p.FECHAPAGO,
+                p.HORAPAGO,
+                p.IDMETODOPAGO,
+                IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
+                p.OBSERVACIONES,
+                UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))))
+                    AS ESTUDIANTE_NOMBRE,
+                pl.NOMBRE AS PLAN_NOMBRE
+            FROM PAGOMENSUALIDAD p
+            INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = p.IDMENSUALIDAD
+            INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+            INNER JOIN {plan} pl ON pl.IDPLAN = m.IDPLAN
+            LEFT JOIN MENSUALIDAD_CUOTA c ON c.IDCUOTA = p.IDCUOTA
+            LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
+            WHERE p.IDMENSUALIDAD = %s
+            ORDER BY
+                STR_TO_DATE(p.FECHAPAGO, '%%d%%m%%Y') DESC,
+                p.HORAPAGO DESC,
+                p.IDPAGOMENSUALIDAD DESC
+            """.format(plan=plan_table()),
+            [id_mensualidad],
         )
-        data = sp.cursor_rows(cursor)
-        total = 0
-        if cursor.nextset() and cursor.description:
-            row = cursor.fetchone()
-            if row:
-                total = int(row[0])
-        data = _enriquecer_mora(cursor, data)
-    return data, total
+        return sp.cursor_rows(cursor)
 
 
 def mensualidades_estudiante(id_usuario: str):

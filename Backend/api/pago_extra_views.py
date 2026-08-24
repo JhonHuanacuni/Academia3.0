@@ -64,8 +64,9 @@ def pagos_extra_mantenedor(request, id_pago=None):
             direccion = request.GET.get('direccion', 'DESC')
             pagina = int(request.GET.get('pagina', 1))
             tamanio = int(request.GET.get('tamanio', 10))
+            id_concepto = request.GET.get('idConcepto') or None
             data, total = listar_pagos_extra(
-                buscar, ordenar_por, direccion, pagina, tamanio,
+                buscar, ordenar_por, direccion, pagina, tamanio, id_concepto,
             )
             return JsonResponse({
                 'data': data,

@@ -259,14 +259,13 @@ def listar_cuotas_mensualidad(id_mensualidad: str) -> list[dict]:
         fi_key = fi[4:8] + fi[2:4] + fi[0:2] if len(fi) == 8 else ''
         ff_key = ff[4:8] + ff[2:4] + ff[0:2] if len(ff) == 8 else ''
 
+        vencida = bool(ff_key and ff_key < hoy_key and deuda > 0.0001)
         if deuda <= 0.0001 and pagado > 0:
-            estado_calc = 'Pagada'
+            estado_calc = 'Cancelado'
         elif fi_key and fi_key > hoy_key:
-            estado_calc = 'Futura'
-        elif ff_key and ff_key < hoy_key and deuda > 0:
-            estado_calc = 'Vencida'
-        elif fi_key and fi_key <= hoy_key and (not ff_key or ff_key >= hoy_key):
-            estado_calc = 'Actual'
+            estado_calc = 'Pendiente'
+        elif deuda > 0.0001 and fi_key and fi_key <= hoy_key:
+            estado_calc = 'Deuda'
         else:
             estado_calc = 'Pendiente'
 
@@ -278,6 +277,7 @@ def listar_cuotas_mensualidad(id_mensualidad: str) -> list[dict]:
             'DEUDA': deuda,
             'ESTADO_CALC': estado_calc,
             'EXIGIBLE': exigible,
+            'VENCIDA': vencida,
         })
     return out
 

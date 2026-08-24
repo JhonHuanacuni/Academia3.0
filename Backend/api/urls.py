@@ -64,6 +64,7 @@ urlpatterns = [
     path('mensualidades/<str:id_mensualidad>/', mensualidad_views.mensualidades_mantenedor, name='mensualidades_mantenedor_detail'),
     path('pagos/catalogos/', pago_views.pagos_catalogos, name='pagos_catalogos'),
     path('pagos/estudiante/<str:id_usuario>/mensualidades/', pago_views.pagos_mensualidades_estudiante, name='pagos_mensualidades_estudiante'),
+    path('pagos/detalle/', pago_views.pagos_detalle, name='pagos_detalle'),
     path('pagos/', pago_views.pagos_mantenedor, name='pagos_mantenedor'),
     path('pagos/<str:id_pago>/', pago_views.pagos_mantenedor, name='pagos_mantenedor_detail'),
     path('libros/catalogos/', libro_views.libros_catalogos, name='libros_catalogos'),

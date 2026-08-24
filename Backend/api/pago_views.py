@@ -4,6 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .db_context import actor_from_request
 from .pago_crud_service import (
     listar_pagos,
+    listar_pagos_detalle,
     mensualidades_estudiante,
     insertar_abono,
     obtener_pago,
@@ -50,12 +51,25 @@ def pagos_mensualidades_estudiante(request, id_usuario):
 
 
 @csrf_exempt
+def pagos_detalle(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    id_mensualidad = request.GET.get('idMensualidad') or None
+    if not id_mensualidad:
+        return JsonResponse({'error': 'Indica idMensualidad.'}, status=400)
+    try:
+        return JsonResponse({'data': listar_pagos_detalle(id_mensualidad)})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@csrf_exempt
 def pagos_mantenedor(request, id_pago=None):
     if request.method == 'GET' and not id_pago:
         try:
             buscar = request.GET.get('buscar') or None
-            ordenar_por = request.GET.get('ordenarPor', 'FECHAPAGO')
-            direccion = request.GET.get('direccion', 'DESC')
+            ordenar_por = request.GET.get('ordenarPor', 'ESTUDIANTE_NOMBRE')
+            direccion = request.GET.get('direccion', 'ASC')
             pagina = int(request.GET.get('pagina', 1))
             tamanio = int(request.GET.get('tamanio', 10))
             data, total = listar_pagos(

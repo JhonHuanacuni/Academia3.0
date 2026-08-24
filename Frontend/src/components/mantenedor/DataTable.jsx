@@ -43,6 +43,25 @@ function renderCell(col, row, index = 0, offset = 0) {
     return <span className="dias-asistencia-resumen">{resumenDiasAsistencia(value)}</span>;
   }
 
+  if (col.tipo === "rangoFecha") {
+    const a = dbToView(String(row[col.campo] || ""));
+    const b = dbToView(String(row[col.campoFin] || ""));
+    if (!a && !b) return "—";
+    return `${a || "—"} — ${b || "—"}`;
+  }
+
+  if (col.tipo === "deudaCompletado") {
+    const n = Number(value);
+    if (value == null || value === "" || Number.isNaN(n) || n <= 0) {
+      return <span className="badge-estado activo">Completado</span>;
+    }
+    return (
+      <span className="badge-estado vencido">
+        S/ {n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </span>
+    );
+  }
+
   if (col.tipo === "hora") {
     const s = String(value || "");
     return s.length >= 5 ? s.slice(0, 5) : "—";
@@ -247,7 +266,7 @@ export default function DataTable({
                     <button
                       type="button"
                       className="btn-icon"
-                      title="Ver"
+                      title={onVerPagos ? "Ver pago" : "Ver"}
                       onClick={() => onVer(row)}
                     >
                       <FontAwesomeIcon icon={verIcono === "image" ? faImage : faEye} />

@@ -12,6 +12,7 @@ import FormModal from "../../components/mantenedor/FormModal";
 import ConfirmDialog from "../../components/mantenedor/ConfirmDialog";
 import Toast from "../../components/mantenedor/feedback/Toast";
 import EstudianteSearchField from "../mensualidad/EstudianteSearchField";
+import PagoDetalleModal from "./PagoDetalleModal";
 import { dbToView, dbToInput, hoyInput, inputToDb, sumarDiasInput } from "../../utils/fecha";
 import "../../styles/mantenedor.css";
 import "./pago.css";
@@ -114,7 +115,7 @@ export default function PagoPage() {
   const crud = useCrud({
     entidad: cfg.entidad,
     pk: cfg.pk,
-    ordenInicial: { campo: "FECHAPAGO", direccion: "DESC" },
+    ordenInicial: { campo: "ESTUDIANTE_NOMBRE", direccion: "ASC" },
   });
 
   const [vista, setVista] = useState("lista");
@@ -138,6 +139,10 @@ export default function PagoPage() {
   const [nueva, setNueva] = useState(emptyNueva());
   const [enviando, setEnviando] = useState(false);
   const [errors, setErrors] = useState({});
+  const [grupoSel, setGrupoSel] = useState(null);
+  const [detalleAbierto, setDetalleAbierto] = useState(false);
+  const [pagosDetalle, setPagosDetalle] = useState([]);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -201,8 +206,13 @@ export default function PagoPage() {
   };
 
   const abrirVer = async (row) => {
+    const idPago = row.IDPAGOMENSUALIDAD;
+    if (!idPago) {
+      setToast({ mensaje: "Este registro no tiene un pago para mostrar.", tipo: "error" });
+      return;
+    }
     try {
-      const data = await crud.obtener(row[cfg.pk]);
+      const data = await crud.obtener(idPago);
       crud.setRegistro(data);
       setModoDetalle("ver");
       setModalAbierto(true);
@@ -213,7 +223,7 @@ export default function PagoPage() {
 
   const abrirEditar = async (row) => {
     try {
-      const data = await crud.obtener(row[cfg.pk]);
+      const data = await crud.obtener(row.IDPAGOMENSUALIDAD);
       crud.setRegistro(data);
       setModoDetalle("editar");
       setModalAbierto(true);
@@ -226,9 +236,39 @@ export default function PagoPage() {
     const nombre = row.ESTUDIANTE_NOMBRE || row[cfg.pk];
     const total = Number(row.MONTO || 0) + Number(row.MORA || 0);
     setConfirm({
-      id: row[cfg.pk],
+      id: row.IDPAGOMENSUALIDAD,
       mensaje: `¿Eliminar el pago de «${nombre}» por ${dinero(total)}? Esta acción no se puede deshacer.`,
+      grupo: grupoSel,
     });
+  };
+
+  const cargarDetalleGrupo = async (grupo) => {
+    if (!grupo?.IDMENSUALIDAD) return;
+    setCargandoDetalle(true);
+    try {
+      const params = new URLSearchParams({ idMensualidad: grupo.IDMENSUALIDAD });
+      const res = await fetch(`/api/pagos/detalle/?${params}`);
+      const data = await parseJsonResponse(res);
+      if (!res.ok) throw new Error(data.error || "Error al cargar pagos");
+      setPagosDetalle(data.data || []);
+    } catch (err) {
+      setToast({ mensaje: err.message, tipo: "error" });
+      setPagosDetalle([]);
+    } finally {
+      setCargandoDetalle(false);
+    }
+  };
+
+  const abrirDetalleGrupo = async (row) => {
+    setGrupoSel(row);
+    setDetalleAbierto(true);
+    await cargarDetalleGrupo(row);
+  };
+
+  const cerrarDetalleGrupo = () => {
+    setDetalleAbierto(false);
+    setGrupoSel(null);
+    setPagosDetalle([]);
   };
 
   const handleGuardarDetalle = async (payload) => {
@@ -240,7 +280,9 @@ export default function PagoPage() {
       OBSERVACIONES: payload.OBSERVACIONES || null,
     });
     setToast({ mensaje, tipo: "success" });
+    setModalAbierto(false);
     await crud.listar();
+    if (grupoSel) await cargarDetalleGrupo(grupoSel);
   };
 
   const handleConfirmEliminar = async () => {
@@ -251,6 +293,7 @@ export default function PagoPage() {
       setToast({ mensaje, tipo: "success" });
       setConfirm(null);
       await crud.listar();
+      if (confirm.grupo) await cargarDetalleGrupo(confirm.grupo);
     } catch (err) {
       setToast({ mensaje: err.message, tipo: "error" });
     } finally {
@@ -498,7 +541,7 @@ export default function PagoPage() {
                       />
                       {errors.MONTO && <span className="field-error">{errors.MONTO}</span>}
                     </div>
-                    {cuotaSeleccionada?.ESTADO_CALC === "Vencida" && (
+                    {cuotaSeleccionada?.VENCIDA && (
                       <div className={`form-field ${errors.MORA ? "has-error" : ""}`}>
                         <label>Mora por pago fuera de fecha</label>
                         <input
@@ -796,8 +839,7 @@ export default function PagoPage() {
           error={crud.error}
           onOrden={crud.toggleOrden}
           onVer={abrirVer}
-          onEditar={abrirEditar}
-          onEliminar={abrirEliminar}
+          onVerPagos={abrirDetalleGrupo}
           onReintentar={crud.listar}
           pagina={crud.pagina}
           tamanio={crud.tamanio}
@@ -810,6 +852,30 @@ export default function PagoPage() {
           onChange={crud.setPagina}
         />
       </div>
+
+      <PagoDetalleModal
+        abierto={detalleAbierto}
+        titulo="Pagos del estudiante"
+        estudianteNombre={grupoSel?.ESTUDIANTE_NOMBRE}
+        planNombre={grupoSel?.PLAN_NOMBRE}
+        resumen={
+          grupoSel
+            ? {
+                montoTotal: grupoSel.TOTAL,
+                pagado: grupoSel.PAGADO,
+                deuda: grupoSel.DEUDA,
+              }
+            : null
+        }
+        pagos={pagosDetalle}
+        columnas={cfg.columnasDetalle}
+        pk="IDPAGOMENSUALIDAD"
+        loading={cargandoDetalle}
+        onClose={cerrarDetalleGrupo}
+        onVer={abrirVer}
+        onEditar={abrirEditar}
+        onEliminar={abrirEliminar}
+      />
 
       <FormModal
         abierto={modalAbierto}

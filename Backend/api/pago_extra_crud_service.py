@@ -38,23 +38,121 @@ def listar_pagos_extra_detalle(id_usuario: str, id_concepto: str):
         return sp.cursor_rows(cursor)
 
 
+def _listar_pagos_extra_mysql(
+    cursor,
+    buscar=None,
+    ordenar_por='DEUDA',
+    direccion='DESC',
+    pagina=1,
+    tamanio=10,
+    id_concepto=None,
+):
+    buscar = (buscar or '').strip() or None
+    id_concepto = (id_concepto or '').strip() or None
+    ordenar_por = (ordenar_por or 'DEUDA').strip()
+    direccion = 'DESC' if (direccion or 'DESC').upper() == 'DESC' else 'ASC'
+    pagina = max(1, int(pagina or 1))
+    tamanio = max(1, int(tamanio or 10))
+    offset = (pagina - 1) * tamanio
+
+    where = """
+        WHERE (%s IS NULL OR
+               u.NOMBRE LIKE CONCAT('%%', %s, '%%') OR
+               u.APELLIDO LIKE CONCAT('%%', %s, '%%') OR
+               u.DNI LIKE CONCAT('%%', %s, '%%') OR
+               c.NOMBRE LIKE CONCAT('%%', %s, '%%'))
+          AND (%s IS NULL OR p.IDCONCEPTO = %s)
+    """
+    filtros = [buscar] * 5 + [id_concepto, id_concepto]
+
+    from_sql = f"""
+        FROM PAGOEXTRAORDINARIO p
+        INNER JOIN USUARIO u ON u.IDUSUARIO = p.IDUSUARIO
+        INNER JOIN CONCEPTOPAGOEXTRA c ON c.IDCONCEPTO = p.IDCONCEPTO
+        {where}
+        GROUP BY p.IDUSUARIO, u.APELLIDO, u.NOMBRE, u.DNI, p.IDCONCEPTO, c.NOMBRE, c.COSTO
+    """
+
+    cursor.execute(
+        f"""
+        SELECT COUNT(*) FROM (
+            SELECT p.IDUSUARIO, p.IDCONCEPTO
+            {from_sql}
+        ) g
+        """,
+        filtros,
+    )
+    total = int((cursor.fetchone() or [0])[0])
+
+    columnas_orden = {
+        'DEUDA': 'DEUDA',
+        'PAGADO': 'PAGADO',
+        'MONTO_TOTAL': 'MONTO_TOTAL',
+        'ESTUDIANTE_NOMBRE': 'ESTUDIANTE_NOMBRE',
+        'CONCEPTO_NOMBRE': 'CONCEPTO_NOMBRE',
+        'FECHAPAGO': 'ULTIMO_PAGO',
+        'ULTIMO_PAGO': 'ULTIMO_PAGO',
+    }
+    col_orden = columnas_orden.get(ordenar_por.upper(), 'DEUDA')
+    order_sql = f'ORDER BY {col_orden} {direccion}, ULTIMO_PAGO DESC LIMIT %s OFFSET %s'
+
+    cursor.execute(
+        f"""
+        SELECT * FROM (
+            SELECT
+                CONCAT(p.IDUSUARIO, '|', p.IDCONCEPTO) AS GRUPO_KEY,
+                p.IDUSUARIO,
+                UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))))
+                    AS ESTUDIANTE_NOMBRE,
+                u.DNI AS ESTUDIANTE_DNI,
+                p.IDCONCEPTO,
+                c.NOMBRE AS CONCEPTO_NOMBRE,
+                c.COSTO AS MONTO_TOTAL,
+                IFNULL(SUM(p.MONTO), 0) AS PAGADO,
+                CASE
+                    WHEN c.COSTO - IFNULL(SUM(p.MONTO), 0) < 0 THEN 0
+                    ELSE c.COSTO - IFNULL(SUM(p.MONTO), 0)
+                END AS DEUDA,
+                COUNT(p.IDPAGOEXTRA) AS CANTIDAD_PAGOS,
+                DATE_FORMAT(MAX(STR_TO_DATE(p.FECHAPAGO, '%%d%%m%%Y')), '%%d%%m%%Y')
+                    AS ULTIMO_PAGO
+            {from_sql}
+        ) base
+        {order_sql}
+        """,
+        filtros + [tamanio, offset],
+    )
+    return sp.cursor_rows(cursor), total
+
+
 def listar_pagos_extra(
     buscar=None,
     ordenar_por='FECHAPAGO',
     direccion='DESC',
     pagina=1,
     tamanio=10,
+    id_concepto=None,
 ):
-    params = [buscar or None, ordenar_por, direccion, pagina, tamanio]
+    params = [buscar or None, ordenar_por, direccion, pagina, tamanio, id_concepto or None]
     with connection.cursor() as cursor:
         if sp.is_mysql():
-            return sp.call_list(cursor, 'usp_pagoextra_listar', params)
+            try:
+                return sp.call_list(cursor, 'usp_pagoextra_listar', params)
+            except Exception:
+                try:
+                    sp.drain_sets(cursor)
+                except Exception:
+                    pass
+                return _listar_pagos_extra_mysql(
+                    cursor, buscar, ordenar_por, direccion, pagina, tamanio, id_concepto
+                )
         cursor.execute(
             """
             DECLARE @Total INT;
             EXEC dbo.usp_pagoextra_listar
                 @Buscar=%s, @OrdenarPor=%s, @Direccion=%s,
-                @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
+                @Pagina=%s, @TamanioPagina=%s, @IdConcepto=%s,
+                @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
             params,
@@ -189,7 +287,15 @@ def eliminar_pago_extra(id_pago: str, id_usuario=None):
 
 
 def listar_catalogos_pago_extra():
-    return {'conceptos': listar_conceptos_activos()}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'SELECT IDCONCEPTO, NOMBRE FROM CONCEPTOPAGOEXTRA ORDER BY NOMBRE'
+        )
+        conceptos_filtro = sp.cursor_rows(cursor)
+    return {
+        'conceptos': listar_conceptos_activos(),
+        'conceptosFiltro': conceptos_filtro,
+    }
 
 
 def conceptos_estudiante(id_usuario: str):

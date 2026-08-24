@@ -250,6 +250,12 @@ def listar_cuotas(id_mensualidad: str):
 def listar_pagos_mensualidad(id_mensualidad: str):
     with connection.cursor() as cursor:
         if sp.is_mysql():
+            try:
+                return sp.call_simple(cursor, 'usp_mensualidad_listar_pagos', [id_mensualidad])
+            except Exception as exc:
+                msg = str(exc).lower()
+                if '1305' not in str(exc) and 'does not exist' not in msg:
+                    raise
             cursor.execute(
                 """
                 SELECT
@@ -261,51 +267,24 @@ def listar_pagos_mensualidad(id_mensualidad: str):
                     p.MONTO + IFNULL(p.MORA, 0) AS TOTAL_COBRADO,
                     p.FECHAPAGO,
                     p.HORAPAGO,
-                    p.OBSERVACIONES,
-                    IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
-                    UPPER(TRIM(CONCAT(IFNULL(reg.APELLIDO, ''), ' ', IFNULL(reg.NOMBRE, ''))))
-                        AS REGISTRADO_POR
+                    p.IDMETODOPAGO,
+                    IFNULL(mp.TITULO, '') AS METODOPAGO_TITULO
                 FROM PAGOMENSUALIDAD p
                 LEFT JOIN MENSUALIDAD_CUOTA c ON c.IDCUOTA = p.IDCUOTA
                 LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
-                LEFT JOIN USUARIO reg ON reg.IDUSUARIO = p.IDUSUARIO
                 WHERE p.IDMENSUALIDAD = %s
                 ORDER BY
-                    CONCAT(SUBSTRING(p.FECHAPAGO,5,4), SUBSTRING(p.FECHAPAGO,3,2), SUBSTRING(p.FECHAPAGO,1,2)) DESC,
+                    STR_TO_DATE(p.FECHAPAGO, '%%d%%m%%Y') DESC,
                     p.HORAPAGO DESC,
                     p.IDPAGOMENSUALIDAD DESC
                 """,
                 [id_mensualidad],
             )
-        else:
-            cursor.execute(
-                """
-                SELECT
-                    p.IDPAGOMENSUALIDAD,
-                    p.IDCUOTA,
-                    c.NUMERO AS CUOTA_NUMERO,
-                    p.MONTO,
-                    ISNULL(p.MORA, 0) AS MORA,
-                    p.MONTO + ISNULL(p.MORA, 0) AS TOTAL_COBRADO,
-                    p.FECHAPAGO,
-                    p.HORAPAGO,
-                    p.OBSERVACIONES,
-                    ISNULL(mp.TITULO, '') AS METODOPAGO_TITULO,
-                    UPPER(LTRIM(RTRIM(ISNULL(reg.APELLIDO, '') + ' ' + ISNULL(reg.NOMBRE, ''))))
-                        AS REGISTRADO_POR
-                FROM PAGOMENSUALIDAD p
-                LEFT JOIN MENSUALIDAD_CUOTA c ON c.IDCUOTA = p.IDCUOTA
-                LEFT JOIN METODO_PAGO mp ON mp.IDMETODOPAGO = p.IDMETODOPAGO
-                LEFT JOIN USUARIO reg ON reg.IDUSUARIO = p.IDUSUARIO
-                WHERE p.IDMENSUALIDAD = %s
-                ORDER BY
-                    SUBSTRING(p.FECHAPAGO,5,4) + SUBSTRING(p.FECHAPAGO,3,2)
-                        + SUBSTRING(p.FECHAPAGO,1,2) DESC,
-                    p.HORAPAGO DESC,
-                    p.IDPAGOMENSUALIDAD DESC
-                """,
-                [id_mensualidad],
-            )
+            return sp.cursor_rows(cursor)
+        cursor.execute(
+            'EXEC dbo.usp_mensualidad_listar_pagos @IdMensualidad=%s',
+            [id_mensualidad],
+        )
         return sp.cursor_rows(cursor)
 
 
