@@ -193,6 +193,194 @@ def generar_cuotas_mensualidad(
         return creado
 
 
+MSG_REDUCIR_CUOTAS_PAGADAS = (
+    'No se pueden reducir los meses porque hay cuotas pagadas.'
+)
+
+
+def _es_retirado(estado) -> bool:
+    return str(estado or '').strip().lower() == 'retirado'
+
+
+def _sql_es_retirado(alias_usuario: str) -> str:
+    if sp.is_mysql():
+        return f"UPPER(TRIM(IFNULL({alias_usuario}.ESTADO, ''))) = 'RETIRADO'"
+    return f"UPPER(LTRIM(RTRIM(ISNULL({alias_usuario}.ESTADO, N'')))) = N'RETIRADO'"
+
+
+def _insertar_cuota(cursor, id_mensualidad, numero, fi, ff, monto, id_actor):
+    id_cuota = _siguiente_id_cuota(cursor)
+    if sp.is_mysql():
+        cursor.execute(
+            """
+            INSERT INTO MENSUALIDAD_CUOTA (
+                IDCUOTA, IDMENSUALIDAD, NUMERO, FECHAINICIO, FECHAFIN, MONTO, ESTADO,
+                CREADO_POR, FECHACREACION, HORACREACION
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, 'Pendiente',
+                %s, fn_fecha_ddmmyyyy(), TIME_FORMAT(NOW(), '%%H:%%i:%%s')
+            )
+            """,
+            [id_cuota, id_mensualidad, numero, fi, ff, float(monto or 0), id_actor],
+        )
+    else:
+        cursor.execute(
+            """
+            INSERT INTO MENSUALIDAD_CUOTA (
+                IDCUOTA, IDMENSUALIDAD, NUMERO, FECHAINICIO, FECHAFIN, MONTO, ESTADO,
+                CREADO_POR, FECHACREACION, HORACREACION
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, N'Pendiente',
+                %s, dbo.fn_fecha_ddmmyyyy(), CONVERT(CHAR(8), GETDATE(), 108)
+            )
+            """,
+            [id_cuota, id_mensualidad, numero, fi, ff, float(monto or 0), id_actor],
+        )
+    return id_cuota
+
+
+def _actualizar_fechas_cuota(cursor, id_cuota, fi, ff, id_actor):
+    if sp.is_mysql():
+        cursor.execute(
+            """
+            UPDATE MENSUALIDAD_CUOTA SET
+                FECHAINICIO = %s,
+                FECHAFIN = %s,
+                MODIFICADO_POR = %s,
+                FECHAMODIFICACION = fn_fecha_ddmmyyyy(),
+                HORAMODIFICACION = TIME_FORMAT(NOW(), '%%H:%%i:%%s')
+            WHERE IDCUOTA = %s
+            """,
+            [fi, ff, id_actor, id_cuota],
+        )
+    else:
+        cursor.execute(
+            """
+            UPDATE MENSUALIDAD_CUOTA SET
+                FECHAINICIO = %s,
+                FECHAFIN = %s,
+                MODIFICADO_POR = %s,
+                FECHAMODIFICACION = dbo.fn_fecha_ddmmyyyy(),
+                HORAMODIFICACION = CONVERT(CHAR(8), GETDATE(), 108)
+            WHERE IDCUOTA = %s
+            """,
+            [fi, ff, id_actor, id_cuota],
+        )
+
+
+def _cuotas_de_mensualidad(cursor, id_mensualidad: str) -> list[dict]:
+    cursor.execute(
+        """
+        SELECT
+            c.IDCUOTA,
+            c.NUMERO,
+            c.FECHAINICIO,
+            c.FECHAFIN,
+            c.MONTO,
+            c.ESTADO,
+            IFNULL(SUM(p.MONTO), 0) AS PAGADO,
+            COUNT(p.IDPAGOMENSUALIDAD) AS CANT_PAGOS
+        FROM MENSUALIDAD_CUOTA c
+        LEFT JOIN PAGOMENSUALIDAD p ON p.IDCUOTA = c.IDCUOTA
+        WHERE c.IDMENSUALIDAD = %s
+        GROUP BY c.IDCUOTA, c.NUMERO, c.FECHAINICIO, c.FECHAFIN, c.MONTO, c.ESTADO
+        ORDER BY c.NUMERO
+        """
+        if sp.is_mysql()
+        else """
+        SELECT
+            c.IDCUOTA,
+            c.NUMERO,
+            c.FECHAINICIO,
+            c.FECHAFIN,
+            c.MONTO,
+            c.ESTADO,
+            ISNULL(SUM(p.MONTO), 0) AS PAGADO,
+            COUNT(p.IDPAGOMENSUALIDAD) AS CANT_PAGOS
+        FROM MENSUALIDAD_CUOTA c
+        LEFT JOIN PAGOMENSUALIDAD p ON p.IDCUOTA = c.IDCUOTA
+        WHERE c.IDMENSUALIDAD = %s
+        GROUP BY c.IDCUOTA, c.NUMERO, c.FECHAINICIO, c.FECHAFIN, c.MONTO, c.ESTADO
+        ORDER BY c.NUMERO
+        """,
+        [id_mensualidad],
+    )
+    return sp.cursor_rows(cursor)
+
+
+def _cuota_bloquea_eliminacion(row: dict) -> bool:
+    if float(row.get('PAGADO') or 0) > 0.0001:
+        return True
+    if int(row.get('CANT_PAGOS') or 0) > 0:
+        return True
+    return str(row.get('ESTADO') or '').strip().lower() == 'pagada'
+
+
+def sincronizar_cuotas_mensualidad(
+    cursor,
+    id_mensualidad: str,
+    fecha_inicio: str,
+    fecha_fin: str,
+    id_plan: str | None = None,
+    id_actor: str | None = None,
+    aplicar: bool = True,
+) -> tuple[int, str]:
+    """Alinea las cuotas con las fechas nuevas de la matrícula.
+
+    Si se reducen periodos y alguna cuota a eliminar tiene pagos, no aplica cambios.
+    """
+    if not tabla_cuotas_existe(cursor):
+        return 1, ''
+
+    periodos = generar_periodos_cuota(fecha_inicio, fecha_fin)
+    if not periodos:
+        return 0, 'Las fechas de la mensualidad no generan cuotas. Revisa inicio y fin.'
+
+    existentes = _cuotas_de_mensualidad(cursor, id_mensualidad)
+    n_nuevo = len(periodos)
+    n_actual = len(existentes)
+
+    if n_nuevo < n_actual:
+        a_borrar = existentes[n_nuevo:]
+        if any(_cuota_bloquea_eliminacion(c) for c in a_borrar):
+            return 0, MSG_REDUCIR_CUOTAS_PAGADAS
+
+    if not aplicar:
+        return 1, ''
+
+    if n_actual == 0:
+        generar_cuotas_mensualidad(
+            id_mensualidad,
+            fecha_inicio,
+            fecha_fin,
+            id_plan=id_plan,
+            id_actor=id_actor,
+        )
+        return 1, ''
+
+    for i, (fi, ff) in enumerate(periodos):
+        if i < n_actual:
+            actual = existentes[i]
+            if str(actual.get('FECHAINICIO') or '') != fi or str(actual.get('FECHAFIN') or '') != ff:
+                _actualizar_fechas_cuota(cursor, actual['IDCUOTA'], fi, ff, id_actor)
+            continue
+        monto = float((existentes[-1].get('MONTO') if existentes else 0) or 0)
+        if monto <= 0 and id_plan:
+            monto = _costo_plan(cursor, id_plan)
+        _insertar_cuota(cursor, id_mensualidad, i + 1, fi, ff, monto, id_actor)
+
+    if n_nuevo < n_actual:
+        ids = [c['IDCUOTA'] for c in existentes[n_nuevo:]]
+        if ids:
+            marcas = ','.join(['%s'] * len(ids))
+            cursor.execute(
+                f'DELETE FROM MENSUALIDAD_CUOTA WHERE IDCUOTA IN ({marcas})',
+                ids,
+            )
+
+    return 1, ''
+
+
 def listar_cuotas_mensualidad(id_mensualidad: str) -> list[dict]:
     with connection.cursor() as cursor:
         if not tabla_cuotas_existe(cursor):
@@ -284,6 +472,18 @@ def listar_cuotas_mensualidad(id_mensualidad: str) -> list[dict]:
 
 def deuda_exigible_mensualidad(cursor, id_mensualidad: str) -> float:
     """Deuda exigible: cuotas con FECHAINICIO <= hoy y saldo > 0. Legacy: MONTOTOTAL - PAGADO."""
+    cursor.execute(
+        """
+        SELECT u.ESTADO
+        FROM MENSUALIDAD m
+        INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+        WHERE m.IDMENSUALIDAD = %s
+        """,
+        [id_mensualidad],
+    )
+    est = cursor.fetchone()
+    if est and _es_retirado(est[0]):
+        return 0.0
     if not tabla_cuotas_existe(cursor):
         return _deuda_legacy(cursor, id_mensualidad)
     if not mensualidad_tiene_cuotas(cursor, id_mensualidad):
@@ -430,10 +630,11 @@ def sincronizar_estado_cuota(cursor, id_cuota: str) -> None:
     )
 
 
-def sql_deuda_exigible_expr(alias_m='m') -> str:
+def sql_deuda_exigible_expr(alias_m='m', alias_usuario=None) -> str:
     """
     Expresión SQL reutilizable: si hay cuotas usa deuda exigible; si no, fórmula legacy.
     Requiere que exista MENSUALIDAD_CUOTA (llamar solo tras verificar).
+    Si alias_usuario está presente, estudiantes Retirado cuentan 0.
     """
     hoy = _hoy_db()
     if sp.is_mysql():
@@ -442,7 +643,7 @@ def sql_deuda_exigible_expr(alias_m='m') -> str:
             f"CONCAT(SUBSTRING('{hoy}',5,4), SUBSTRING('{hoy}',3,2), "
             f"SUBSTRING('{hoy}',1,2))"
         )
-        return f"""
+        inner = f"""
         CASE
             WHEN EXISTS (
                 SELECT 1 FROM MENSUALIDAD_CUOTA cx WHERE cx.IDMENSUALIDAD = {alias_m}.IDMENSUALIDAD
@@ -472,9 +673,10 @@ def sql_deuda_exigible_expr(alias_m='m') -> str:
             )
         END
         """
-    fs_c = fecha_sort_expr('c.FECHAINICIO')
-    fs_hoy = f"SUBSTRING('{hoy}',5,4) + SUBSTRING('{hoy}',3,2) + SUBSTRING('{hoy}',1,2)"
-    return f"""
+    else:
+        fs_c = fecha_sort_expr('c.FECHAINICIO')
+        fs_hoy = f"SUBSTRING('{hoy}',5,4) + SUBSTRING('{hoy}',3,2) + SUBSTRING('{hoy}',1,2)"
+        inner = f"""
         CASE
             WHEN EXISTS (
                 SELECT 1 FROM MENSUALIDAD_CUOTA cx WHERE cx.IDMENSUALIDAD = {alias_m}.IDMENSUALIDAD
@@ -502,6 +704,9 @@ def sql_deuda_exigible_expr(alias_m='m') -> str:
             )
         END
         """
+    if not alias_usuario:
+        return inner
+    return f"CASE WHEN {_sql_es_retirado(alias_usuario)} THEN 0 ELSE ({inner}) END"
 
 
 def _vence_periodo_derivado(fecha_inicio_db, fecha_fin_db, hoy_db: str) -> str | None:
@@ -552,8 +757,10 @@ def vence_cuota_vigente_map(id_usuarios, hoy_db: str | None = None) -> dict[str,
                     SELECT m.IDUSUARIO, c.FECHAFIN
                     FROM MENSUALIDAD_CUOTA c
                     INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = c.IDMENSUALIDAD
+                    INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
                     WHERE m.IDUSUARIO IN ({marcas})
                       AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                      AND NOT ({_sql_es_retirado('u')})
                       AND {fs_ini} <= {fs_hoy}
                       AND {fs_fin} >= {fs_hoy}
                     ORDER BY {fs_reg} DESC, c.NUMERO DESC
@@ -572,8 +779,10 @@ def vence_cuota_vigente_map(id_usuarios, hoy_db: str | None = None) -> dict[str,
                 f"""
                 SELECT m.IDUSUARIO, m.FECHAINICIO, m.FECHAFIN, m.FECHAREGISTRO
                 FROM MENSUALIDAD m
+                INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
                 WHERE m.IDUSUARIO IN ({marcas_p})
                   AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                  AND NOT ({_sql_es_retirado('u')})
                 """,
                 pendientes,
             )
@@ -613,8 +822,10 @@ def fecha_vence_cuota_vigente(id_usuario: str, hoy_db: str | None = None) -> str
             SELECT c.FECHAFIN
             FROM MENSUALIDAD_CUOTA c
             INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = c.IDMENSUALIDAD
+            INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
             WHERE m.IDUSUARIO = %s
               AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+              AND NOT ({_sql_es_retirado('u')})
               AND {fs_ini} <= {fs_hoy}
               AND {fs_fin} >= {fs_hoy}
             ORDER BY m.FECHAREGISTRO DESC, c.NUMERO DESC
@@ -625,8 +836,10 @@ def fecha_vence_cuota_vigente(id_usuario: str, hoy_db: str | None = None) -> str
             SELECT TOP 1 c.FECHAFIN
             FROM MENSUALIDAD_CUOTA c
             INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = c.IDMENSUALIDAD
+            INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
             WHERE m.IDUSUARIO = %s
               AND (m.ESTADO IS NULL OR m.ESTADO = N'Activo')
+              AND NOT ({_sql_es_retirado('u')})
               AND {fs_ini} <= {fs_hoy}
               AND {fs_fin} >= {fs_hoy}
             ORDER BY m.FECHAREGISTRO DESC, c.NUMERO DESC

@@ -260,7 +260,14 @@ def _construir_filas(estudiantes, asistencias, dias, justificaciones=None):
             asist_pct = 0
 
         fecha_vence = est.get('FECHA_VENCE_CUOTA') or est.get('FECHA_VENCE')
-        estado_vence = _estado_vencimiento_mensualidad(fecha_vence)
+        estado_usuario = str(est.get('ESTADO') or '').strip()
+        es_retirado = estado_usuario.lower() == 'retirado'
+        if es_retirado:
+            estado_vence = ''
+            vence_txt = 'Retirado'
+        else:
+            estado_vence = _estado_vencimiento_mensualidad(fecha_vence)
+            vence_txt = _formatear_fecha_db(fecha_vence)
         filas.append({
             'numero': idx,
             'idusuario': uid,
@@ -269,9 +276,9 @@ def _construir_filas(estudiantes, asistencias, dias, justificaciones=None):
             'aula': est.get('AULA') or '',
             'ciclo': est.get('CICLO') or '',
             'estado': est.get('ESTADO') or 'ACTIVO',
-            'vence': _formatear_fecha_db(fecha_vence),
-            'venceEn3Dias': estado_vence == 'proxima',
-            'venceVencida': estado_vence == 'vencida',
+            'vence': vence_txt,
+            'venceEn3Dias': (not es_retirado) and estado_vence == 'proxima',
+            'venceVencida': (not es_retirado) and estado_vence == 'vencida',
             'marcas': marcas,
             'diasNoLectivos': list(dias_no_lectivos),
             'diasFueraMensualidad': list(dias_fuera_mensualidad),
@@ -334,6 +341,9 @@ def _aplicar_vence_cuota(estudiantes):
     except Exception:
         return estudiantes
     for est in estudiantes:
+        if str(est.get('ESTADO') or '').strip().lower() == 'retirado':
+            est['FECHA_VENCE_CUOTA'] = None
+            continue
         vence = mapa.get(str(est.get('IDUSUARIO') or ''))
         if vence:
             est['FECHA_VENCE_CUOTA'] = vence

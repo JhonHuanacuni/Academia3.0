@@ -72,8 +72,9 @@ def _listar_pagos_agrupado_mysql(
     from .cuota_service import sql_deuda_exigible_expr, tabla_cuotas_existe
 
     hay_cuotas = tabla_cuotas_existe(cursor)
-    deuda_sql = sql_deuda_exigible_expr('m') if hay_cuotas else """
-        CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
+    deuda_sql = sql_deuda_exigible_expr('m', 'u') if hay_cuotas else """
+        CASE WHEN UPPER(TRIM(IFNULL(u.ESTADO, ''))) = 'RETIRADO' THEN 0
+             WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
              ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END
     """
     cuota_join = """
@@ -159,6 +160,7 @@ def _listar_pagos_agrupado_mysql(
             m.IDUSUARIO,
             {nombre} AS ESTUDIANTE_NOMBRE,
             u.DNI AS ESTUDIANTE_DNI,
+            u.ESTADO AS ESTUDIANTE_ESTADO,
             pl.NOMBRE AS PLAN_NOMBRE,
             ca.NUMERO AS CUOTA_NUMERO,
             IFNULL(ca.MONTO, m.MONTOTOTAL) AS TOTAL,
@@ -343,6 +345,9 @@ def mensualidades_estudiante(id_usuario: str):
         if not tabla_cuotas_existe(cursor):
             return rows
 
+        cursor.execute('SELECT ESTADO FROM USUARIO WHERE IDUSUARIO = %s', [id_usuario])
+        estado_est = str((cursor.fetchone() or [''])[0] or '')
+
         out = []
         for r in rows:
             id_m = r.get('IDMENSUALIDAD')
@@ -350,6 +355,7 @@ def mensualidades_estudiante(id_usuario: str):
             deuda = deuda_exigible_mensualidad(cursor, id_m) if cuotas else float(r.get('DEUDA') or 0)
             out.append({
                 **r,
+                'ESTUDIANTE_ESTADO': estado_est,
                 'DEUDA': deuda,
                 'DEUDA_EXIGIBLE': deuda,
                 'TIENE_CUOTAS': len(cuotas) > 0,

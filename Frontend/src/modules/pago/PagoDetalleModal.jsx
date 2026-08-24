@@ -28,8 +28,10 @@ export default function PagoDetalleModal({
 }) {
   if (!abierto) return null;
 
+  const retirado =
+    String(resumen?.estudianteEstado || "").trim().toLowerCase() === "retirado";
   const deuda = Number(resumen?.deuda);
-  const tieneDeuda = !Number.isNaN(deuda) && deuda > 0;
+  const tieneDeuda = !retirado && !Number.isNaN(deuda) && deuda > 0;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -58,8 +60,8 @@ export default function PagoDetalleModal({
                 <div className="pago-mensualidad-montos mens-pagos-montos">
                   <span>Total: {dinero(resumen.montoTotal)}</span>
                   <span>Pagado: {dinero(resumen.pagado)}</span>
-                  <span className={tieneDeuda ? "deuda" : "ok"}>
-                    {tieneDeuda ? `Deuda: ${dinero(deuda)}` : "Completado"}
+                  <span className={retirado ? "" : tieneDeuda ? "deuda" : "ok"}>
+                    {retirado ? "Retirado" : tieneDeuda ? `Deuda: ${dinero(deuda)}` : "Completado"}
                   </span>
                 </div>
               )}

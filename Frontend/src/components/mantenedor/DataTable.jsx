@@ -16,6 +16,10 @@ import {
 import { dbToView, diasRestantesDesdeDb, textoDiasRestantes, claseDiasRestantes } from "../../utils/fecha";
 import { resumenDiasAsistencia } from "../../utils/diasPlan";
 
+function esEstudianteRetirado(row) {
+  return String(row?.ESTUDIANTE_ESTADO || "").trim().toLowerCase() === "retirado";
+}
+
 function renderCell(col, row, index = 0, offset = 0) {
   if (col.tipo === "numero") {
     return offset + index + 1;
@@ -51,6 +55,9 @@ function renderCell(col, row, index = 0, offset = 0) {
   }
 
   if (col.tipo === "deudaCompletado") {
+    if (esEstudianteRetirado(row)) {
+      return <span className="badge-estado inactivo">Retirado</span>;
+    }
     const n = Number(value);
     if (value == null || value === "" || Number.isNaN(n) || n <= 0) {
       return <span className="badge-estado activo">Completado</span>;
@@ -104,6 +111,9 @@ function renderCell(col, row, index = 0, offset = 0) {
   }
   if (col.tipo === "fecha") return dbToView(String(value));
   if (col.tipo === "deuda") {
+    if (esEstudianteRetirado(row)) {
+      return <span className="badge-estado inactivo">Retirado</span>;
+    }
     const n = Number(value);
     if (value == null || value === "" || Number.isNaN(n) || n <= 0) {
       return <span className="badge-estado activo">Sin deuda</span>;

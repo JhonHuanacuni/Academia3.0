@@ -35,6 +35,10 @@ function dinero(n) {
   return `S/ ${v.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function esEstudianteRetirado(row) {
+  return String(row?.ESTUDIANTE_ESTADO || "").trim().toLowerCase() === "retirado";
+}
+
 function duracionDiasDb(inicioDb, finDb) {
   const a = dbToInput(String(inicioDb || ""));
   const b = dbToInput(String(finDb || ""));
@@ -482,7 +486,13 @@ export default function PagoPage() {
                       </span>
                     </div>
                     <div className="pago-abono-deuda">
-                      Deuda exigible: <strong>{dinero(seleccionada.DEUDA)}</strong>
+                      {esEstudianteRetirado(seleccionada)
+                        ? "Retirado"
+                        : (
+                          <>
+                            Deuda exigible: <strong>{dinero(seleccionada.DEUDA)}</strong>
+                          </>
+                          )}
                     </div>
                   </div>
                   {errors.mensualidad && <span className="field-error">{errors.mensualidad}</span>}
@@ -737,7 +747,8 @@ export default function PagoPage() {
               )}
               <div className="pago-mensualidades-list">
                 {mensualidades.map((m) => {
-                  const deuda = Number(m.DEUDA) || 0;
+                  const retirado = esEstudianteRetirado(m);
+                  const deuda = retirado ? 0 : Number(m.DEUDA) || 0;
                   const activa = seleccionada?.IDMENSUALIDAD === m.IDMENSUALIDAD;
                   const contenido = (
                     <>
@@ -769,8 +780,12 @@ export default function PagoPage() {
                       </div>
                       <div className="pago-mensualidad-montos">
                         <span>Pagado: {dinero(m.PAGADO)}</span>
-                        <span className={deuda > 0 ? "deuda" : "ok"}>
-                          {deuda > 0 ? `Deuda exigible: ${dinero(deuda)}` : "Sin deuda exigible"}
+                        <span className={retirado ? "" : deuda > 0 ? "deuda" : "ok"}>
+                          {retirado
+                            ? "Retirado"
+                            : deuda > 0
+                              ? `Deuda exigible: ${dinero(deuda)}`
+                              : "Sin deuda exigible"}
                         </span>
                       </div>
                       {m.TIENE_CUOTAS && (
@@ -864,6 +879,7 @@ export default function PagoPage() {
                 montoTotal: grupoSel.TOTAL,
                 pagado: grupoSel.PAGADO,
                 deuda: grupoSel.DEUDA,
+                estudianteEstado: grupoSel.ESTUDIANTE_ESTADO,
               }
             : null
         }

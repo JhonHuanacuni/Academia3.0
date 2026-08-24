@@ -97,7 +97,7 @@ def _stats_mensualidades(estado_usuario=None):
     with connection.cursor() as cursor:
         usa_cuotas = tabla_cuotas_existe(cursor)
         if usa_cuotas:
-            deuda_expr = sql_deuda_exigible_expr('m')
+            deuda_expr = sql_deuda_exigible_expr('m', 'us')
             fs_ini = fecha_sort_expr('c.FECHAINICIO')
             fs_fin = fecha_sort_expr('c.FECHAFIN')
             if is_mysql():
@@ -138,6 +138,10 @@ def _stats_mensualidades(estado_usuario=None):
                 if is_mysql()
                 else """CASE WHEN ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) < 0 THEN 0
                          ELSE ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) END"""
+            )
+            from .cuota_service import _sql_es_retirado
+            deuda_expr = (
+                f"CASE WHEN {_sql_es_retirado('us')} THEN 0 ELSE ({deuda_expr}) END"
             )
             fecha_vence_expr = 'm.FECHAFIN'
 
@@ -218,7 +222,7 @@ def _stats_mensualidades(estado_usuario=None):
 
 
 def _deuda_cuotas_periodo(fecha_desde, fecha_hasta, estado_usuario=None):
-    from .cuota_service import tabla_cuotas_existe
+    from .cuota_service import _sql_es_retirado, tabla_cuotas_existe
 
     estado = estado_usuario if estado_usuario in ('Activo', 'Retirado') else None
     filtro_estado = f"AND u.ESTADO = '{estado}'" if estado else ''
@@ -241,6 +245,7 @@ def _deuda_cuotas_periodo(fecha_desde, fecha_hasta, estado_usuario=None):
                 INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
                     AND u.IDTIPOUSUARIO = '1'
                     {filtro_estado}
+                    AND NOT ({_sql_es_retirado('u')})
                 LEFT JOIN PAGOMENSUALIDAD p ON p.IDCUOTA = c.IDCUOTA
                 WHERE (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
                   AND {fs_inicio} <= %s

@@ -1,4 +1,4 @@
-from django.db import connection
+from django.db import connection, transaction
 from .db_context import prepare_write_cursor
 from .models import Aula
 from . import sp_runner as sp
@@ -36,7 +36,7 @@ def _listar_mensualidades_mysql(
 
     fs_reg = fecha_sort_expr('m.FECHAREGISTRO')
     if tabla_cuotas_existe(cursor):
-        deuda_expr = sql_deuda_exigible_expr('m')
+        deuda_expr = sql_deuda_exigible_expr('m', 'u')
     else:
         deuda_expr = """
             CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
@@ -50,6 +50,7 @@ def _listar_mensualidades_mysql(
                 m.IDUSUARIO,
                 UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE_NOMBRE,
                 u.DNI AS ESTUDIANTE_DNI,
+                u.ESTADO AS ESTUDIANTE_ESTADO,
                 m.IDPLAN,
                 pl.NOMBRE AS PLAN_NOMBRE,
                 IFNULL(tu.DESCRIPCION, '') AS TURNO_DESCRIPCION,
@@ -133,6 +134,7 @@ def _listar_mensualidades_mysql(
             IDUSUARIO,
             ESTUDIANTE_NOMBRE,
             ESTUDIANTE_DNI,
+            ESTUDIANTE_ESTADO,
             IDPLAN,
             PLAN_NOMBRE,
             TURNO_DESCRIPCION,
@@ -206,8 +208,11 @@ def listar_mensualidades_estudiante(id_usuario: str):
             )
             rows = sp.cursor_rows(cursor)
 
+        cursor.execute('SELECT ESTADO FROM USUARIO WHERE IDUSUARIO = %s', [id_usuario])
+        estado_est = str((cursor.fetchone() or [''])[0] or '')
+
         if not tabla_cuotas_existe(cursor):
-            return rows
+            return [{**r, 'ESTUDIANTE_ESTADO': estado_est} for r in rows]
 
         out = []
         for r in rows:
@@ -216,6 +221,7 @@ def listar_mensualidades_estudiante(id_usuario: str):
             cuotas = listar_cuotas_mensualidad(id_m)
             out.append({
                 **r,
+                'ESTUDIANTE_ESTADO': estado_est,
                 'DEUDA': deuda,
                 'DEUDA_EXIGIBLE': deuda,
                 'TIENE_CUOTAS': len(cuotas) > 0,
@@ -239,6 +245,17 @@ def obtener_mensualidad(id_mensualidad: str):
             row['DEUDA_EXIGIBLE'] = deuda_exigible_mensualidad(cursor, id_mensualidad)
             if cuotas:
                 row['DEUDA'] = row['DEUDA_EXIGIBLE']
+        cursor.execute(
+            """
+            SELECT u.ESTADO FROM MENSUALIDAD m
+            INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+            WHERE m.IDMENSUALIDAD = %s
+            """,
+            [id_mensualidad],
+        )
+        est = cursor.fetchone()
+        if est:
+            row['ESTUDIANTE_ESTADO'] = est[0]
     return row
 
 
@@ -407,6 +424,8 @@ def _asociar_pago_inicial_primera_cuota(cursor, id_mensualidad: str):
 
 
 def actualizar_mensualidad(id_mensualidad: str, payload: dict, id_usuario=None):
+    from .cuota_service import sincronizar_cuotas_mensualidad, tabla_cuotas_existe
+
     params = [
         id_mensualidad,
         payload['IDUSUARIO'],
@@ -420,23 +439,53 @@ def actualizar_mensualidad(id_mensualidad: str, payload: dict, id_usuario=None):
         payload.get('OBSERVACIONES') or None,
         payload.get('FECHACANCELACION') or None,
     ]
-    with connection.cursor() as cursor:
-        prepare_write_cursor(cursor, id_usuario, payload)
-        if sp.is_mysql():
-            return sp.call_write(cursor, 'usp_mensualidad_actualizar', params)
-        cursor.execute(
-            """
-            DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_mensualidad_actualizar
-                @Id=%s, @IdUsuario=%s, @IdPlan=%s, @EstadoMiembro=%s,
-                @FechaInicio=%s, @FechaFin=%s, @MontoTotal=%s,
-                @IdAula=%s, @IdTutor=%s, @Observaciones=%s, @FechaCancelacion=%s,
-                @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
-            SELECT @R AS Resultado, @M AS Mensaje;
-            """,
-            params,
-        )
-        return _read_sp_write_result(cursor)
+    actor = id_usuario or payload.get('REGISTRADOPOR')
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            prepare_write_cursor(cursor, id_usuario, payload)
+            if tabla_cuotas_existe(cursor):
+                ok_c, msg_c = sincronizar_cuotas_mensualidad(
+                    cursor,
+                    id_mensualidad,
+                    payload['FECHAINICIO'],
+                    payload['FECHAFIN'],
+                    id_plan=payload.get('IDPLAN'),
+                    id_actor=actor,
+                    aplicar=False,
+                )
+                if not ok_c:
+                    return 0, msg_c
+            if sp.is_mysql():
+                ok, mensaje = sp.call_write(cursor, 'usp_mensualidad_actualizar', params)
+            else:
+                cursor.execute(
+                    """
+                    DECLARE @R INT, @M NVARCHAR(200);
+                    EXEC dbo.usp_mensualidad_actualizar
+                        @Id=%s, @IdUsuario=%s, @IdPlan=%s, @EstadoMiembro=%s,
+                        @FechaInicio=%s, @FechaFin=%s, @MontoTotal=%s,
+                        @IdAula=%s, @IdTutor=%s, @Observaciones=%s, @FechaCancelacion=%s,
+                        @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
+                    SELECT @R AS Resultado, @M AS Mensaje;
+                    """,
+                    params,
+                )
+                ok, mensaje = _read_sp_write_result(cursor)
+            if not ok:
+                return ok, mensaje
+            if tabla_cuotas_existe(cursor):
+                ok_c, msg_c = sincronizar_cuotas_mensualidad(
+                    cursor,
+                    id_mensualidad,
+                    payload['FECHAINICIO'],
+                    payload['FECHAFIN'],
+                    id_plan=payload.get('IDPLAN'),
+                    id_actor=actor,
+                    aplicar=True,
+                )
+                if not ok_c:
+                    raise RuntimeError(msg_c)
+            return ok, mensaje
 
 
 def eliminar_mensualidad(id_mensualidad: str, id_usuario: str | None = None):
