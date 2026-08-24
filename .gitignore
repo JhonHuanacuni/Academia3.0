@@ -84,3 +84,5 @@ Desktop.ini
 *_jose.py
 *_jose.*
 *load_sqlite_data_jose*
+Backend/data/vita_*.sql
+Backend/data/vita_export/
