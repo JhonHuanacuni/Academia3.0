@@ -127,8 +127,20 @@ const Navbar = ({ role, idusuario, onToggleSidebar, onLogout }) => {
                   {mensajes.map((m) => (
                     <li key={m.IDMENSAJE} className="navbar-notif-item">
                       <div className="navbar-notif-title">{m.TITULO || "Aviso"}</div>
-                      <div className="navbar-notif-author">
-                        {(m.AUTOR || "").trim() || "Academia"}
+                      <div className="navbar-notif-author-row">
+                        <span className="navbar-notif-author">
+                          {(m.AUTOR || "").trim() || "Academia"}
+                        </span>
+                        <select
+                          className="navbar-notif-cargo"
+                          value={m.CARGO || "Administrador"}
+                          disabled
+                          aria-label="Cargo del autor"
+                        >
+                          <option value="Trabajador">Trabajador</option>
+                          <option value="Administrador">Administrador</option>
+                          <option value="Desarrollador">Desarrollador</option>
+                        </select>
                       </div>
                       <p className="navbar-notif-body">{recortar(m.MENSAJE)}</p>
                       {(m.FECHAINICIO || m.FECHAFIN) && (

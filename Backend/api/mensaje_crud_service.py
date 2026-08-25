@@ -40,6 +40,7 @@ def insertar_mensaje(payload: dict, id_usuario=None):
         payload.get('FECHAINICIO'),
         payload.get('FECHAFIN'),
         payload.get('DESTINATARIO') or 'Estudiantes',
+        payload.get('CARGO') or 'Administrador',
         payload.get('ESTADO') or 'Activo',
     ]
     with connection.cursor() as cursor:
@@ -62,6 +63,7 @@ def actualizar_mensaje(id_mensaje: str, payload: dict, id_usuario=None):
         payload.get('FECHAINICIO'),
         payload.get('FECHAFIN'),
         payload.get('DESTINATARIO') or 'Estudiantes',
+        payload.get('CARGO') or 'Administrador',
         payload.get('ESTADO') or 'Activo',
     ]
     with connection.cursor() as cursor:

@@ -9,6 +9,7 @@ export const mensajeConfig = {
     { campo: "FECHAINICIO", etiqueta: "Inicio", tipo: "fecha", ordenable: true },
     { campo: "FECHAFIN", etiqueta: "Fin", tipo: "fecha", ordenable: true },
     { campo: "AUTOR", etiqueta: "Autor", ordenable: true },
+    { campo: "CARGO", etiqueta: "Cargo", ordenable: true },
     { campo: "ESTADO", etiqueta: "Estado", tipo: "estado", ordenable: true },
   ],
   secciones: [
@@ -31,6 +32,14 @@ export const mensajeConfig = {
           opciones: ["Estudiantes", "Trabajadores", "Todos"],
           obligatorio: true,
           defaultValue: "Estudiantes",
+        },
+        {
+          campo: "CARGO",
+          etiqueta: "Cargo del autor",
+          control: "select",
+          opciones: ["Trabajador", "Administrador", "Desarrollador"],
+          obligatorio: true,
+          defaultValue: "Administrador",
         },
         {
           campo: "FECHAINICIO",

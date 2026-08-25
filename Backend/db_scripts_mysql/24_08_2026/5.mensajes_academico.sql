@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS MENSAJE (
     FECHAINICIO         CHAR(8)       NOT NULL,
     FECHAFIN            CHAR(8)       NOT NULL,
     DESTINATARIO        VARCHAR(30)   NOT NULL DEFAULT 'Estudiantes',
+    CARGO               VARCHAR(30)   NOT NULL DEFAULT 'Administrador',
     ESTADO              VARCHAR(50)   NOT NULL DEFAULT 'Activo',
     CREADO_POR          VARCHAR(50)   NULL,
     FECHACREACION       CHAR(8)       NULL,
@@ -78,6 +79,7 @@ main: BEGIN
         m.FECHAINICIO,
         m.FECHAFIN,
         m.DESTINATARIO,
+        m.CARGO,
         m.ESTADO,
         m.CREADO_POR,
         TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, ''))) AS AUTOR,
@@ -127,6 +129,7 @@ main: BEGIN
         m.FECHAINICIO,
         m.FECHAFIN,
         m.DESTINATARIO,
+        m.CARGO,
         m.ESTADO,
         m.CREADO_POR,
         TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, ''))) AS AUTOR,
@@ -146,6 +149,7 @@ CREATE PROCEDURE usp_mensaje_insertar(
     IN p_FechaInicio CHAR(8),
     IN p_FechaFin CHAR(8),
     IN p_Destinatario VARCHAR(30),
+    IN p_Cargo VARCHAR(30),
     IN p_Estado VARCHAR(50),
     OUT p_IdGenerado VARCHAR(50),
     OUT p_Resultado INT,
@@ -156,6 +160,7 @@ main: BEGIN
     DECLARE v_Fecha CHAR(8);
     DECLARE v_Hora CHAR(8);
     DECLARE v_Dest VARCHAR(30);
+    DECLARE v_Cargo VARCHAR(30);
     DECLARE v_Estado VARCHAR(50);
 
     SET p_IdGenerado = NULL;
@@ -165,6 +170,7 @@ main: BEGIN
         DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 HOUR)
     ), '%H:%i:%s');
     SET v_Dest = NULLIF(TRIM(p_Destinatario), '');
+    SET v_Cargo = IFNULL(NULLIF(TRIM(p_Cargo), ''), 'Administrador');
     SET v_Estado = IFNULL(NULLIF(TRIM(p_Estado), ''), 'Activo');
 
     IF p_Titulo IS NULL OR TRIM(p_Titulo) = '' THEN
@@ -191,17 +197,21 @@ main: BEGIN
         SET p_Resultado = 0; SET p_MensajeOut = 'Selecciona a quién va el mensaje.';
         LEAVE main;
     END IF;
+    IF v_Cargo NOT IN ('Trabajador', 'Administrador', 'Desarrollador') THEN
+        SET p_Resultado = 0; SET p_MensajeOut = 'Selecciona el cargo del autor.';
+        LEAVE main;
+    END IF;
 
     SELECT IFNULL(MAX(CAST(REPLACE(IDMENSAJE, 'MSG', '') AS UNSIGNED)), 0) + 1 INTO v_Next
     FROM MENSAJE WHERE IDMENSAJE LIKE 'MSG%';
     SET p_IdGenerado = CONCAT('MSG', LPAD(CAST(v_Next AS CHAR), 3, '0'));
 
     INSERT INTO MENSAJE (
-        IDMENSAJE, TITULO, MENSAJE, FECHAINICIO, FECHAFIN, DESTINATARIO, ESTADO,
+        IDMENSAJE, TITULO, MENSAJE, FECHAINICIO, FECHAFIN, DESTINATARIO, CARGO, ESTADO,
         CREADO_POR, FECHACREACION, HORACREACION
     ) VALUES (
         p_IdGenerado, TRIM(p_Titulo), TRIM(p_Mensaje), p_FechaInicio, p_FechaFin,
-        v_Dest, v_Estado, @audit_id_usuario, v_Fecha, v_Hora
+        v_Dest, v_Cargo, v_Estado, @audit_id_usuario, v_Fecha, v_Hora
     );
 
     SET p_Resultado = 1; SET p_MensajeOut = 'Mensaje publicado.';
@@ -214,6 +224,7 @@ CREATE PROCEDURE usp_mensaje_actualizar(
     IN p_FechaInicio CHAR(8),
     IN p_FechaFin CHAR(8),
     IN p_Destinatario VARCHAR(30),
+    IN p_Cargo VARCHAR(30),
     IN p_Estado VARCHAR(50),
     OUT p_Resultado INT,
     OUT p_MensajeOut VARCHAR(200)
@@ -222,6 +233,7 @@ main: BEGIN
     DECLARE v_Fecha CHAR(8);
     DECLARE v_Hora CHAR(8);
     DECLARE v_Dest VARCHAR(30);
+    DECLARE v_Cargo VARCHAR(30);
     DECLARE v_Estado VARCHAR(50);
 
     SET v_Fecha = fn_fecha_ddmmyyyy();
@@ -230,6 +242,7 @@ main: BEGIN
         DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 HOUR)
     ), '%H:%i:%s');
     SET v_Dest = NULLIF(TRIM(p_Destinatario), '');
+    SET v_Cargo = IFNULL(NULLIF(TRIM(p_Cargo), ''), 'Administrador');
     SET v_Estado = IFNULL(NULLIF(TRIM(p_Estado), ''), 'Activo');
 
     IF NOT EXISTS (SELECT 1 FROM MENSAJE WHERE IDMENSAJE = p_Id) THEN
@@ -260,6 +273,10 @@ main: BEGIN
         SET p_Resultado = 0; SET p_MensajeOut = 'Selecciona a quién va el mensaje.';
         LEAVE main;
     END IF;
+    IF v_Cargo NOT IN ('Trabajador', 'Administrador', 'Desarrollador') THEN
+        SET p_Resultado = 0; SET p_MensajeOut = 'Selecciona el cargo del autor.';
+        LEAVE main;
+    END IF;
 
     UPDATE MENSAJE SET
         TITULO = TRIM(p_Titulo),
@@ -267,6 +284,7 @@ main: BEGIN
         FECHAINICIO = p_FechaInicio,
         FECHAFIN = p_FechaFin,
         DESTINATARIO = v_Dest,
+        CARGO = v_Cargo,
         ESTADO = v_Estado,
         MODIFICADO_POR = @audit_id_usuario,
         FECHAMODIFICACION = v_Fecha,
@@ -300,6 +318,7 @@ main: BEGIN
         m.TITULO,
         m.MENSAJE,
         m.DESTINATARIO,
+        IFNULL(NULLIF(TRIM(m.CARGO), ''), 'Administrador') AS CARGO,
         m.FECHAINICIO,
         m.FECHAFIN,
         TRIM(CONCAT(IFNULL(u.NOMBRE, ''), ' ', IFNULL(u.APELLIDO, ''))) AS AUTOR,

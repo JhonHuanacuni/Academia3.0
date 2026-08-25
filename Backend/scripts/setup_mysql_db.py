@@ -135,6 +135,7 @@ ORDER = [
     '24_08_2026/3.usuario_email_opcional.sql',
     '24_08_2026/4.hora_peru_lima.sql',
     '24_08_2026/5.mensajes_academico.sql',
+    '25_08_2026/1.mensaje_cargo_autor.sql',
 ]
 
 
