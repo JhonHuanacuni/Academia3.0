@@ -129,8 +129,29 @@ def marcar_asistencia_por_dni(dni: str, id_registrador: str = None):
     if resultado != 1:
         return resultado, mensaje, None, None
 
+    _aplicar_hora_lima(id_asistencia)
     row = _obtener_asistencia(id_asistencia)
     return resultado, mensaje, id_asistencia, row
+
+
+def _aplicar_hora_lima(id_asistencia: str):
+    """Guarda hora y estado Presente/Tarde con reloj de América/Lima."""
+    if not id_asistencia:
+        return
+    hora = timezone.localtime().strftime('%H:%M:%S')
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT IDUSUARIO FROM ASISTENCIA WHERE IDASISTENCIA = %s",
+            [id_asistencia],
+        )
+        row = cursor.fetchone()
+        if not row:
+            return
+        estado = _estado_asistencia_por_hora(row[0])
+        cursor.execute(
+            "UPDATE ASISTENCIA SET HORAINICIO = %s, ESTADO = %s WHERE IDASISTENCIA = %s",
+            [hora, estado, id_asistencia],
+        )
 
 
 def _obtener_asistencia(id_asistencia: str):

@@ -87,7 +87,10 @@ main: BEGIN
             UPDATE ASISTENCIA SET JUSTIFICADO = 1
             WHERE IDUSUARIO = p_IdUsuario AND FECHAREGISTRO = p_Fecha;
         ELSE
-            SET v_Hora = TIME_FORMAT(CONVERT_TZ(NOW(), '+00:00', '-05:00'), '%H:%i:%s');
+            SET v_Hora = TIME_FORMAT(IFNULL(
+                CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'),
+                DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 HOUR)
+            ), '%H:%i:%s');
             INSERT INTO ASISTENCIA (IDASISTENCIA, FECHAREGISTRO, HORAINICIO, ESTADO, JUSTIFICADO, IDUSUARIO)
             VALUES (CONCAT('AS_', REPLACE(UUID(), '-', '')), p_Fecha, v_Hora, 'Falta', 1, p_IdUsuario);
         END IF;

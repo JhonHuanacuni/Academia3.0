@@ -282,7 +282,10 @@ main: BEGIN
     DECLARE v_HoraLimite TIME;
 
     SET v_FechaHoy = fn_fecha_ddmmyyyy();
-    SET v_HoraAhora = CAST(CONVERT_TZ(NOW(), '+00:00', '-05:00') AS TIME);
+    SET v_HoraAhora = CAST(IFNULL(
+        CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'),
+        DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 HOUR)
+    ) AS TIME);
 
     SELECT IDUSUARIO INTO v_IdUsuario
     FROM USUARIO

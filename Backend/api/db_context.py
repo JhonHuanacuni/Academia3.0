@@ -6,6 +6,7 @@ from django.db import connection
 def set_audit_user(cursor, id_usuario):
     """Establece el usuario actor para triggers de auditoría."""
     if connection.vendor == 'mysql':
+        cursor.execute("SET time_zone = '-05:00'")
         if id_usuario:
             cursor.execute('SET @audit_id_usuario = %s', [str(id_usuario).strip()])
         else:

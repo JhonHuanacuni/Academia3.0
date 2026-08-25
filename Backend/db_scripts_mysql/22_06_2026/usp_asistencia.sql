@@ -29,7 +29,10 @@ main: BEGIN
     DECLARE v_HoraLimite TIME DEFAULT '08:00:00';
 
     SET v_FechaHoy = fn_fecha_ddmmyyyy();
-    SET v_HoraAhora = TIME_FORMAT(CONVERT_TZ(NOW(), '+00:00', '-05:00'), '%H:%i:%s');
+    SET v_HoraAhora = TIME_FORMAT(IFNULL(
+        CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'),
+        DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 HOUR)
+    ), '%H:%i:%s');
 
     SELECT IDUSUARIO, NOMBRE, APELLIDO
     INTO v_IdUsuario, v_Nombre, v_Apellido

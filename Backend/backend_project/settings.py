@@ -74,7 +74,8 @@ if DB_ENGINE == 'mysql':
                 'charset': 'utf8mb4',
                 'init_command': (
                     "SET sql_mode='STRICT_TRANS_TABLES,"
-                    "ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'"
+                    "ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION',"
+                    "time_zone='-05:00'"
                 ),
             },
         }
