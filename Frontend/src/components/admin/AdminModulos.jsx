@@ -689,7 +689,7 @@ const AdminModulos = () => {
                 <p>
                   {modo === "rol"
                     ? "Controla qué opciones del menú ve este rol dentro del módulo"
-                    : "Controla excepciones individuales de submódulos para este usuario"}
+                    : "Excepciones de este usuario: quitarle un submódulo, o dárselo aunque su rol no lo tenga"}
                 </p>
               </div>
 

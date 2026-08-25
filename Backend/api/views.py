@@ -268,10 +268,22 @@ def submodulos_modulo_usuario(request):
             if accion == 'asignar':
                 try:
                     asignar_submodulo_usuario(idusuario, idsubmodulo)
+                except ValueError:
+                    raise
                 except Exception:
                     asignar_submodulo_usuario_orm(idusuario, idsubmodulo)
                 return JsonResponse({'success': True, 'message': 'Submódulo asignado'})
 
+            if accion == 'desasignar':
+                try:
+                    desasignar_submodulo_usuario(idusuario, idsubmodulo)
+                except ValueError:
+                    raise
+                except Exception:
+                    desasignar_submodulo_usuario_orm(idusuario, idsubmodulo)
+                return JsonResponse({'success': True, 'message': 'Submódulo desasignado'})
+
+            return JsonResponse({'error': 'accion inválida'}, status=400)
         except ValueError as exc:
             return JsonResponse({'error': str(exc)}, status=400)
         except Exception as exc:

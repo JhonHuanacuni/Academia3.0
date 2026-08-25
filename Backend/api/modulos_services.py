@@ -1,11 +1,11 @@
 import uuid
-from django.db import connection
+from django.db import IntegrityError, connection
 from django.utils import timezone
 from . import sp_runner as sp
 from .models import (
     Modulo, Submodulo, UsuarioModulo, GrupoModulo,
-    UsuarioModuloExcluido, UsuarioSubmoduloExcluido, GrupoSubmoduloExcluido,
-    Usuario, TipoUsuario,
+    UsuarioModuloExcluido, UsuarioSubmoduloExcluido, UsuarioSubmoduloIncluido,
+    GrupoSubmoduloExcluido, Usuario, TipoUsuario,
 )
 from .menu_config import (
     MODULO_PAGE_MAP, SUBMODULO_PAGE_MAP, MODULOS_MENU_DIRECTO,
@@ -114,6 +114,17 @@ def _submodulos_excluidos_usuario(idusuario: str):
         return set()
 
 
+def _submodulos_incluidos_usuario(idusuario: str):
+    try:
+        return set(
+            UsuarioSubmoduloIncluido.objects.filter(
+                IDUSUARIO=idusuario,
+            ).values_list('IDSUBMODULO_id', flat=True)
+        )
+    except Exception:
+        return set()
+
+
 def _submodulos_excluidos_rol(idtipousuario: str):
     try:
         return set(
@@ -125,17 +136,83 @@ def _submodulos_excluidos_rol(idtipousuario: str):
         return set()
 
 
-def _submodulos_excluidos_efectivos(idusuario: str):
-    excluidos = _submodulos_excluidos_usuario(idusuario)
+def _contexto_submodulos_usuario(idusuario: str):
     id_tipo = get_usuario_tipo(idusuario)
-    if id_tipo:
-        excluidos |= _submodulos_excluidos_rol(id_tipo)
-    return excluidos
+    return {
+        'excl_u': _submodulos_excluidos_usuario(idusuario),
+        'excl_r': _submodulos_excluidos_rol(id_tipo) if id_tipo else set(),
+        'incl': _submodulos_incluidos_usuario(idusuario),
+    }
+
+
+def _asignado_submodulo(idsubmodulo: str, ctx: dict) -> bool:
+    """Exclusión de usuario > inclusión de usuario > exclusión de rol > asignado."""
+    if idsubmodulo in ctx['excl_u']:
+        return False
+    if idsubmodulo in ctx['incl']:
+        return True
+    if idsubmodulo in ctx['excl_r']:
+        return False
+    return True
+
+
+def _submodulos_excluidos_efectivos(idusuario: str):
+    """IDs ocultos en menú: exclusión de usuario o de rol no revertida por inclusión."""
+    ctx = _contexto_submodulos_usuario(idusuario)
+    ocultos = set(ctx['excl_u'])
+    ocultos |= (ctx['excl_r'] - ctx['incl'])
+    return ocultos
+
+
+def _sync_inclusion_al_asignar(idusuario: str, idsubmodulo: str):
+    """Si el rol excluye el submódulo, crea override de inclusión para este usuario."""
+    id_tipo = get_usuario_tipo(idusuario)
+    rol_excluye = bool(id_tipo) and idsubmodulo in _submodulos_excluidos_rol(id_tipo)
+    try:
+        if rol_excluye:
+            if not UsuarioSubmoduloIncluido.objects.filter(
+                IDUSUARIO=idusuario, IDSUBMODULO_id=idsubmodulo,
+            ).exists():
+                try:
+                    UsuarioSubmoduloIncluido.objects.create(
+                        IDUSUARIOINCLSUB=f"INS_{uuid.uuid4().hex[:12].upper()}",
+                        IDUSUARIO=idusuario,
+                        IDSUBMODULO_id=idsubmodulo,
+                        FECHAREGISTRO=_fecha_hoy(),
+                    )
+                except IntegrityError:
+                    pass
+        else:
+            UsuarioSubmoduloIncluido.objects.filter(
+                IDUSUARIO=idusuario, IDSUBMODULO_id=idsubmodulo,
+            ).delete()
+    except Exception as exc:
+        if rol_excluye:
+            raise ValueError(
+                'No se puede asignar un submódulo excluido del rol. '
+                'Ejecuta 25_08_2026/2.submodulo_inclusion_usuario.sql'
+            ) from exc
+
+
+def _quitar_inclusion_usuario(idusuario: str, idsubmodulo: str):
+    try:
+        UsuarioSubmoduloIncluido.objects.filter(
+            IDUSUARIO=idusuario, IDSUBMODULO_id=idsubmodulo,
+        ).delete()
+    except Exception:
+        pass
 
 
 def _limpiar_exclusiones_submodulos_modulo(idusuario: str, idmodulo: str):
     try:
         UsuarioSubmoduloExcluido.objects.filter(
+            IDUSUARIO=idusuario,
+            IDSUBMODULO__IDMODULO_id=idmodulo,
+        ).delete()
+    except Exception:
+        pass
+    try:
+        UsuarioSubmoduloIncluido.objects.filter(
             IDUSUARIO=idusuario,
             IDSUBMODULO__IDMODULO_id=idmodulo,
         ).delete()
@@ -148,6 +225,7 @@ def listar_submodulos_modulo_usuario(idusuario: str, idmodulo: str):
     if idmodulo not in get_effective_modulos(idusuario):
         return []
 
+    ctx = _contexto_submodulos_usuario(idusuario)
     try:
         with connection.cursor() as cursor:
             if sp.is_mysql():
@@ -165,12 +243,11 @@ def listar_submodulos_modulo_usuario(idusuario: str, idmodulo: str):
                 'DESCRIPCION': row.get('DESCRIPCION'),
                 'ICONO': row.get('ICONO'),
                 'ORDEN': row.get('ORDEN'),
-                'asignado': bool(row.get('asignado')),
+                'asignado': _asignado_submodulo(row['IDSUBMODULO'], ctx),
             }
             for row in rows
         ]
     except Exception:
-        excluidos = _submodulos_excluidos_efectivos(idusuario)
         subs = Submodulo.objects.filter(
             IDMODULO_id=idmodulo, ACTIVO=True,
         ).order_by('ORDEN', 'NOMBRE')
@@ -181,7 +258,7 @@ def listar_submodulos_modulo_usuario(idusuario: str, idmodulo: str):
                 'DESCRIPCION': sub.DESCRIPCION,
                 'ICONO': sub.ICONO,
                 'ORDEN': sub.ORDEN,
-                'asignado': sub.IDSUBMODULO not in excluidos,
+                'asignado': _asignado_submodulo(sub.IDSUBMODULO, ctx),
             }
             for sub in subs
         ]
@@ -402,6 +479,7 @@ def asignar_submodulo_usuario(idusuario: str, idsubmodulo: str):
                 'EXEC usp_submodulo_asignar_usuario @idusuario=%s, @idsubmodulo=%s',
                 [idusuario, idsubmodulo],
             )
+    _sync_inclusion_al_asignar(idusuario, idsubmodulo)
 
 
 def desasignar_submodulo_usuario(idusuario: str, idsubmodulo: str):
@@ -413,6 +491,7 @@ def desasignar_submodulo_usuario(idusuario: str, idsubmodulo: str):
                 'EXEC usp_submodulo_desasignar_usuario @idusuario=%s, @idsubmodulo=%s',
                 [idusuario, idsubmodulo],
             )
+    _quitar_inclusion_usuario(idusuario, idsubmodulo)
 
 
 def asignar_submodulo_usuario_orm(idusuario: str, idsubmodulo: str):
@@ -430,6 +509,7 @@ def asignar_submodulo_usuario_orm(idusuario: str, idsubmodulo: str):
         raise ValueError(
             'Tabla USUARIO_SUBMODULO_EXCLUIDO no existe. Ejecuta submodulos_admin.sql'
         ) from exc
+    _sync_inclusion_al_asignar(idusuario, idsubmodulo)
 
 
 def desasignar_submodulo_usuario_orm(idusuario: str, idsubmodulo: str):
@@ -439,6 +519,10 @@ def desasignar_submodulo_usuario_orm(idusuario: str, idsubmodulo: str):
     if sub.IDMODULO_id not in get_effective_modulos(idusuario):
         raise ValueError('El usuario no tiene acceso al módulo padre de este submódulo')
 
+    _quitar_inclusion_usuario(idusuario, idsubmodulo)
+    id_tipo = get_usuario_tipo(idusuario)
+    if id_tipo and idsubmodulo in _submodulos_excluidos_rol(id_tipo):
+        return
     try:
         if not UsuarioSubmoduloExcluido.objects.filter(
             IDUSUARIO=idusuario, IDSUBMODULO_id=idsubmodulo,

@@ -453,6 +453,7 @@ option {
   right: 0;
   top: 44px;
   width: min(380px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
   max-height: min(70vh, 480px);
   overflow: auto;
   background: #fff;
@@ -460,6 +461,18 @@ option {
   border-radius: 16px;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
   z-index: 30;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .navbar-notif-panel {
+    position: fixed;
+    top: 56px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+  }
 }
 
 .navbar-notif-head {
@@ -499,6 +512,7 @@ option {
   font-size: 0.9rem;
   color: var(--text);
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .navbar-notif-author-row {
@@ -515,22 +529,34 @@ option {
   color: #8b90a0;
   letter-spacing: 0.02em;
   min-width: 0;
-  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .navbar-notif-cargo {
   flex: 0 0 auto;
-  max-width: 42%;
-  border: 1px solid #d8dbe6;
-  background: #f4f5f9;
-  color: #4b5163;
-  font-size: 0.68rem;
-  font-weight: 600;
-  line-height: 1.2;
-  padding: 2px 6px;
-  border-radius: 6px;
-  appearance: auto;
-  cursor: default;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.navbar-notif-cargo--trabajador {
+  background: #e7f3ee;
+  color: #2f6f5e;
+}
+
+.navbar-notif-cargo--administrador {
+  background: #eee8fb;
+  color: #5b3eb8;
+}
+
+.navbar-notif-cargo--desarrollador {
+  background: #f3eee4;
+  color: #8a6a32;
 }
 
 .navbar-notif-body {

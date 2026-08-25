@@ -31,6 +31,14 @@ function tipoUsuarioActual(role) {
   return ROLE_TO_TIPO[role] || "1";
 }
 
+function cargoClase(cargo) {
+  const v = String(cargo || "").trim().toLowerCase();
+  if (v === "trabajador") return "trabajador";
+  if (v === "desarrollador") return "desarrollador";
+  if (v === "administrador") return "administrador";
+  return "";
+}
+
 function recortar(texto, max = 140) {
   const s = String(texto || "").trim();
   if (s.length <= max) return s;
@@ -131,16 +139,11 @@ const Navbar = ({ role, idusuario, onToggleSidebar, onLogout }) => {
                         <span className="navbar-notif-author">
                           {(m.AUTOR || "").trim() || "Academia"}
                         </span>
-                        <select
-                          className="navbar-notif-cargo"
-                          value={m.CARGO || "Administrador"}
-                          disabled
-                          aria-label="Cargo del autor"
-                        >
-                          <option value="Trabajador">Trabajador</option>
-                          <option value="Administrador">Administrador</option>
-                          <option value="Desarrollador">Desarrollador</option>
-                        </select>
+                        {m.CARGO && (
+                          <span className={`navbar-notif-cargo navbar-notif-cargo--${cargoClase(m.CARGO)}`}>
+                            {m.CARGO}
+                          </span>
+                        )}
                       </div>
                       <p className="navbar-notif-body">{recortar(m.MENSAJE)}</p>
                       {(m.FECHAINICIO || m.FECHAFIN) && (
