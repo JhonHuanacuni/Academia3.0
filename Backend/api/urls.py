@@ -22,6 +22,7 @@ from . import nota_import_views
 from . import auditoria_views
 from . import dashboard_views
 from . import clase_grabada_views
+from . import mensaje_views
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -134,6 +135,9 @@ urlpatterns = [
     path('clases-grabadas/materias/', clase_grabada_views.clases_grabadas_materias, name='clases_grabadas_materias'),
     path('clases-grabadas/', clase_grabada_views.clases_grabadas_mantenedor, name='clases_grabadas_mantenedor'),
     path('clases-grabadas/<str:id_clase>/', clase_grabada_views.clases_grabadas_mantenedor, name='clases_grabadas_mantenedor_detail'),
+    path('mensajes/vigentes/', mensaje_views.mensajes_vigentes, name='mensajes_vigentes'),
+    path('mensajes/', mensaje_views.mensajes_mantenedor, name='mensajes_mantenedor'),
+    path('mensajes/<str:id_mensaje>/', mensaje_views.mensajes_mantenedor, name='mensajes_mantenedor_detail'),
     path('menu-usuario/', views.menu_usuario, name='menu_usuario'),
     
     # URLs de módulos - Admin

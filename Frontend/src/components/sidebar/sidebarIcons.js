@@ -22,6 +22,7 @@ import {
   faBookOpen,
   faFileImport,
   faVideo,
+  faBullhorn,
 } from "@fortawesome/free-solid-svg-icons";
 
 const ICON_MAP = {
@@ -48,6 +49,7 @@ const ICON_MAP = {
   faBookOpen: faBookOpen,
   faFileImport: faFileImport,
   faVideo: faVideo,
+  faBullhorn: faBullhorn,
   faChalkboardTeacher: faChalkboard,
 };
 

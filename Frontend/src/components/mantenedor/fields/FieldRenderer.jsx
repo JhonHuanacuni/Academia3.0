@@ -35,7 +35,7 @@ export default function FieldRenderer({
     if (campo.control === "textarea") {
       return (
         <textarea
-          rows={3}
+          rows={campo.rows || 3}
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}

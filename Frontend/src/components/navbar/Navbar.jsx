@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars, faBell, faUser } from "@fortawesome/free-solid-svg-icons";
 import PerfilModal from "../perfil/PerfilModal";
+import { parseJsonResponse } from "../../utils/api";
+import { dbToView } from "../../utils/fecha";
 
 const ROLE_LABELS = {
   estudiante: "Estudiante",
@@ -13,15 +15,50 @@ const ROLE_LABELS = {
   admin: "Administrador",
 };
 
+const ROLE_TO_TIPO = {
+  estudiante: "1",
+  usuario: "1",
+  docente: "2",
+  trabajador: "2",
+  secretario: "2",
+  administrador: "3",
+  admin: "3",
+};
+
+function tipoUsuarioActual(role) {
+  const stored = localStorage.getItem("idtipousuario");
+  if (stored) return String(stored);
+  return ROLE_TO_TIPO[role] || "1";
+}
+
+function recortar(texto, max = 140) {
+  const s = String(texto || "").trim();
+  if (s.length <= max) return s;
+  return `${s.slice(0, max).trim()}…`;
+}
+
 const Navbar = ({ role, idusuario, onToggleSidebar, onLogout }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showPerfil, setShowPerfil] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(0);
+  const [mensajes, setMensajes] = useState([]);
   const userMenuRef = useRef(null);
   const notificationsRef = useRef(null);
 
   const userRole = ROLE_LABELS[role] || "Usuario";
+  const notificationCount = mensajes.length;
+
+  const cargarMensajes = useCallback(async () => {
+    try {
+      const tipo = tipoUsuarioActual(role);
+      const res = await fetch(`/api/mensajes/vigentes/?idtipousuario=${encodeURIComponent(tipo)}`);
+      const data = await parseJsonResponse(res);
+      if (!res.ok) throw new Error(data.error || "No se pudieron cargar los avisos");
+      setMensajes(data.data || []);
+    } catch {
+      setMensajes([]);
+    }
+  }, [role]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -39,8 +76,10 @@ const Navbar = ({ role, idusuario, onToggleSidebar, onLogout }) => {
   }, []);
 
   useEffect(() => {
-    setNotificationCount(0);
-  }, []);
+    cargarMensajes();
+    const id = setInterval(cargarMensajes, 60000);
+    return () => clearInterval(id);
+  }, [cargarMensajes]);
 
   return (
     <>
@@ -59,20 +98,52 @@ const Navbar = ({ role, idusuario, onToggleSidebar, onLogout }) => {
       </div>
 
       <div className="navbar-right">
-        <button
-          className="navbar-icon-btn"
-          onClick={() => {
-            setShowNotifications((prev) => !prev);
-            setShowUserMenu(false);
-          }}
-          ref={notificationsRef}
-          aria-label="Notificaciones"
-        >
-          <FontAwesomeIcon icon={faBell} />
-          {notificationCount > 0 && (
-            <span className="navbar-badge">{notificationCount}</span>
+        <div className="navbar-notify" ref={notificationsRef}>
+          <button
+            className="navbar-icon-btn"
+            type="button"
+            onClick={() => {
+              setShowNotifications((prev) => !prev);
+              setShowUserMenu(false);
+              if (!showNotifications) cargarMensajes();
+            }}
+            aria-label="Avisos"
+            aria-expanded={showNotifications}
+          >
+            <FontAwesomeIcon icon={faBell} />
+            {notificationCount > 0 && (
+              <span className="navbar-badge">
+                {notificationCount > 9 ? "9+" : notificationCount}
+              </span>
+            )}
+          </button>
+          {showNotifications && (
+            <div className="navbar-notif-panel" role="dialog" aria-label="Avisos vigentes">
+              <div className="navbar-notif-head">Avisos vigentes</div>
+              {mensajes.length === 0 ? (
+                <p className="navbar-notif-empty">No hay avisos vigentes.</p>
+              ) : (
+                <ul className="navbar-notif-list">
+                  {mensajes.map((m) => (
+                    <li key={m.IDMENSAJE} className="navbar-notif-item">
+                      <div className="navbar-notif-title">{m.TITULO || "Aviso"}</div>
+                      <div className="navbar-notif-author">
+                        {(m.AUTOR || "").trim() || "Academia"}
+                      </div>
+                      <p className="navbar-notif-body">{recortar(m.MENSAJE)}</p>
+                      {(m.FECHAINICIO || m.FECHAFIN) && (
+                        <div className="navbar-notif-dates">
+                          {dbToView(m.FECHAINICIO)}
+                          {m.FECHAFIN ? ` — ${dbToView(m.FECHAFIN)}` : ""}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
-        </button>
+        </div>
 
         <span className="navbar-role">{userRole}</span>
 

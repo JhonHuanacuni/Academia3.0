@@ -134,6 +134,7 @@ ORDER = [
     '24_08_2026/2.usp_pagoextra_filtro_concepto.sql',
     '24_08_2026/3.usuario_email_opcional.sql',
     '24_08_2026/4.hora_peru_lima.sql',
+    '24_08_2026/5.mensajes_academico.sql',
 ]
 
 

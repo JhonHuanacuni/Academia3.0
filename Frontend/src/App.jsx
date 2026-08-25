@@ -25,6 +25,7 @@ import DashboardPage from "./modules/dashboard/DashboardPage";
 import NotasPage from "./modules/notas/NotasPage";
 import AuditoriaPage from "./modules/auditoria/AuditoriaPage";
 import ClasesGrabadasPorRol from "./modules/claseGrabada/ClaseGrabadaPage";
+import MensajePage from "./modules/mensaje/MensajePage";
 import "./App.css";
 
 function ExamenesPorRol({ role }) {
@@ -163,6 +164,11 @@ const pageContent = {
     title: "Auditoría",
     description: "Historial de altas, modificaciones y eliminaciones en el sistema.",
     component: AuditoriaPage,
+  },
+  "academico-mensajes": {
+    title: "Mensajes",
+    description: "Avisos para estudiantes y trabajadores.",
+    component: MensajePage,
   },
   informes: {
     title: "Informes",
