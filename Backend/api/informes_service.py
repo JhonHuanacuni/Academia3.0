@@ -144,11 +144,73 @@ def _cargar_justificaciones_rango(fecha_desde, fecha_hasta):
 
     result = {}
     for row in rows:
-        uid = row.get('IDUSUARIO')
+        uid = str(row.get('IDUSUARIO') or '').strip()
         fecha = _normalizar_fecha_db(row.get('FECHA'))
         if uid and fecha:
             result.setdefault(uid, {})[fecha] = True
     return result
+
+
+def _cargar_asistencias_estudiantes(fecha_desde, fecha_hasta, id_usuarios):
+    """Asistencias del rango solo para los estudiantes ya filtrados del informe.
+
+    Evita inconsistencias del SP: el buscador de estudiantes incluye aula/ciclo,
+    pero el de asistencias no; eso hacía que marcas reales salieran como falta.
+    """
+    ids = [str(u).strip() for u in (id_usuarios or []) if u]
+    if not ids:
+        return []
+
+    placeholders = ', '.join(['%s'] * len(ids))
+    with connection.cursor() as cursor:
+        if sp.is_mysql():
+            cursor.execute(
+                f"""
+                SELECT a.IDUSUARIO, a.FECHAREGISTRO, a.ESTADO, a.JUSTIFICADO
+                FROM ASISTENCIA a
+                WHERE a.IDUSUARIO IN ({placeholders})
+                  AND a.FECHAREGISTRO IS NOT NULL
+                  AND TRIM(a.FECHAREGISTRO) <> ''
+                  AND STR_TO_DATE(a.FECHAREGISTRO, '%%d%%m%%Y')
+                      BETWEEN STR_TO_DATE(%s, '%%d%%m%%Y')
+                          AND STR_TO_DATE(%s, '%%d%%m%%Y')
+                """,
+                [*ids, fecha_desde, fecha_hasta],
+            )
+            return _cursor_rows(cursor)
+
+        cursor.execute(
+            f"""
+            SELECT a.IDUSUARIO, a.FECHAREGISTRO, a.ESTADO, a.JUSTIFICADO
+            FROM ASISTENCIA a
+            WHERE a.IDUSUARIO IN ({placeholders})
+              AND a.FECHAREGISTRO IS NOT NULL
+              AND LTRIM(RTRIM(a.FECHAREGISTRO)) <> ''
+              AND CONVERT(
+                    date,
+                    SUBSTRING(a.FECHAREGISTRO, 5, 4)
+                      + SUBSTRING(a.FECHAREGISTRO, 3, 2)
+                      + SUBSTRING(a.FECHAREGISTRO, 1, 2),
+                    112
+                  )
+                  BETWEEN CONVERT(
+                    date,
+                    SUBSTRING(%s, 5, 4) + SUBSTRING(%s, 3, 2) + SUBSTRING(%s, 1, 2),
+                    112
+                  )
+                  AND CONVERT(
+                    date,
+                    SUBSTRING(%s, 5, 4) + SUBSTRING(%s, 3, 2) + SUBSTRING(%s, 1, 2),
+                    112
+                  )
+            """,
+            [
+                *ids,
+                fecha_desde, fecha_desde, fecha_desde,
+                fecha_hasta, fecha_hasta, fecha_hasta,
+            ],
+        )
+        return _cursor_rows(cursor)
 
 
 def _parse_dias_asistencia(val):
@@ -190,7 +252,7 @@ def _dia_cuenta_para_falta(fecha_db, fecha_inicio_db, fecha_fin_db):
 def _construir_filas(estudiantes, asistencias, dias, justificaciones=None):
     marcas_por_usuario = {}
     for row in asistencias:
-        uid = row.get('IDUSUARIO')
+        uid = str(row.get('IDUSUARIO') or '').strip()
         fecha = _normalizar_fecha_db(row.get('FECHAREGISTRO'))
         if not uid or not fecha:
             continue
@@ -201,9 +263,9 @@ def _construir_filas(estudiantes, asistencias, dias, justificaciones=None):
 
     filas = []
     for idx, est in enumerate(estudiantes, start=1):
-        uid = est['IDUSUARIO']
+        uid = str(est.get('IDUSUARIO') or '').strip()
         marcas_usuario = marcas_por_usuario.get(uid, {})
-        justif_usuario = justificaciones.get(uid, {})
+        justif_usuario = justificaciones.get(uid, {}) or justificaciones.get(est.get('IDUSUARIO'), {})
         marcas = {}
         total_asist = total_tard = total_faltas = total_just = 0
         dias_imputables = 0
@@ -406,10 +468,16 @@ def informe_asistencias(fecha_desde, fecha_hasta, buscar=None, id_plan=None, est
                 params,
             )
         estudiantes = _cursor_rows(cursor)
-        asistencias = []
-        if cursor.nextset() and cursor.description:
-            asistencias = _cursor_rows(cursor)
+        # Consumir 2.º result set del SP (si existe) para no dejar el cursor abierto.
+        while cursor.nextset():
+            pass
 
+    # Cargar marcas por los IDs ya filtrados (no reaplicar "buscar" incompleto del SP).
+    asistencias = _cargar_asistencias_estudiantes(
+        fecha_desde,
+        fecha_hasta,
+        [e.get('IDUSUARIO') for e in estudiantes],
+    )
     justificaciones = _cargar_justificaciones_rango(fecha_desde, fecha_hasta)
     filas = _construir_filas(_aplicar_vence_cuota(estudiantes), asistencias, dias, justificaciones)
     return _respuesta_informe(fecha_desde, fecha_hasta, dias, filas)

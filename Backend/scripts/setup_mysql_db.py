@@ -139,6 +139,7 @@ ORDER = [
     '25_08_2026/2.submodulo_inclusion_usuario.sql',
     '02_09_2026/1.usp_libro_listar_filtro_aula.sql',
     '03_09_2026/1.usp_horario_listar_filtro_aula.sql',
+    '03_09_2026/2.usp_asistencia_informe_buscar_marcas.sql',
 ]
 
 

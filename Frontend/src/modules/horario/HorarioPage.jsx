@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { parseJsonResponse } from "../../utils/api";
 import { useCrud } from "../../hooks/useCrud";
 import { horarioConfig } from "./horario.config";
@@ -10,21 +10,146 @@ import ConfirmDialog from "../../components/mantenedor/ConfirmDialog";
 import Toast from "../../components/mantenedor/feedback/Toast";
 import HorarioFormModal from "./HorarioFormModal";
 import HorarioVerModal from "./HorarioVerModal";
+import HorarioZoomModal from "./HorarioZoomModal";
 import "../../styles/mantenedor.css";
 import "./horario.css";
 
-export default function HorarioPage({ role }) {
+function HorarioEstudianteVista({ idUsuario }) {
   const cfg = horarioConfig;
-  const esEstudiante = role === "estudiante";
-  const idUsuario = localStorage.getItem("idusuario") || "";
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selId, setSelId] = useState(null);
+  const [zoomAbierto, setZoomAbierto] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const params = new URLSearchParams({
+          pagina: "1",
+          tamanio: "50",
+          ordenarPor: "FECHASUBIDA",
+          direccion: "DESC",
+          estado: "Activo",
+          idusuario: idUsuario,
+        });
+        const res = await fetch(`/api/${cfg.entidad}/?${params}`);
+        const data = await parseJsonResponse(res);
+        if (!res.ok) throw new Error(data.error || "Error al cargar el horario");
+        const rows = data.data || [];
+        if (cancelled) return;
+        setItems(rows);
+        setSelId(rows[0]?.[cfg.pk] ?? null);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || "Error al cargar el horario");
+          setItems([]);
+          setSelId(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cfg.entidad, cfg.pk, idUsuario]);
+
+  const seleccionado = useMemo(
+    () => items.find((r) => r[cfg.pk] === selId) || null,
+    [items, selId, cfg.pk],
+  );
+
+  const url = seleccionado?.URLPREVIEW || seleccionado?.URLIMAGEN || "";
+
+  return (
+    <div className="mantenedor-page horario-estudiante-page">
+      <PageHeader modulo={cfg.modulo} vista={cfg.titulo} mostrarNuevo={false} />
+
+      <div className="horario-estudiante-card">
+        {loading && (
+          <p className="horario-estudiante-state">Cargando horario…</p>
+        )}
+
+        {!loading && error && (
+          <p className="horario-estudiante-state horario-estudiante-state--error">
+            {error}
+          </p>
+        )}
+
+        {!loading && !error && items.length === 0 && (
+          <p className="horario-estudiante-state">
+            No hay un horario asignado a tu salón.
+          </p>
+        )}
+
+        {!loading && !error && items.length > 1 && (
+          <div className="horario-estudiante-tabs" role="tablist" aria-label="Horarios">
+            {items.map((row) => {
+              const activa = row[cfg.pk] === selId;
+              return (
+                <button
+                  key={row[cfg.pk]}
+                  type="button"
+                  role="tab"
+                  aria-selected={activa}
+                  className={`horario-estudiante-tab${activa ? " is-active" : ""}`}
+                  onClick={() => setSelId(row[cfg.pk])}
+                >
+                  {row.TITULO || `Horario ${row[cfg.pk]}`}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {!loading && !error && seleccionado && (
+          <div className="horario-estudiante-viewer">
+            {url ? (
+              <button
+                type="button"
+                className="horario-estudiante-img-btn"
+                onClick={() => setZoomAbierto(true)}
+                title="Clic para ampliar"
+                aria-label="Ver horario ampliado"
+              >
+                <img
+                  src={url}
+                  alt={seleccionado.TITULO || "Horario"}
+                  className="horario-estudiante-img"
+                />
+                <span className="horario-estudiante-img-hint">
+                  Clic para ampliar
+                </span>
+              </button>
+            ) : (
+              <p className="horario-estudiante-state horario-estudiante-state--error">
+                Este horario no tiene imagen asociada.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <HorarioZoomModal
+        abierto={zoomAbierto && Boolean(url)}
+        titulo={seleccionado?.TITULO}
+        url={url}
+        onClose={() => setZoomAbierto(false)}
+      />
+    </div>
+  );
+}
+
+function HorarioAdminPage() {
+  const cfg = horarioConfig;
   const crud = useCrud({
     entidad: cfg.entidad,
     pk: cfg.pk,
     ordenInicial: { campo: "FECHASUBIDA", direccion: "DESC" },
-    filtrosIniciales: esEstudiante
-      ? { estado: "Activo", idusuario: idUsuario }
-      : {},
   });
 
   const [verModal, setVerModal] = useState(null);
@@ -37,7 +162,6 @@ export default function HorarioPage({ role }) {
   const [aulas, setAulas] = useState([]);
 
   useEffect(() => {
-    if (esEstudiante) return;
     (async () => {
       try {
         const res = await fetch("/api/horarios/catalogos/");
@@ -54,18 +178,7 @@ export default function HorarioPage({ role }) {
         /* catálogo opcional */
       }
     })();
-  }, [esEstudiante]);
-
-  const obtenerHorario = async (id) => {
-    if (!esEstudiante) return crud.obtener(id);
-    const params = new URLSearchParams({ idusuario: idUsuario });
-    const res = await fetch(
-      `/api/${cfg.entidad}/${encodeURIComponent(id)}/?${params}`,
-    );
-    const data = await parseJsonResponse(res);
-    if (!res.ok) throw new Error(data.error || "No se pudo obtener el registro");
-    return data.data;
-  };
+  }, []);
 
   const abrirCrear = () => {
     crud.setRegistro(null);
@@ -75,7 +188,7 @@ export default function HorarioPage({ role }) {
 
   const abrirEditar = async (row) => {
     try {
-      const data = await obtenerHorario(row[cfg.pk]);
+      const data = await crud.obtener(row[cfg.pk]);
       crud.setRegistro(data);
       setModo("editar");
       setModalAbierto(true);
@@ -87,7 +200,7 @@ export default function HorarioPage({ role }) {
   const abrirVer = async (row) => {
     try {
       setCargandoVer(true);
-      const data = await obtenerHorario(row[cfg.pk]);
+      const data = await crud.obtener(row[cfg.pk]);
       if (!data?.URLPREVIEW) {
         setToast({ mensaje: "Este horario no tiene imagen asociada.", tipo: "error" });
         return;
@@ -158,26 +271,21 @@ export default function HorarioPage({ role }) {
         onNuevo={abrirCrear}
         nuevoEtiqueta="Agregar Horario"
         nuevoClase="btn-success"
-        mostrarNuevo={!esEstudiante}
       />
 
       <div className="mantenedor-card">
         <Toolbar
           buscar={crud.buscar}
           onBuscarChange={crud.onBuscarChange}
-          filtros={
-            esEstudiante
-              ? []
-              : [
-                  {
-                    key: "estado",
-                    etiqueta: "Estado",
-                    value: crud.filtros.estado || "",
-                    opciones: ["Activo", "Inactivo"],
-                    onChange: (v) => crud.setFiltro("estado", v),
-                  },
-                ]
-          }
+          filtros={[
+            {
+              key: "estado",
+              etiqueta: "Estado",
+              value: crud.filtros.estado || "",
+              opciones: ["Activo", "Inactivo"],
+              onChange: (v) => crud.setFiltro("estado", v),
+            },
+          ]}
         />
 
         <DataTable
@@ -189,8 +297,8 @@ export default function HorarioPage({ role }) {
           error={crud.error}
           onOrden={crud.toggleOrden}
           onVer={abrirVer}
-          onEditar={esEstudiante ? undefined : abrirEditar}
-          onEliminar={esEstudiante ? undefined : abrirEliminar}
+          onEditar={abrirEditar}
+          onEliminar={abrirEliminar}
           onReintentar={crud.listar}
           pagina={crud.pagina}
           tamanio={crud.tamanio}
@@ -205,17 +313,15 @@ export default function HorarioPage({ role }) {
         />
       </div>
 
-      {!esEstudiante && (
-        <HorarioFormModal
-          abierto={modalAbierto}
-          modo={modo}
-          titulo={tituloModal}
-          registro={crud.registro}
-          aulas={aulas}
-          onClose={() => setModalAbierto(false)}
-          onSubmit={enviarForm}
-        />
-      )}
+      <HorarioFormModal
+        abierto={modalAbierto}
+        modo={modo}
+        titulo={tituloModal}
+        registro={crud.registro}
+        aulas={aulas}
+        onClose={() => setModalAbierto(false)}
+        onSubmit={enviarForm}
+      />
 
       <HorarioVerModal
         abierto={Boolean(verModal)}
@@ -224,16 +330,14 @@ export default function HorarioPage({ role }) {
         onClose={() => setVerModal(null)}
       />
 
-      {!esEstudiante && (
-        <ConfirmDialog
-          abierto={Boolean(confirm)}
-          titulo="Confirmar eliminación"
-          mensaje={confirm?.mensaje}
-          confirmando={confirmando}
-          onCancel={() => setConfirm(null)}
-          onConfirm={handleConfirmEliminar}
-        />
-      )}
+      <ConfirmDialog
+        abierto={Boolean(confirm)}
+        titulo="Confirmar eliminación"
+        mensaje={confirm?.mensaje}
+        confirmando={confirmando}
+        onCancel={() => setConfirm(null)}
+        onConfirm={handleConfirmEliminar}
+      />
 
       {toast && (
         <Toast
@@ -244,4 +348,15 @@ export default function HorarioPage({ role }) {
       )}
     </div>
   );
+}
+
+export default function HorarioPage({ role }) {
+  if (role === "estudiante") {
+    return (
+      <HorarioEstudianteVista
+        idUsuario={localStorage.getItem("idusuario") || ""}
+      />
+    );
+  }
+  return <HorarioAdminPage />;
 }
