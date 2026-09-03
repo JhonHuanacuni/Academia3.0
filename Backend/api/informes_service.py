@@ -262,6 +262,7 @@ def _construir_filas(estudiantes, asistencias, dias, justificaciones=None):
         fecha_vence = est.get('FECHA_VENCE_CUOTA') or est.get('FECHA_VENCE')
         estado_usuario = str(est.get('ESTADO') or '').strip()
         es_retirado = estado_usuario.lower() == 'retirado'
+        tiene_deuda_cuota = bool(est.get('CUOTA_CON_DEUDA'))
         if es_retirado:
             estado_vence = ''
             vence_txt = 'Retirado'
@@ -278,7 +279,11 @@ def _construir_filas(estudiantes, asistencias, dias, justificaciones=None):
             'estado': est.get('ESTADO') or 'ACTIVO',
             'vence': vence_txt,
             'venceEn3Dias': (not es_retirado) and estado_vence == 'proxima',
-            'venceVencida': (not es_retirado) and estado_vence == 'vencida',
+            'venceVencida': (
+                (not es_retirado)
+                and estado_vence == 'vencida'
+                and ('CUOTA_CON_DEUDA' not in est or tiene_deuda_cuota)
+            ),
             'marcas': marcas,
             'diasNoLectivos': list(dias_no_lectivos),
             'diasFueraMensualidad': list(dias_fuera_mensualidad),
@@ -306,6 +311,7 @@ def _calcular_resumen(filas):
             'asistAcum': 0,
             'tardanzaAcum': 0,
             'faltasAcum': 0,
+            'totalAsistentes': 0,
             'asistPct': 0,
             'tardanzaPct': 0,
             'faltasPct': 0,
@@ -315,6 +321,7 @@ def _calcular_resumen(filas):
         'asistAcum': asist,
         'tardanzaAcum': tard,
         'faltasAcum': faltas,
+        'totalAsistentes': asist + tard,
         'asistPct': round(asist / total * 100),
         'tardanzaPct': round(tard / total * 100),
         'faltasPct': round(faltas / total * 100),
@@ -334,7 +341,7 @@ def _respuesta_informe(fecha_desde, fecha_hasta, dias, filas):
 
 
 def _aplicar_vence_cuota(estudiantes):
-    """Completa FECHA_VENCE_CUOTA con el vencimiento de la cuota vigente."""
+    """Completa FECHA_VENCE_CUOTA con la cuota impaga más antigua (no avanza si hay deuda)."""
     try:
         from .cuota_service import vence_cuota_vigente_map
         mapa = vence_cuota_vigente_map([e.get('IDUSUARIO') for e in estudiantes])
@@ -343,10 +350,18 @@ def _aplicar_vence_cuota(estudiantes):
     for est in estudiantes:
         if str(est.get('ESTADO') or '').strip().lower() == 'retirado':
             est['FECHA_VENCE_CUOTA'] = None
+            est['CUOTA_CON_DEUDA'] = False
             continue
-        vence = mapa.get(str(est.get('IDUSUARIO') or ''))
+        info = mapa.get(str(est.get('IDUSUARIO') or ''))
+        if not info:
+            continue
+        if isinstance(info, tuple):
+            vence, tiene_deuda = info
+        else:
+            vence, tiene_deuda = info, False
         if vence:
             est['FECHA_VENCE_CUOTA'] = vence
+            est['CUOTA_CON_DEUDA'] = bool(tiene_deuda)
     return estudiantes
 
 

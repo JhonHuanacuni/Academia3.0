@@ -1,6 +1,7 @@
 export function estadoVencimientoDesdeFila(fila) {
   if (fila.venceVencida) return "vencida";
   if (fila.venceEn3Dias) return "proxima";
+  if (fila.venceVencida === false || fila.venceEn3Dias === false) return "";
 
   const s = String(fila.vence || "").trim();
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
@@ -86,6 +87,7 @@ export function calcularResumenInforme(filas) {
       asistAcum: 0,
       tardanzaAcum: 0,
       faltasAcum: 0,
+      totalAsistentes: 0,
       asistPct: 0,
       tardanzaPct: 0,
       faltasPct: 0,
@@ -97,6 +99,7 @@ export function calcularResumenInforme(filas) {
     asistAcum: asist,
     tardanzaAcum: tard,
     faltasAcum: faltas,
+    totalAsistentes: asist + tard,
     asistPct: Math.round((asist / total) * 100),
     tardanzaPct: Math.round((tard / total) * 100),
     faltasPct: Math.round((faltas / total) * 100),

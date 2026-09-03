@@ -18,6 +18,14 @@ from .libro_crud_service import (
 from .request_multipart import multipart_post_files
 
 
+def _id_usuario_request(request):
+    return (
+        request.GET.get('idusuario')
+        or request.GET.get('idUsuario')
+        or request.headers.get('X-IdUsuario')
+        or None
+    )
+
 def _parse_json_body(request):
     try:
         return json.loads(request.body.decode('utf-8'))
@@ -91,12 +99,13 @@ def libros_mantenedor(request, id_libro=None):
         try:
             buscar = request.GET.get('buscar') or None
             estado = request.GET.get('estado') or None
+            id_usuario = _id_usuario_request(request)
             ordenar_por = request.GET.get('ordenarPor', 'FECHASUBIDA')
             direccion = request.GET.get('direccion', 'DESC')
             pagina = int(request.GET.get('pagina', 1))
             tamanio = int(request.GET.get('tamanio', 10))
             data, total = listar_libros(
-                buscar, estado, ordenar_por, direccion, pagina, tamanio,
+                buscar, estado, id_usuario, ordenar_por, direccion, pagina, tamanio,
             )
             return JsonResponse({
                 'data': data,
@@ -109,7 +118,7 @@ def libros_mantenedor(request, id_libro=None):
 
     if request.method == 'GET' and id_libro:
         try:
-            row = obtener_libro(id_libro)
+            row = obtener_libro(id_libro, _id_usuario_request(request))
             if not row:
                 return JsonResponse({'error': 'Documento no encontrado'}, status=404)
             return JsonResponse({'data': row})

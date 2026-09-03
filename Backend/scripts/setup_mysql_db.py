@@ -137,6 +137,7 @@ ORDER = [
     '24_08_2026/5.mensajes_academico.sql',
     '25_08_2026/1.mensaje_cargo_autor.sql',
     '25_08_2026/2.submodulo_inclusion_usuario.sql',
+    '02_09_2026/1.usp_libro_listar_filtro_aula.sql',
 ]
 
 

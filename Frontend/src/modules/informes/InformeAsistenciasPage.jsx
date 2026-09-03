@@ -493,7 +493,8 @@ export default function InformeAsistenciasPage() {
           Los días que no corresponden al plan quedan vacíos y no cuentan en totales ni en el porcentaje.
           Los días anteriores al inicio de la mensualidad tampoco se marcan ni afectan el porcentaje.
           Las fechas futuras no se marcan como falta.
-          La celda <strong>VENCE</strong> se resalta en amarillo (3 días o menos) o rojo (vencida).
+          La celda <strong>VENCE</strong> muestra la cuota impaga más antigua y no avanza a la siguiente
+          mientras haya deuda. Se resalta en amarillo (3 días o menos) o rojo (deuda vencida).
 
         </p>
 

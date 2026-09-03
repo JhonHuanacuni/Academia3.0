@@ -43,12 +43,21 @@ def enriquecer_urls(row):
 def listar_libros(
     buscar=None,
     estado=None,
+    id_usuario=None,
     ordenar_por='FECHASUBIDA',
     direccion='DESC',
     pagina=1,
     tamanio=10,
 ):
-    params = [buscar or None, estado or None, ordenar_por, direccion, pagina, tamanio]
+    params = [
+        buscar or None,
+        estado or None,
+        id_usuario or None,
+        ordenar_por,
+        direccion,
+        pagina,
+        tamanio,
+    ]
     with connection.cursor() as cursor:
         if sp.is_mysql():
             data, total = sp.call_list(cursor, 'usp_libro_listar', params)
@@ -57,7 +66,7 @@ def listar_libros(
             """
             DECLARE @Total INT;
             EXEC dbo.usp_libro_listar
-                @Buscar=%s, @Estado=%s, @OrdenarPor=%s, @Direccion=%s,
+                @Buscar=%s, @Estado=%s, @IdUsuario=%s, @OrdenarPor=%s, @Direccion=%s,
                 @Pagina=%s, @TamanioPagina=%s, @TotalRegistros=@Total OUTPUT;
             SELECT @Total AS TotalRegistros;
             """,
@@ -72,7 +81,48 @@ def listar_libros(
     return data, total
 
 
-def obtener_libro(id_libro: str):
+def _aulas_activas_estudiante(id_usuario: str):
+    if not id_usuario:
+        return []
+    with connection.cursor() as cursor:
+        if sp.is_mysql():
+            cursor.execute(
+                """
+                SELECT DISTINCT IDAULA
+                FROM MENSUALIDAD
+                WHERE IDUSUARIO = %s
+                  AND ESTADO = 'Activo'
+                  AND IDAULA IS NOT NULL
+                  AND TRIM(IDAULA) <> ''
+                """,
+                [id_usuario],
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT DISTINCT IDAULA
+                FROM MENSUALIDAD
+                WHERE IDUSUARIO = %s
+                  AND ESTADO = 'Activo'
+                  AND IDAULA IS NOT NULL
+                  AND LTRIM(RTRIM(IDAULA)) <> ''
+                """,
+                [id_usuario],
+            )
+        return [r['IDAULA'] for r in sp.cursor_rows(cursor) if r.get('IDAULA')]
+
+
+def estudiante_puede_ver_libro(id_usuario: str, aulas_libro):
+    """True si el libro está asignado a algún salón activo del estudiante."""
+    if not id_usuario:
+        return True
+    aulas_est = set(_aulas_activas_estudiante(id_usuario))
+    if not aulas_est:
+        return False
+    return bool(aulas_est.intersection(set(aulas_libro or [])))
+
+
+def obtener_libro(id_libro: str, id_usuario=None):
     with connection.cursor() as cursor:
         if sp.is_mysql():
             rows = sp.call_simple(cursor, 'usp_libro_obtener', [id_libro])
@@ -86,6 +136,8 @@ def obtener_libro(id_libro: str):
             if cursor.nextset():
                 aulas = [r['IDAULA'] for r in sp.cursor_rows(cursor)]
     if not rows:
+        return None
+    if id_usuario and not estudiante_puede_ver_libro(id_usuario, aulas):
         return None
     out = enriquecer_urls(rows[0])
     out['AULAS'] = aulas

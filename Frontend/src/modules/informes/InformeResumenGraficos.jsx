@@ -7,6 +7,12 @@ export default function InformeResumenGraficos({ resumen, totalEstudiantes }) {
     { key: "est", valor: totalEstudiantes, etiqueta: "Estudiantes", tono: "primary" },
     { key: "asist", valor: asistAcum, etiqueta: "Asistencias", tono: "asist" },
     { key: "tard", valor: tardanzaAcum, etiqueta: "Tardanzas", tono: "tard" },
+    {
+      key: "totalAsist",
+      valor: resumen.totalAsistentes ?? (asistAcum || 0) + (tardanzaAcum || 0),
+      etiqueta: "Total de asistentes",
+      tono: "total",
+    },
     { key: "faltas", valor: faltasAcum, etiqueta: "Faltas", tono: "falta" },
   ];
 

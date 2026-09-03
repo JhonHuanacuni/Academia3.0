@@ -143,6 +143,10 @@ function PanelAsistencia({ resumen, hoy }) {
           <span>Tardanzas hoy</span>
         </div>
         <div className="dash-asist-stat">
+          <strong>{(hoy?.presente ?? 0) + (hoy?.tarde ?? 0)}</strong>
+          <span>Total de asistentes</span>
+        </div>
+        <div className="dash-asist-stat">
           <strong>{resumen?.totalEstudiantes ?? 0}</strong>
           <span>Estudiantes</span>
         </div>

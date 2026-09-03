@@ -709,33 +709,99 @@ def sql_deuda_exigible_expr(alias_m='m', alias_usuario=None) -> str:
     return f"CASE WHEN {_sql_es_retirado(alias_usuario)} THEN 0 ELSE ({inner}) END"
 
 
-def _vence_periodo_derivado(fecha_inicio_db, fecha_fin_db, hoy_db: str) -> str | None:
-    """Fin del periodo mensual vigente derivado del día de cobro del contrato."""
+def _vence_periodo_derivado(
+    fecha_inicio_db, fecha_fin_db, hoy_db: str, tiene_deuda: bool = False
+) -> str | None:
+    """Fin del periodo mensual vigente derivado del día de cobro del contrato.
+
+    Si hay deuda, no avanza al periodo siguiente: se queda en el primero ya vencido.
+    """
     periodos = generar_periodos_cuota(fecha_inicio_db, fecha_fin_db)
     if not periodos:
         return str(fecha_fin_db or '').strip() or None
     hoy = _db_to_date(hoy_db)
-    if hoy:
+    if not hoy:
+        return periodos[-1][1]
+    if tiene_deuda:
         for _ini, fin in periodos:
             f = _db_to_date(fin)
+            if f and f < hoy:
+                return fin
             if f and f >= hoy:
                 return fin
+        return periodos[-1][1]
+    for _ini, fin in periodos:
+        f = _db_to_date(fin)
+        if f and f >= hoy:
+            return fin
     return periodos[-1][1]
 
 
-def vence_cuota_vigente_map(id_usuarios, hoy_db: str | None = None) -> dict[str, str]:
-    """Fecha de vencimiento del periodo mensual vigente por estudiante.
+def _numero_cuota(valor) -> int:
+    try:
+        return int(valor or 0)
+    except (TypeError, ValueError):
+        return 0
 
-    Usa la cuota vigente cuando ya existen cuotas generadas; en mensualidades
-    legadas deriva el periodo desde el día de cobro para no exponer la fecha fin
-    del contrato completo.
+
+def _elegir_vence_de_cuotas(cuotas, hoy_date: date | None) -> tuple[str, bool] | None:
+    """Devuelve (FECHAFIN, tiene_deuda) de la cuota a mostrar.
+
+    No avanza de número de cuota mientras la anterior tenga saldo. Si hay cuotas
+    iniciadas impagas, se usa la más antigua; el rojo de vencida lo decide el
+    caller según FECHAFIN vs hoy.
+    """
+    if not cuotas or not hoy_date:
+        return None
+
+    parsed = []
+    for c in cuotas:
+        fin_s = str(c.get('FECHAFIN') or '').strip()
+        parsed.append((
+            _numero_cuota(c.get('NUMERO')),
+            _db_to_date(c.get('FECHAINICIO')),
+            _db_to_date(fin_s),
+            fin_s,
+            float(c.get('DEUDA') or 0),
+        ))
+
+    started = [p for p in parsed if p[1] and p[1] <= hoy_date]
+    unpaid = [p for p in started if p[4] > 0.001]
+    if unpaid:
+        unpaid.sort(key=lambda p: p[0])
+        return unpaid[0][3], True
+
+    current = [p for p in started if p[2] and p[2] >= hoy_date]
+    if current:
+        current.sort(key=lambda p: -p[0])
+        p = current[0]
+        return p[3], p[4] > 0.001
+
+    if started:
+        started.sort(key=lambda p: -p[0])
+        p = started[0]
+        return p[3], p[4] > 0.001
+
+    upcoming = [p for p in parsed if p[1] and p[1] > hoy_date]
+    if upcoming:
+        upcoming.sort(key=lambda p: (p[1], p[0]))
+        return upcoming[0][3], False
+    return None
+
+
+def vence_cuota_vigente_map(id_usuarios, hoy_db: str | None = None) -> dict[str, tuple[str, bool]]:
+    """Vencimiento a mostrar por estudiante: (FECHAFIN, tiene_deuda).
+
+    Si hay cuotas, no pasa al siguiente número mientras exista saldo en una
+    cuota ya iniciada. En mensualidades sin cuotas deriva el periodo desde el
+    día de cobro y, si hay deuda, tampoco avanza al periodo siguiente.
     """
     ids = [str(u) for u in dict.fromkeys(id_usuarios or []) if u]
     if not ids:
         return {}
     hoy = hoy_db or _hoy_db()
     hoy_date = _db_to_date(hoy)
-    resultado: dict[str, str] = {}
+    resultado: dict[str, tuple[str, bool]] = {}
 
     with connection.cursor() as cursor:
         hay_cuotas = tabla_cuotas_existe(cursor)
@@ -744,42 +810,89 @@ def vence_cuota_vigente_map(id_usuarios, hoy_db: str | None = None) -> dict[str,
             marcas = ','.join(['%s'] * len(grupo))
 
             if hay_cuotas:
-                fs_ini = fecha_sort_expr('c.FECHAINICIO')
-                fs_fin = fecha_sort_expr('c.FECHAFIN')
                 fs_reg = fecha_sort_expr('m.FECHAREGISTRO')
-                fs_hoy = (
-                    "CONCAT(SUBSTRING(%s,5,4), SUBSTRING(%s,3,2), SUBSTRING(%s,1,2))"
+                deuda_sql = (
+                    """CASE WHEN IFNULL(c.MONTO, 0) - IFNULL(pg.PAGADO, 0) < 0 THEN 0
+                            ELSE IFNULL(c.MONTO, 0) - IFNULL(pg.PAGADO, 0) END"""
                     if sp.is_mysql()
-                    else "SUBSTRING(%s,5,4) + SUBSTRING(%s,3,2) + SUBSTRING(%s,1,2)"
+                    else """CASE WHEN ISNULL(c.MONTO, 0) - ISNULL(pg.PAGADO, 0) < 0 THEN 0
+                            ELSE ISNULL(c.MONTO, 0) - ISNULL(pg.PAGADO, 0) END"""
+                )
+                join_pagos = (
+                    """LEFT JOIN (
+                        SELECT IDCUOTA, SUM(MONTO) AS PAGADO
+                        FROM PAGOMENSUALIDAD WHERE IDCUOTA IS NOT NULL
+                        GROUP BY IDCUOTA
+                    ) pg ON pg.IDCUOTA = c.IDCUOTA"""
+                    if sp.is_mysql()
+                    else """OUTER APPLY (
+                        SELECT SUM(p.MONTO) AS PAGADO
+                        FROM PAGOMENSUALIDAD p
+                        WHERE p.IDCUOTA = c.IDCUOTA
+                    ) pg"""
                 )
                 cursor.execute(
                     f"""
-                    SELECT m.IDUSUARIO, c.FECHAFIN
+                    SELECT m.IDUSUARIO, m.IDMENSUALIDAD, c.NUMERO, c.FECHAINICIO, c.FECHAFIN,
+                           {deuda_sql} AS DEUDA
                     FROM MENSUALIDAD_CUOTA c
                     INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = c.IDMENSUALIDAD
                     INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+                    {join_pagos}
                     WHERE m.IDUSUARIO IN ({marcas})
                       AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
                       AND NOT ({_sql_es_retirado('u')})
-                      AND {fs_ini} <= {fs_hoy}
-                      AND {fs_fin} >= {fs_hoy}
-                    ORDER BY {fs_reg} DESC, c.NUMERO DESC
+                    ORDER BY {fs_reg} DESC, c.NUMERO ASC
                     """,
-                    grupo + [hoy, hoy, hoy, hoy, hoy, hoy],
+                    grupo,
                 )
-                for uid, fin in cursor.fetchall():
-                    if fin:
-                        resultado.setdefault(str(uid), fin)
+                mensualidad_elegida: dict[str, str] = {}
+                cuotas_por_user: dict[str, list[dict]] = {}
+                for row in sp.cursor_rows(cursor):
+                    uid = str(row.get('IDUSUARIO') or '')
+                    idm = str(row.get('IDMENSUALIDAD') or '')
+                    if not uid or not idm:
+                        continue
+                    if uid not in mensualidad_elegida:
+                        mensualidad_elegida[uid] = idm
+                    if mensualidad_elegida[uid] != idm:
+                        continue
+                    cuotas_por_user.setdefault(uid, []).append(row)
+                for uid, cuotas in cuotas_por_user.items():
+                    elegido = _elegir_vence_de_cuotas(cuotas, hoy_date)
+                    if elegido and elegido[0]:
+                        resultado[uid] = elegido
 
             pendientes = [u for u in grupo if u not in resultado]
             if not pendientes:
                 continue
             marcas_p = ','.join(['%s'] * len(pendientes))
+            pagado_sql = (
+                """CASE WHEN IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) < 0 THEN 0
+                        ELSE IFNULL(m.MONTOTOTAL, 0) - IFNULL(pag.PAGADO, 0) END"""
+                if sp.is_mysql()
+                else """CASE WHEN ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) < 0 THEN 0
+                        ELSE ISNULL(m.MONTOTOTAL, 0) - ISNULL(pag.PAGADO, 0) END"""
+            )
+            join_pag_m = (
+                """LEFT JOIN (
+                    SELECT IDMENSUALIDAD, SUM(MONTO) AS PAGADO
+                    FROM PAGOMENSUALIDAD GROUP BY IDMENSUALIDAD
+                ) pag ON pag.IDMENSUALIDAD = m.IDMENSUALIDAD"""
+                if sp.is_mysql()
+                else """OUTER APPLY (
+                    SELECT SUM(p.MONTO) AS PAGADO
+                    FROM PAGOMENSUALIDAD p
+                    WHERE p.IDMENSUALIDAD = m.IDMENSUALIDAD
+                ) pag"""
+            )
             cursor.execute(
                 f"""
-                SELECT m.IDUSUARIO, m.FECHAINICIO, m.FECHAFIN, m.FECHAREGISTRO
+                SELECT m.IDUSUARIO, m.FECHAINICIO, m.FECHAFIN, m.FECHAREGISTRO,
+                       {pagado_sql} AS DEUDA
                 FROM MENSUALIDAD m
                 INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
+                {join_pag_m}
                 WHERE m.IDUSUARIO IN ({marcas_p})
                   AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
                   AND NOT ({_sql_es_retirado('u')})
@@ -787,64 +900,27 @@ def vence_cuota_vigente_map(id_usuarios, hoy_db: str | None = None) -> dict[str,
                 pendientes,
             )
             mejores: dict[str, tuple] = {}
-            for uid, f_ini, f_fin, f_reg in cursor.fetchall():
+            for uid, f_ini, f_fin, f_reg, deuda in cursor.fetchall():
                 uid = str(uid)
                 d_ini, d_fin, d_reg = _db_to_date(f_ini), _db_to_date(f_fin), _db_to_date(f_reg)
                 vigente = bool(
                     hoy_date and d_ini and d_fin and d_ini <= hoy_date <= d_fin
                 )
+                tiene_deuda = float(deuda or 0) > 0.001
                 orden = (1 if vigente else 0, d_reg or date.min, d_ini or date.min)
                 if uid not in mejores or orden > mejores[uid][0]:
-                    mejores[uid] = (orden, f_ini, f_fin)
-            for uid, (_orden, f_ini, f_fin) in mejores.items():
-                fecha = _vence_periodo_derivado(f_ini, f_fin, hoy)
+                    mejores[uid] = (orden, f_ini, f_fin, tiene_deuda)
+            for uid, (_orden, f_ini, f_fin, tiene_deuda) in mejores.items():
+                fecha = _vence_periodo_derivado(f_ini, f_fin, hoy, tiene_deuda)
                 if fecha:
-                    resultado[uid] = fecha
+                    resultado[uid] = (fecha, tiene_deuda)
 
     return resultado
 
 
 def fecha_vence_cuota_vigente(id_usuario: str, hoy_db: str | None = None) -> str | None:
-    """FECHAFIN de la cuota vigente del estudiante; fallback FECHAFIN de mensualidad."""
-    hoy = hoy_db or _hoy_db()
-    with connection.cursor() as cursor:
-        if not tabla_cuotas_existe(cursor):
-            return None
-        fs_ini = fecha_sort_expr('c.FECHAINICIO')
-        fs_fin = fecha_sort_expr('c.FECHAFIN')
-        fs_hoy = (
-            f"CONCAT(SUBSTRING(%s,5,4), SUBSTRING(%s,3,2), SUBSTRING(%s,1,2))"
-            if sp.is_mysql()
-            else "SUBSTRING(%s,5,4) + SUBSTRING(%s,3,2) + SUBSTRING(%s,1,2)"
-        )
-        cursor.execute(
-            f"""
-            SELECT c.FECHAFIN
-            FROM MENSUALIDAD_CUOTA c
-            INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = c.IDMENSUALIDAD
-            INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-            WHERE m.IDUSUARIO = %s
-              AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
-              AND NOT ({_sql_es_retirado('u')})
-              AND {fs_ini} <= {fs_hoy}
-              AND {fs_fin} >= {fs_hoy}
-            ORDER BY m.FECHAREGISTRO DESC, c.NUMERO DESC
-            LIMIT 1
-            """
-            if sp.is_mysql()
-            else f"""
-            SELECT TOP 1 c.FECHAFIN
-            FROM MENSUALIDAD_CUOTA c
-            INNER JOIN MENSUALIDAD m ON m.IDMENSUALIDAD = c.IDMENSUALIDAD
-            INNER JOIN USUARIO u ON u.IDUSUARIO = m.IDUSUARIO
-            WHERE m.IDUSUARIO = %s
-              AND (m.ESTADO IS NULL OR m.ESTADO = N'Activo')
-              AND NOT ({_sql_es_retirado('u')})
-              AND {fs_ini} <= {fs_hoy}
-              AND {fs_fin} >= {fs_hoy}
-            ORDER BY m.FECHAREGISTRO DESC, c.NUMERO DESC
-            """,
-            [id_usuario, hoy, hoy, hoy],
-        )
-        row = cursor.fetchone()
-        return row[0] if row else None
+    """FECHAFIN de la cuota a mostrar del estudiante (no avanza si hay deuda)."""
+    info = vence_cuota_vigente_map([id_usuario], hoy_db).get(str(id_usuario or ''))
+    if not info:
+        return None
+    return info[0] if isinstance(info, tuple) else info
