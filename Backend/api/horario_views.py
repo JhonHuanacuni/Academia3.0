@@ -19,6 +19,15 @@ from .request_multipart import multipart_post_files
 IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp', '.gif')
 
 
+def _id_usuario_request(request):
+    return (
+        request.GET.get('idusuario')
+        or request.GET.get('idUsuario')
+        or request.headers.get('X-IdUsuario')
+        or None
+    )
+
+
 def _parse_json_body(request):
     try:
         return json.loads(request.body.decode('utf-8'))
@@ -96,12 +105,13 @@ def horarios_mantenedor(request, id_horario=None):
         try:
             buscar = request.GET.get('buscar') or None
             estado = request.GET.get('estado') or None
+            id_usuario = _id_usuario_request(request)
             ordenar_por = request.GET.get('ordenarPor', 'FECHASUBIDA')
             direccion = request.GET.get('direccion', 'DESC')
             pagina = int(request.GET.get('pagina', 1))
             tamanio = int(request.GET.get('tamanio', 10))
             data, total = listar_horarios(
-                buscar, estado, ordenar_por, direccion, pagina, tamanio,
+                buscar, estado, id_usuario, ordenar_por, direccion, pagina, tamanio,
             )
             return JsonResponse({
                 'data': data,
@@ -114,7 +124,7 @@ def horarios_mantenedor(request, id_horario=None):
 
     if request.method == 'GET' and id_horario:
         try:
-            row = obtener_horario(id_horario)
+            row = obtener_horario(id_horario, _id_usuario_request(request))
             if not row:
                 return JsonResponse({'error': 'Horario no encontrado'}, status=404)
             return JsonResponse({'data': row})

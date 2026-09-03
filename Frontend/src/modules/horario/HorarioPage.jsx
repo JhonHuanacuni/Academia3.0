@@ -13,12 +13,18 @@ import HorarioVerModal from "./HorarioVerModal";
 import "../../styles/mantenedor.css";
 import "./horario.css";
 
-export default function HorarioPage() {
+export default function HorarioPage({ role }) {
   const cfg = horarioConfig;
+  const esEstudiante = role === "estudiante";
+  const idUsuario = localStorage.getItem("idusuario") || "";
+
   const crud = useCrud({
     entidad: cfg.entidad,
     pk: cfg.pk,
     ordenInicial: { campo: "FECHASUBIDA", direccion: "DESC" },
+    filtrosIniciales: esEstudiante
+      ? { estado: "Activo", idusuario: idUsuario }
+      : {},
   });
 
   const [verModal, setVerModal] = useState(null);
@@ -31,6 +37,7 @@ export default function HorarioPage() {
   const [aulas, setAulas] = useState([]);
 
   useEffect(() => {
+    if (esEstudiante) return;
     (async () => {
       try {
         const res = await fetch("/api/horarios/catalogos/");
@@ -47,7 +54,18 @@ export default function HorarioPage() {
         /* catálogo opcional */
       }
     })();
-  }, []);
+  }, [esEstudiante]);
+
+  const obtenerHorario = async (id) => {
+    if (!esEstudiante) return crud.obtener(id);
+    const params = new URLSearchParams({ idusuario: idUsuario });
+    const res = await fetch(
+      `/api/${cfg.entidad}/${encodeURIComponent(id)}/?${params}`,
+    );
+    const data = await parseJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || "No se pudo obtener el registro");
+    return data.data;
+  };
 
   const abrirCrear = () => {
     crud.setRegistro(null);
@@ -57,7 +75,7 @@ export default function HorarioPage() {
 
   const abrirEditar = async (row) => {
     try {
-      const data = await crud.obtener(row[cfg.pk]);
+      const data = await obtenerHorario(row[cfg.pk]);
       crud.setRegistro(data);
       setModo("editar");
       setModalAbierto(true);
@@ -69,7 +87,7 @@ export default function HorarioPage() {
   const abrirVer = async (row) => {
     try {
       setCargandoVer(true);
-      const data = await crud.obtener(row[cfg.pk]);
+      const data = await obtenerHorario(row[cfg.pk]);
       if (!data?.URLPREVIEW) {
         setToast({ mensaje: "Este horario no tiene imagen asociada.", tipo: "error" });
         return;
@@ -140,21 +158,26 @@ export default function HorarioPage() {
         onNuevo={abrirCrear}
         nuevoEtiqueta="Agregar Horario"
         nuevoClase="btn-success"
+        mostrarNuevo={!esEstudiante}
       />
 
       <div className="mantenedor-card">
         <Toolbar
           buscar={crud.buscar}
           onBuscarChange={crud.onBuscarChange}
-          filtros={[
-            {
-              key: "estado",
-              etiqueta: "Estado",
-              value: crud.filtros.estado || "",
-              opciones: ["Activo", "Inactivo"],
-              onChange: (v) => crud.setFiltro("estado", v),
-            },
-          ]}
+          filtros={
+            esEstudiante
+              ? []
+              : [
+                  {
+                    key: "estado",
+                    etiqueta: "Estado",
+                    value: crud.filtros.estado || "",
+                    opciones: ["Activo", "Inactivo"],
+                    onChange: (v) => crud.setFiltro("estado", v),
+                  },
+                ]
+          }
         />
 
         <DataTable
@@ -166,8 +189,8 @@ export default function HorarioPage() {
           error={crud.error}
           onOrden={crud.toggleOrden}
           onVer={abrirVer}
-          onEditar={abrirEditar}
-          onEliminar={abrirEliminar}
+          onEditar={esEstudiante ? undefined : abrirEditar}
+          onEliminar={esEstudiante ? undefined : abrirEliminar}
           onReintentar={crud.listar}
           pagina={crud.pagina}
           tamanio={crud.tamanio}
@@ -182,15 +205,17 @@ export default function HorarioPage() {
         />
       </div>
 
-      <HorarioFormModal
-        abierto={modalAbierto}
-        modo={modo}
-        titulo={tituloModal}
-        registro={crud.registro}
-        aulas={aulas}
-        onClose={() => setModalAbierto(false)}
-        onSubmit={enviarForm}
-      />
+      {!esEstudiante && (
+        <HorarioFormModal
+          abierto={modalAbierto}
+          modo={modo}
+          titulo={tituloModal}
+          registro={crud.registro}
+          aulas={aulas}
+          onClose={() => setModalAbierto(false)}
+          onSubmit={enviarForm}
+        />
+      )}
 
       <HorarioVerModal
         abierto={Boolean(verModal)}
@@ -199,14 +224,16 @@ export default function HorarioPage() {
         onClose={() => setVerModal(null)}
       />
 
-      <ConfirmDialog
-        abierto={Boolean(confirm)}
-        titulo="Confirmar eliminación"
-        mensaje={confirm?.mensaje}
-        confirmando={confirmando}
-        onCancel={() => setConfirm(null)}
-        onConfirm={handleConfirmEliminar}
-      />
+      {!esEstudiante && (
+        <ConfirmDialog
+          abierto={Boolean(confirm)}
+          titulo="Confirmar eliminación"
+          mensaje={confirm?.mensaje}
+          confirmando={confirmando}
+          onCancel={() => setConfirm(null)}
+          onConfirm={handleConfirmEliminar}
+        />
+      )}
 
       {toast && (
         <Toast
