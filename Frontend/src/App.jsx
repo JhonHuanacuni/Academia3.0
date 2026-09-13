@@ -187,8 +187,8 @@ const pageContent = {
     component: InformeAsistenciasPage,
   },
   "informes-salon": {
-    title: "Por salón",
-    description: "Asistencias por salón, tutor, plan y estado.",
+    title: "Estudiantes",
+    description: "Listado de estudiantes por salón, tutor, plan y estado.",
     component: InformeAsistenciasSalonPage,
   },
 };

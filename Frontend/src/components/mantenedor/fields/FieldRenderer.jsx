@@ -1,3 +1,9 @@
+import { useRef } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faImage, faUpload } from "@fortawesome/free-solid-svg-icons";
+
+const MAX_FOTO_BYTES = 5 * 1024 * 1024;
+
 export default function FieldRenderer({
   campo,
   value,
@@ -6,6 +12,7 @@ export default function FieldRenderer({
   catalogo = [],
   onChange,
 }) {
+  const fileRef = useRef(null);
   const className = `form-field ${campo.full ? "full" : ""} ${error ? "has-error" : ""}`;
 
   const renderControl = () => {
@@ -24,6 +31,7 @@ export default function FieldRenderer({
     if (campo.control === "select") {
       return (
         <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+          {!campo.obligatorio && <option value="">Selecciona...</option>}
           {(campo.opciones || []).map((op) => (
             <option key={op} value={op}>
               {op}
@@ -52,9 +60,9 @@ export default function FieldRenderer({
       const handleFile = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        if (file.size > 500 * 1024) {
+        if (file.size > MAX_FOTO_BYTES) {
           onChange("");
-          alert("La imagen no debe superar 500 KB. Usa JPG comprimido.");
+          alert("La imagen no debe superar 5 MB.");
           e.target.value = "";
           return;
         }
@@ -72,12 +80,37 @@ export default function FieldRenderer({
           {previewSrc && (
             <img src={previewSrc} alt="Vista previa" className="image-field-preview" />
           )}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            disabled={disabled}
-            onChange={handleFile}
-          />
+          <div
+            className={`image-file-drop${value ? " image-file-drop--loaded" : ""}${disabled ? " is-disabled" : ""}`}
+            onClick={() => !disabled && fileRef.current?.click()}
+            onKeyDown={(e) => e.key === "Enter" && !disabled && fileRef.current?.click()}
+            role="button"
+            tabIndex={disabled ? -1 : 0}
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={disabled}
+              onChange={handleFile}
+              className="image-file-input"
+            />
+            <FontAwesomeIcon
+              icon={value ? faImage : faUpload}
+              className="image-file-drop-icon"
+            />
+            {value ? (
+              <>
+                <strong>Foto seleccionada</strong>
+                <span>Clic para cambiar · Máximo 5 MB</span>
+              </>
+            ) : (
+              <>
+                <strong>Seleccionar foto</strong>
+                <span>JPG, PNG o WEBP · Máximo 5 MB</span>
+              </>
+            )}
+          </div>
           {value && !disabled && (
             <button type="button" className="btn-link" onClick={() => onChange("")}>
               Quitar foto

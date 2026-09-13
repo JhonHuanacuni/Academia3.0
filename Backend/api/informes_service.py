@@ -611,20 +611,34 @@ def informe_asistencias(
         raise ValueError('Rango de fechas inválido.')
 
     estudiantes = None
+    # Preferir SP con filtros de aula/tutor (7 params). Si no existe, SQL propio / SP legado.
     try:
-        estudiantes = _listar_estudiantes_informe(
-            fecha_desde,
-            fecha_hasta,
-            buscar=buscar,
-            id_plan=id_plan,
-            estado_usuario=estado_usuario,
-            id_aula=id_aula,
-            id_tutor=id_tutor,
-        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'CALL usp_asistencia_informe(%s, %s, %s, %s, %s, %s, %s)',
+                [fecha_desde, fecha_hasta, buscar, id_plan, estado_usuario, id_aula, id_tutor],
+            )
+            estudiantes = _cursor_rows(cursor)
+            while cursor.nextset():
+                pass
     except Exception:
-        if id_aula or id_tutor:
-            raise
         estudiantes = None
+
+    if estudiantes is None:
+        try:
+            estudiantes = _listar_estudiantes_informe(
+                fecha_desde,
+                fecha_hasta,
+                buscar=buscar,
+                id_plan=id_plan,
+                estado_usuario=estado_usuario,
+                id_aula=id_aula,
+                id_tutor=id_tutor,
+            )
+        except Exception:
+            if id_aula or id_tutor:
+                raise
+            estudiantes = None
 
     if estudiantes is None:
         with connection.cursor() as cursor:
@@ -835,3 +849,231 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
         return {r['IDUSUARIO']: r for r in rows}
     except Exception:
         return {}
+
+
+def _columna_existe(tabla, columna):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS C
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = %s
+                  AND COLUMN_NAME = %s
+                """,
+                [tabla, columna],
+            )
+            row = cursor.fetchone()
+            return bool(row and int(row[0] or 0) > 0)
+    except Exception:
+        return False
+
+
+def _normalizar_genero(val):
+    s = str(val or '').strip().upper()
+    if not s:
+        return 'Sin dato'
+    if s in ('M', 'H', 'MASCULINO', 'HOMBRE', 'MALE'):
+        return 'Hombre'
+    if s in ('F', 'MUJER', 'FEMENINO', 'FEMALE'):
+        return 'Mujer'
+    return 'Sin dato'
+
+
+def _agregar_conteo(mapa, clave):
+    k = (clave or '').strip() or 'Sin dato'
+    mapa[k] = mapa.get(k, 0) + 1
+
+
+def informe_estudiantes(buscar=None, id_plan=None, estado_usuario=None, id_aula=None, id_tutor=None):
+    """Listado de estudiantes (sin matriz de asistencia) + indicadores demográficos."""
+    buscar = (buscar or '').strip() or None
+    id_plan = (id_plan or '').strip() or None
+    id_aula = (id_aula or '').strip() or None
+    id_tutor = (id_tutor or '').strip() or None
+    estado_usuario = _normalizar_estado_usuario(estado_usuario)
+
+    ifnull = 'IFNULL' if is_mysql() else 'ISNULL'
+    plan_table = '`PLAN`' if is_mysql() else '[PLAN]'
+    concat_like = "CONCAT('%%', %s, '%%')" if is_mysql() else "('%%' + %s + '%%')"
+    tiene_sexo = _columna_existe('USUARIO', 'SEXO') or _columna_existe('USUARIO', 'GENERO')
+    col_sexo = 'SEXO' if _columna_existe('USUARIO', 'SEXO') else ('GENERO' if _columna_existe('USUARIO', 'GENERO') else None)
+    sexo_select = f"{ifnull}(u.{col_sexo}, '') AS SEXO" if col_sexo else "'' AS SEXO"
+    tiene_como = _columna_existe('USUARIO', 'COMOENTERO')
+    como_select = f"{ifnull}(u.COMOENTERO, '') AS COMOENTERO" if tiene_como else "'' AS COMOENTERO"
+    distrito_select = f"{ifnull}(u.DISTRITO, '') AS DISTRITO" if _columna_existe('USUARIO', 'DISTRITO') else "'' AS DISTRITO"
+    grado_select = f"{ifnull}(u.GRADO, '') AS GRADO" if _columna_existe('USUARIO', 'GRADO') else "'' AS GRADO"
+    dni_select = f"{ifnull}(u.DNI, '') AS DNI"
+
+    nombre_expr = (
+        f"UPPER(TRIM(CONCAT({ifnull}(u.APELLIDO, ''), ' ', {ifnull}(u.NOMBRE, ''))))"
+        if is_mysql()
+        else f"UPPER(LTRIM(RTRIM({ifnull}(u.APELLIDO, '') + ' ' + {ifnull}(u.NOMBRE, ''))))"
+    )
+    ciclo_expr = (
+        f"""UPPER(TRIM(CONCAT(
+            {ifnull}(pl.NOMBRE, ''),
+            CASE WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
+                 THEN CONCAT(' ', tu.DESCRIPCION) ELSE '' END
+        )))"""
+        if is_mysql()
+        else f"""UPPER(LTRIM(RTRIM(
+            {ifnull}(pl.NOMBRE, '') +
+            CASE WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
+                 THEN ' ' + tu.DESCRIPCION ELSE '' END
+        )))"""
+    )
+    tutora_expr = (
+        f"""UPPER(TRIM(COALESCE(
+            NULLIF(tut_mem.NOMBRE, ''),
+            NULLIF(tut_aula.NOMBRE, ''),
+            ''
+        )))"""
+        if is_mysql()
+        else f"""UPPER(LTRIM(RTRIM(COALESCE(
+            NULLIF(tut_mem.NOMBRE, ''),
+            NULLIF(tut_aula.NOMBRE, ''),
+            ''
+        ))))"""
+    )
+
+    if is_mysql():
+        mem_join = """
+            LEFT JOIN LATERAL (
+                SELECT m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR, m.FECHAINICIO, m.FECHAFIN
+                FROM MENSUALIDAD m
+                WHERE m.IDUSUARIO = u.IDUSUARIO
+                  AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                ORDER BY m.FECHAREGISTRO DESC, m.FECHAINICIO DESC
+                LIMIT 1
+            ) mem ON TRUE
+            """
+    else:
+        mem_join = """
+            OUTER APPLY (
+                SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR, m.FECHAINICIO, m.FECHAFIN
+                FROM MENSUALIDAD m
+                WHERE m.IDUSUARIO = u.IDUSUARIO
+                  AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                ORDER BY m.FECHAREGISTRO DESC, m.FECHAINICIO DESC
+            ) mem
+            """
+
+    where = ["u.IDTIPOUSUARIO = '1'"]
+    params = []
+    if estado_usuario:
+        where.append(f"UPPER({ifnull}(u.ESTADO, 'Activo')) = UPPER(%s)")
+        params.append(estado_usuario)
+    if id_plan:
+        where.append('mem.IDPLAN = %s')
+        params.append(id_plan)
+    if id_aula:
+        where.append('mem.IDAULA = %s')
+        params.append(id_aula)
+    if id_tutor:
+        where.append('(mem.IDTUTOR = %s OR au.IDTUTOR = %s)')
+        params.extend([id_tutor, id_tutor])
+    if buscar:
+        where.append(
+            f"""(
+                u.DNI LIKE {concat_like}
+                OR u.NOMBRE LIKE {concat_like}
+                OR u.APELLIDO LIKE {concat_like}
+                OR u.IDUSUARIO LIKE {concat_like}
+                OR {ifnull}(au.NOMBRE, '') LIKE {concat_like}
+                OR {ifnull}(pl.NOMBRE, '') LIKE {concat_like}
+            )"""
+        )
+        params.extend([buscar] * 6)
+
+    sql = f"""
+        SELECT
+            u.IDUSUARIO,
+            {nombre_expr} AS NOMBRE_COMPLETO,
+            {dni_select},
+            UPPER({ifnull}(u.ESTADO, 'Activo')) AS ESTADO,
+            {tutora_expr} AS TUTORA,
+            {ifnull}(au.NOMBRE, '') AS AULA,
+            {ciclo_expr} AS CICLO,
+            {como_select},
+            {distrito_select},
+            {grado_select},
+            {sexo_select},
+            mem.IDPLAN,
+            mem.IDAULA,
+            mem.IDTUTOR
+        FROM USUARIO u
+        {mem_join}
+        LEFT JOIN AULA au ON au.IDAULA = mem.IDAULA
+        LEFT JOIN TUTOR tut_mem ON tut_mem.IDTUTOR = mem.IDTUTOR
+        LEFT JOIN TUTOR tut_aula ON tut_aula.IDTUTOR = au.IDTUTOR
+        LEFT JOIN {plan_table} pl ON pl.IDPLAN = mem.IDPLAN
+        LEFT JOIN TURNO tu ON tu.IDTURNO = mem.IDTURNO
+        WHERE {' AND '.join(where)}
+        ORDER BY u.APELLIDO, u.NOMBRE
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql, params)
+        rows = _cursor_rows(cursor)
+
+    filas = []
+    por_genero = {}
+    por_como = {}
+    por_estado = {}
+    por_plan = {}
+    por_distrito = {}
+
+    for idx, r in enumerate(rows, start=1):
+        genero = _normalizar_genero(r.get('SEXO')) if tiene_sexo else 'Sin dato'
+        como = (r.get('COMOENTERO') or '').strip() or 'Sin dato'
+        estado = (r.get('ESTADO') or 'ACTIVO').strip() or 'ACTIVO'
+        plan = (r.get('CICLO') or '').strip() or 'Sin plan'
+        distrito = (r.get('DISTRITO') or '').strip() or 'Sin distrito'
+
+        _agregar_conteo(por_genero, genero)
+        _agregar_conteo(por_como, como)
+        _agregar_conteo(por_estado, estado.title() if estado else 'Activo')
+        _agregar_conteo(por_plan, plan)
+        _agregar_conteo(por_distrito, distrito)
+
+        filas.append({
+            'numero': idx,
+            'idusuario': r.get('IDUSUARIO') or '',
+            'nombres': r.get('NOMBRE_COMPLETO') or '',
+            'dni': r.get('DNI') or '',
+            'estado': estado,
+            'tutora': r.get('TUTORA') or '',
+            'aula': r.get('AULA') or '',
+            'ciclo': r.get('CICLO') or '',
+            'comoEntero': como if como != 'Sin dato' else '',
+            'distrito': r.get('DISTRITO') or '',
+            'grado': r.get('GRADO') or '',
+            'genero': genero if tiene_sexo else '',
+        })
+
+    def _lista_mapa(mapa):
+        items = [{'etiqueta': k, 'cantidad': v} for k, v in mapa.items()]
+        items.sort(key=lambda x: (-x['cantidad'], x['etiqueta']))
+        return items
+
+    total = len(filas)
+    return {
+        'filas': filas,
+        'total': total,
+        'tieneGenero': bool(tiene_sexo),
+        'resumen': {
+            'total': total,
+            'activos': por_estado.get('Activo', 0),
+            'retirados': por_estado.get('Retirado', 0),
+            'hombres': por_genero.get('Hombre', 0),
+            'mujeres': por_genero.get('Mujer', 0),
+            'sinGenero': por_genero.get('Sin dato', 0),
+            'porGenero': _lista_mapa(por_genero),
+            'porComoEntero': _lista_mapa(por_como),
+            'porEstado': _lista_mapa(por_estado),
+            'porPlan': _lista_mapa(por_plan),
+            'porDistrito': _lista_mapa(por_distrito)[:12],
+        },
+    }

@@ -1,47 +1,160 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChartColumn, faFileExcel, faSpinner, faTable } from "@fortawesome/free-solid-svg-icons";
-import { parseJsonResponse } from "../../utils/api";
-import { inputToDb, primerDiaMesInput, ultimoDiaMesInput } from "../../utils/fecha";
-import { exportarInformeAsistenciasExcel } from "./exportarExcel";
-import InformeResumenGraficos from "./InformeResumenGraficos";
-import InformeAsistenciasTabla from "./InformeAsistenciasTabla";
 import {
-  TIPOS_MARCA_INFORME,
-  calcularResumenInforme,
-  filtrarFilasPorMarca,
-  renumerarFilasInforme,
-} from "./informeAsistenciasUtils";
+  faChartColumn,
+  faFileExcel,
+  faSpinner,
+  faUsers,
+} from "@fortawesome/free-solid-svg-icons";
+import { parseJsonResponse } from "../../utils/api";
 import "../../styles/mantenedor.css";
 import "./informes.css";
 
 const TABS = [
   { id: "indicadores", label: "Indicadores", icon: faChartColumn },
-  { id: "asistencias", label: "Asistencias", icon: faTable },
+  { id: "estudiantes", label: "Estudiantes", icon: faUsers },
 ];
 
+function DistList({ titulo, items, total }) {
+  if (!items?.length) {
+    return (
+      <section className="informes-dist-side">
+        <div className="informes-panel-header">
+          <h2>{titulo}</h2>
+          <p>Sin datos</p>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="informes-dist-side">
+      <div className="informes-panel-header">
+        <h2>{titulo}</h2>
+        <p>Distribución del listado filtrado</p>
+      </div>
+      <div className="informes-distribucion">
+        {items.map((item) => {
+          const pct = total > 0 ? Math.round((item.cantidad / total) * 100) : 0;
+          return (
+            <div key={item.etiqueta} className="informes-dist-item informes-dist-item--asist">
+              <div className="informes-dist-row">
+                <span className="informes-dist-pct">{pct}%</span>
+                <span className="informes-dist-label">
+                  {item.etiqueta} · {item.cantidad}
+                </span>
+              </div>
+              <div className="informes-dist-track">
+                <div className="informes-dist-fill" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function IndicadoresEstudiantes({ resumen, tieneGenero }) {
+  if (!resumen) return null;
+  const total = resumen.total || 0;
+  const kpis = [
+    { key: "total", valor: total, etiqueta: "Estudiantes", tono: "primary" },
+    { key: "act", valor: resumen.activos || 0, etiqueta: "Activos", tono: "asist" },
+    { key: "ret", valor: resumen.retirados || 0, etiqueta: "Retirados", tono: "falta" },
+  ];
+  if (tieneGenero) {
+    kpis.push(
+      { key: "h", valor: resumen.hombres || 0, etiqueta: "Hombres", tono: "total" },
+      { key: "m", valor: resumen.mujeres || 0, etiqueta: "Mujeres", tono: "tard" },
+    );
+  }
+
+  return (
+    <div className="informes-dashboard">
+      <div className="informes-kpi-row">
+        {kpis.map((k) => (
+          <div key={k.key} className={`informes-kpi informes-kpi--${k.tono}`}>
+            <span className="informes-kpi-valor">{k.valor}</span>
+            <span className="informes-kpi-etiqueta">{k.etiqueta}</span>
+          </div>
+        ))}
+      </div>
+      <div className="informes-resumen-panel">
+        <div className="informes-resumen-grid">
+          <DistList titulo="¿De qué manera se enteraron?" items={resumen.porComoEntero} total={total} />
+          <DistList titulo="Por plan / ciclo" items={resumen.porPlan} total={total} />
+        </div>
+        <div className="informes-resumen-grid" style={{ marginTop: "1rem" }}>
+          {tieneGenero && (
+            <DistList titulo="Por género" items={resumen.porGenero} total={total} />
+          )}
+          <DistList titulo="Por distrito" items={resumen.porDistrito} total={total} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TablaEstudiantes({ filas }) {
+  if (!filas?.length) {
+    return <div className="mantenedor-state">No hay estudiantes para mostrar.</div>;
+  }
+  return (
+    <div className="informe-tabla-outer">
+      <table className="informe-asistencias-table informe-estudiantes-table">
+        <thead>
+          <tr>
+            <th className="col-num sticky-izq">N°</th>
+            <th className="col-nombre sticky-izq sticky-izq--ultimo">NOMBRES Y APELLIDOS</th>
+            <th>DNI</th>
+            <th>TUTOR</th>
+            <th>AULA</th>
+            <th>PLAN / CICLO</th>
+            <th>CÓMO SE ENTERÓ</th>
+            <th>DISTRITO</th>
+            <th>ESTADO</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((fila) => (
+            <tr key={fila.idusuario || fila.numero}>
+              <td className="col-num sticky-izq">{fila.numero}</td>
+              <td className="col-nombre sticky-izq sticky-izq--ultimo" title={fila.nombres}>
+                {fila.nombres}
+              </td>
+              <td>{fila.dni || "—"}</td>
+              <td>{fila.tutora || "—"}</td>
+              <td>{fila.aula || "—"}</td>
+              <td>{fila.ciclo || "—"}</td>
+              <td>{fila.comoEntero || "—"}</td>
+              <td>{fila.distrito || "—"}</td>
+              <td>{fila.estado || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function InformeAsistenciasSalonPage() {
-  const [fechaDesde, setFechaDesde] = useState(primerDiaMesInput);
-  const [fechaHasta, setFechaHasta] = useState(() => ultimoDiaMesInput());
   const [buscar, setBuscar] = useState("");
   const [idPlan, setIdPlan] = useState("");
   const [idAula, setIdAula] = useState("");
   const [idTutor, setIdTutor] = useState("");
   const [estado, setEstado] = useState("Activo");
-  const [tipoMarca, setTipoMarca] = useState("");
   const [planes, setPlanes] = useState([]);
   const [aulas, setAulas] = useState([]);
   const [tutores, setTutores] = useState([]);
-  const [tabActiva, setTabActiva] = useState("asistencias");
+  const [tabActiva, setTabActiva] = useState("estudiantes");
   const [resumen, setResumen] = useState(null);
   const [filas, setFilas] = useState([]);
-  const [dias, setDias] = useState([]);
   const [total, setTotal] = useState(0);
+  const [tieneGenero, setTieneGenero] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [error, setError] = useState("");
   const [consultado, setConsultado] = useState(false);
-  const [rangoConsultado, setRangoConsultado] = useState(null);
   const cargaInicialHecha = useRef(false);
 
   const aulasFiltradas = useMemo(() => {
@@ -50,55 +163,37 @@ export default function InformeAsistenciasSalonPage() {
   }, [aulas, idTutor]);
 
   const cargar = useCallback(async () => {
-    const desde = inputToDb(fechaDesde);
-    const hasta = inputToDb(fechaHasta);
-    if (!desde || !hasta) {
-      setError("Selecciona un rango de fechas válido.");
-      return;
-    }
-    if (desde > hasta) {
-      setError("La fecha desde no puede ser mayor que la fecha hasta.");
-      return;
-    }
     if (!idAula) {
-      setError("Selecciona un salón para generar el informe.");
+      setError("Selecciona un salón para listar estudiantes.");
       return;
     }
-
     try {
       setCargando(true);
       setError("");
-      const params = new URLSearchParams({
-        fechaDesde: desde,
-        fechaHasta: hasta,
-        idAula,
-      });
+      const params = new URLSearchParams({ idAula });
       if (buscar.trim()) params.set("buscar", buscar.trim());
       if (idPlan) params.set("idPlan", idPlan);
       if (idTutor) params.set("idTutor", idTutor);
       if (estado) params.set("estado", estado);
 
-      const res = await fetch(`/api/informes/asistencias/?${params}`);
+      const res = await fetch(`/api/informes/estudiantes/?${params}`);
       const data = await parseJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Error al generar el informe");
 
       setResumen(data.resumen || null);
       setFilas(data.filas || []);
-      setDias(data.dias || []);
       setTotal(data.total || 0);
-      setRangoConsultado({ desde, hasta, idAula });
+      setTieneGenero(Boolean(data.tieneGenero));
       setConsultado(true);
     } catch (err) {
       setError(err.message);
       setResumen(null);
       setFilas([]);
-      setDias([]);
       setTotal(0);
-      setRangoConsultado(null);
     } finally {
       setCargando(false);
     }
-  }, [fechaDesde, fechaHasta, buscar, idPlan, idAula, idTutor, estado]);
+  }, [buscar, idPlan, idAula, idTutor, estado]);
 
   useEffect(() => {
     (async () => {
@@ -140,109 +235,51 @@ export default function InformeAsistenciasSalonPage() {
     }
   }, [idTutor, idAula, aulas]);
 
-  const filasVisibles = useMemo(
-    () => renumerarFilasInforme(filtrarFilasPorMarca(filas, tipoMarca)),
-    [filas, tipoMarca],
-  );
-
-  const resumenVisible = useMemo(
-    () => (filasVisibles.length ? calcularResumenInforme(filasVisibles) : resumen),
-    [filasVisibles, resumen],
-  );
-
-  const totalVisible = filasVisibles.length;
-
   const exportarExcel = useCallback(async () => {
-    const desdeDb = inputToDb(fechaDesde);
-    const hastaDb = inputToDb(fechaHasta);
-    if (!desdeDb || !hastaDb) {
-      setError("Selecciona un rango de fechas válido.");
+    if (!filas.length) {
+      setError("No hay datos para exportar.");
       return;
     }
-    if (!idAula) {
-      setError("Selecciona un salón para exportar.");
-      return;
-    }
-
     try {
       setExportando(true);
-      setError("");
-      let filasExport = filasVisibles;
-      let diasExport = dias;
-
-      const fechasCoinciden =
-        rangoConsultado &&
-        desdeDb === rangoConsultado.desde &&
-        hastaDb === rangoConsultado.hasta &&
-        idAula === rangoConsultado.idAula;
-
-      if (!consultado || !fechasCoinciden || !diasExport.length) {
-        const params = new URLSearchParams({
-          fechaDesde: desdeDb,
-          fechaHasta: hastaDb,
-          idAula,
-        });
-        if (buscar.trim()) params.set("buscar", buscar.trim());
-        if (idPlan) params.set("idPlan", idPlan);
-        if (idTutor) params.set("idTutor", idTutor);
-        if (estado) params.set("estado", estado);
-
-        const res = await fetch(`/api/informes/asistencias/?${params}`);
-        const data = await parseJsonResponse(res);
-        if (!res.ok) throw new Error(data.error || "Error al exportar");
-        filasExport = renumerarFilasInforme(filtrarFilasPorMarca(data.filas || [], tipoMarca));
-        diasExport = data.dias || [];
-      }
-
-      await exportarInformeAsistenciasExcel({
-        filas: filasExport,
-        dias: diasExport,
-        fechaDesde: desdeDb,
-        fechaHasta: hastaDb,
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet("Estudiantes");
+      ws.columns = [
+        { header: "N°", key: "numero", width: 6 },
+        { header: "NOMBRES Y APELLIDOS", key: "nombres", width: 36 },
+        { header: "DNI", key: "dni", width: 12 },
+        { header: "TUTOR", key: "tutora", width: 18 },
+        { header: "AULA", key: "aula", width: 28 },
+        { header: "PLAN / CICLO", key: "ciclo", width: 28 },
+        { header: "CÓMO SE ENTERÓ", key: "comoEntero", width: 22 },
+        { header: "DISTRITO", key: "distrito", width: 16 },
+        { header: "ESTADO", key: "estado", width: 12 },
+      ];
+      filas.forEach((f) => ws.addRow(f));
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `estudiantes_salon_${Date.now()}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "No se pudo exportar");
     } finally {
       setExportando(false);
     }
-  }, [
-    fechaDesde,
-    fechaHasta,
-    buscar,
-    idPlan,
-    idAula,
-    idTutor,
-    estado,
-    tipoMarca,
-    consultado,
-    rangoConsultado,
-    filasVisibles,
-    dias,
-  ]);
+  }, [filas]);
 
   const hayDatos = consultado && total > 0;
-  const hayFilasVisibles = consultado && totalVisible > 0;
 
   return (
     <div className="informes-page">
       <div className="mantenedor-card informes-filtros">
-        <div className="informes-filtros-grid informes-filtros-grid--salon">
-          <label>
-            Desde
-            <input
-              type="date"
-              value={fechaDesde}
-              onChange={(e) => {
-                const value = e.target.value;
-                setFechaDesde(value);
-                if (value && fechaHasta && value > fechaHasta) setFechaHasta(value);
-              }}
-            />
-          </label>
-          <label>
-            Hasta
-            <input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} />
-          </label>
+        <div className="informes-filtros-grid informes-filtros-grid--estudiantes">
           <label>
             Salón
             <select value={idAula} onChange={(e) => setIdAula(e.target.value)}>
@@ -284,16 +321,6 @@ export default function InformeAsistenciasSalonPage() {
               <option value="">Todos</option>
             </select>
           </label>
-          <label>
-            Tipo de marca
-            <select value={tipoMarca} onChange={(e) => setTipoMarca(e.target.value)}>
-              {TIPOS_MARCA_INFORME.map((op) => (
-                <option key={op.value || "todas"} value={op.value}>
-                  {op.label}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="informes-filtro-buscar">
             Buscar
             <input
@@ -331,16 +358,10 @@ export default function InformeAsistenciasSalonPage() {
           <FontAwesomeIcon icon={faSpinner} spin /> Generando informe...
         </div>
       ) : consultado && total === 0 ? (
-        <div className="mantenedor-state">No hay estudiantes en el salón seleccionado para el rango.</div>
-      ) : hayDatos && !hayFilasVisibles ? (
-        <div className="mantenedor-state">
-          No hay estudiantes con{" "}
-          {TIPOS_MARCA_INFORME.find((op) => op.value === tipoMarca)?.label?.toLowerCase() || "ese tipo de marca"}{" "}
-          en el período.
-        </div>
-      ) : hayFilasVisibles ? (
+        <div className="mantenedor-state">No hay estudiantes en el salón seleccionado.</div>
+      ) : hayDatos ? (
         <div className="ui-tabs-panel">
-          <div className="ui-tabs" role="tablist" aria-label="Vista del informe por salón">
+          <div className="ui-tabs" role="tablist" aria-label="Vista del informe de estudiantes">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -357,20 +378,13 @@ export default function InformeAsistenciasSalonPage() {
           </div>
           <div className="ui-tabs-panel-body" role="tabpanel">
             {tabActiva === "indicadores" ? (
-              <InformeResumenGraficos resumen={resumenVisible} totalEstudiantes={totalVisible} />
+              <IndicadoresEstudiantes resumen={resumen} tieneGenero={tieneGenero} />
             ) : (
-              <InformeAsistenciasTabla filas={filasVisibles} dias={dias} />
+              <TablaEstudiantes filas={filas} />
             )}
           </div>
         </div>
       ) : null}
-
-      <div className="informes-nota mantenedor-card">
-        <p>
-          Solo se listan estudiantes con mensualidad vinculada al salón seleccionado. Las marcas usan: A =
-          presente, T = tardanza, F = falta, J = justificado.
-        </p>
-      </div>
     </div>
   );
 }

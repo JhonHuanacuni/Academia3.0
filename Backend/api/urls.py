@@ -56,6 +56,7 @@ urlpatterns = [
     path('planes/', plan_views.planes_mantenedor, name='planes_mantenedor'),
     path('planes/<str:id_plan>/', plan_views.planes_mantenedor, name='planes_mantenedor_detail'),
     path('informes/asistencias/', informes_views.informe_asistencias_api, name='informe_asistencias_api'),
+    path('informes/estudiantes/', informes_views.informe_estudiantes_api, name='informe_estudiantes_api'),
     path('dashboard/', dashboard_views.dashboard_api, name='dashboard_api'),
     path('mensualidades/catalogos/', mensualidad_views.mensualidades_catalogos, name='mensualidades_catalogos'),
     path('mensualidades/estudiantes/', mensualidad_views.mensualidades_estudiantes, name='mensualidades_estudiantes'),

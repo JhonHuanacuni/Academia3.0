@@ -1,53 +1,34 @@
 -- ============================================================================
--- SUB029 Resultados (Académico) + SUB030 Asistencias por salón (Informes)
+-- 1. Submodulos: Resultados (SUB029) + Por salon (SUB030)
 -- Fecha: 13/09/2026
+-- phpMyAdmin: selecciona tu BD y ejecuta (delimitador ;)
 -- ============================================================================
 
-USE `AcademiaDB`;
-
 INSERT INTO SUBMODULO (IDSUBMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, IDMODULO)
-VALUES (
-    'SUB029',
-    'Resultados',
-    'Resultados de exámenes rendidos: respuestas correctas e incorrectas',
-    'faClipboardCheck',
-    6,
-    1,
-    'MOD009'
-)
+VALUES ('SUB029', 'Resultados', 'Resultados de examenes rendidos', 'faClipboardCheck', 6, 1, 'MOD009')
 ON DUPLICATE KEY UPDATE
     NOMBRE = 'Resultados',
-    DESCRIPCION = 'Resultados de exámenes rendidos: respuestas correctas e incorrectas',
+    DESCRIPCION = 'Resultados de examenes rendidos',
     ICONO = 'faClipboardCheck',
     ORDEN = 6,
     ACTIVO = 1,
     IDMODULO = 'MOD009';
 
 INSERT INTO SUBMODULO (IDSUBMODULO, NOMBRE, DESCRIPCION, ICONO, ORDEN, ACTIVO, IDMODULO)
-VALUES (
-    'SUB030',
-    'Por salón',
-    'Informe de asistencias filtrado por salón, tutor, plan y estado',
-    'faChalkboardUser',
-    2,
-    1,
-    'MOD010'
-)
+VALUES ('SUB030', 'Por salon', 'Asistencias filtradas por salon, tutor, plan y estado', 'faChalkboard', 2, 1, 'MOD010')
 ON DUPLICATE KEY UPDATE
-    NOMBRE = 'Por salón',
-    DESCRIPCION = 'Informe de asistencias filtrado por salón, tutor, plan y estado',
-    ICONO = 'faChalkboardUser',
+    NOMBRE = 'Por salon',
+    DESCRIPCION = 'Asistencias filtradas por salon, tutor, plan y estado',
+    ICONO = 'faChalkboard',
     ORDEN = 2,
     ACTIVO = 1,
     IDMODULO = 'MOD010';
 
--- Estudiantes: Resultados sí; Por salón no (solo staff)
-INSERT IGNORE INTO GRUPO_SUBMODULO_EXCLUIDO (IDGRUPOEXCLSUB, IDTIPOUSUARIO, IDSUBMODULO, FECHAREGISTRO)
-VALUES ('GEX_INF_SALON_EST', '1', 'SUB030', fn_fecha_ddmmyyyy());
-
--- Reordenar Mensajes si quedó en orden 7 (Resultados toma 6)
 UPDATE SUBMODULO
 SET ORDEN = 8
-WHERE IDSUBMODULO = 'SUB028' AND IDMODULO = 'MOD009' AND ORDEN <= 7;
+WHERE IDSUBMODULO = 'SUB028' AND IDMODULO = 'MOD009';
 
-SELECT 'SUB029 Resultados + SUB030 Por salón listos.' AS info;
+INSERT IGNORE INTO GRUPO_SUBMODULO_EXCLUIDO (IDGRUPOEXCLSUB, IDTIPOUSUARIO, IDSUBMODULO, FECHAREGISTRO)
+VALUES ('GEX_INF_SALON_EST', '1', 'SUB030', DATE_FORMAT(NOW(), '%d%m%Y'));
+
+SELECT '1. SUB029 + SUB030 listos.' AS info;

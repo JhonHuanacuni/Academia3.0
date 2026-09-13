@@ -79,6 +79,35 @@
   grid-template-columns: repeat(2, minmax(120px, 150px)) repeat(4, minmax(130px, 170px)) 1fr auto;
 }
 
+.informes-filtros-grid--estudiantes {
+  grid-template-columns: minmax(160px, 220px) minmax(140px, 180px) minmax(140px, 180px) minmax(110px, 140px) minmax(180px, 1fr) auto;
+}
+
+.informe-estudiantes-table .col-nombre {
+  min-width: 220px;
+}
+
+@media (max-width: 1100px) {
+  .informes-filtros-grid--estudiantes {
+    grid-template-columns: repeat(2, minmax(140px, 1fr)) auto;
+  }
+
+  .informes-filtros-grid--estudiantes .informes-filtro-buscar {
+    grid-column: 1 / -2;
+  }
+}
+
+@media (max-width: 700px) {
+  .informes-filtros-grid--estudiantes {
+    grid-template-columns: 1fr;
+  }
+
+  .informes-filtros-grid--estudiantes .informes-filtro-buscar,
+  .informes-filtros-grid--estudiantes .informes-filtros-acciones {
+    grid-column: 1;
+  }
+}
+
 /* Tabs: estilo canónico en mantenedor.css (.ui-tabs / .informes-tabs) */
 
 .informes-panel-body .informe-tabla-outer,

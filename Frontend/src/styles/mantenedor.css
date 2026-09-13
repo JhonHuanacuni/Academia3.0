@@ -610,6 +610,65 @@ button.page-breadcrumb-link:hover {
   padding: 0;
 }
 
+.image-file-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 1.2rem 1rem;
+  border: 2px dashed rgba(106, 66, 229, 0.35);
+  border-radius: 10px;
+  background: var(--color-primary-soft, #ede8fc);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+
+.image-file-drop:hover,
+.image-file-drop:focus-visible {
+  border-color: var(--color-primary, #6a42e5);
+  background: #f3efff;
+  box-shadow: 0 0 0 3px rgba(106, 66, 229, 0.12);
+  outline: none;
+}
+
+.image-file-drop--loaded {
+  border-style: solid;
+  background: #fff;
+}
+
+.image-file-drop.is-disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.image-file-drop-icon {
+  font-size: 1.6rem;
+  color: var(--color-primary, #6a42e5);
+  margin-bottom: 0.1rem;
+}
+
+.image-file-drop strong {
+  font-size: 0.9rem;
+  color: var(--color-text, #1c2333);
+}
+
+.image-file-drop span {
+  font-size: 0.78rem;
+  color: var(--color-muted, #6b7280);
+}
+
+.image-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+
 .field-hint {
   font-size: 0.78rem;
   color: var(--color-muted, #6b7280);
