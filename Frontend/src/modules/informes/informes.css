@@ -67,6 +67,18 @@
   white-space: nowrap;
 }
 
+.informes-filtros-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+  align-self: end;
+}
+
+.informes-filtros-grid--salon {
+  grid-template-columns: repeat(2, minmax(120px, 150px)) repeat(4, minmax(130px, 170px)) 1fr auto;
+}
+
 /* Tabs: estilo canónico en mantenedor.css (.ui-tabs / .informes-tabs) */
 
 .informes-panel-body .informe-tabla-outer,

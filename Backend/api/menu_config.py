@@ -44,6 +44,8 @@ SUBMODULO_PAGE_MAP = {
     'SUB026': 'academico-notas',
     'SUB027': 'academico-auditoria',
     'SUB028': 'academico-mensajes',
+    'SUB029': 'academico-resultados',
+    'SUB030': 'informes-salon',
     'SUB018': 'pagos-extraordinarios',
     'SUB019': 'mantenedores-conceptos',
     'SUB022': 'mantenedores-categorias',

@@ -438,10 +438,168 @@ def _normalizar_estado_usuario(estado):
     return e
 
 
-def informe_asistencias(fecha_desde, fecha_hasta, buscar=None, id_plan=None, estado_usuario=None):
+def _listar_estudiantes_informe(
+    fecha_desde,
+    fecha_hasta,
+    buscar=None,
+    id_plan=None,
+    estado_usuario=None,
+    id_aula=None,
+    id_tutor=None,
+):
+    """Lista estudiantes del informe con filtros opcionales de plan, aula y tutor."""
+    buscar = (buscar or '').strip() or None
+    id_plan = (id_plan or '').strip() or None
+    id_aula = (id_aula or '').strip() or None
+    id_tutor = (id_tutor or '').strip() or None
+    estado_usuario = _normalizar_estado_usuario(estado_usuario)
+
+    plan_table = '`PLAN`' if is_mysql() else '[PLAN]'
+    concat_like = "CONCAT('%%', %s, '%%')" if is_mysql() else "('%%' + %s + '%%')"
+    ifnull = 'IFNULL' if is_mysql() else 'ISNULL'
+    trim_concat_nombre = (
+        f"UPPER(TRIM(CONCAT({ifnull}(u.APELLIDO, ''), ' ', {ifnull}(u.NOMBRE, ''))))"
+        if is_mysql()
+        else f"UPPER(LTRIM(RTRIM({ifnull}(u.APELLIDO, '') + ' ' + {ifnull}(u.NOMBRE, ''))))"
+    )
+    ciclo_expr = (
+        f"""UPPER(TRIM(CONCAT(
+            {ifnull}(pl.NOMBRE, ''),
+            CASE WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
+                 THEN CONCAT(' ', tu.DESCRIPCION) ELSE '' END
+        )))"""
+        if is_mysql()
+        else f"""UPPER(LTRIM(RTRIM(
+            {ifnull}(pl.NOMBRE, '') +
+            CASE WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
+                 THEN ' ' + tu.DESCRIPCION ELSE '' END
+        )))"""
+    )
+    tutora_expr = (
+        f"""UPPER(TRIM(COALESCE(
+            NULLIF(tut_mem.NOMBRE, ''),
+            NULLIF(tut_aula.NOMBRE, ''),
+            ''
+        )))"""
+        if is_mysql()
+        else f"""UPPER(LTRIM(RTRIM(COALESCE(
+            NULLIF(tut_mem.NOMBRE, ''),
+            NULLIF(tut_aula.NOMBRE, ''),
+            ''
+        ))))"""
+    )
+
+    if is_mysql():
+        mem_join = """
+            LEFT JOIN LATERAL (
+                SELECT m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR, m.FECHAINICIO, m.FECHAFIN
+                FROM MENSUALIDAD m
+                WHERE m.IDUSUARIO = u.IDUSUARIO
+                  AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                ORDER BY
+                    CASE
+                        WHEN (m.FECHAINICIO IS NULL OR m.FECHAINICIO <= %s)
+                         AND (m.FECHAFIN IS NULL OR m.FECHAFIN >= %s)
+                        THEN 0 ELSE 1
+                    END,
+                    m.FECHAREGISTRO DESC,
+                    m.FECHAINICIO DESC
+                LIMIT 1
+            ) mem ON TRUE
+            """
+    else:
+        mem_join = """
+            OUTER APPLY (
+                SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR,
+                       m.FECHAINICIO, m.FECHAFIN
+                FROM MENSUALIDAD m
+                WHERE m.IDUSUARIO = u.IDUSUARIO
+                  AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+                ORDER BY
+                    CASE
+                        WHEN (m.FECHAINICIO IS NULL OR m.FECHAINICIO <= %s)
+                         AND (m.FECHAFIN IS NULL OR m.FECHAFIN >= %s)
+                        THEN 0 ELSE 1
+                    END,
+                    m.FECHAREGISTRO DESC,
+                    m.FECHAINICIO DESC
+            ) mem
+            """
+
+    where = ["u.IDTIPOUSUARIO = '1'"]
+    params = [fecha_hasta, fecha_desde]
+
+    if estado_usuario:
+        where.append(f"UPPER({ifnull}(u.ESTADO, 'Activo')) = UPPER(%s)")
+        params.append(estado_usuario)
+    if id_plan:
+        where.append('mem.IDPLAN = %s')
+        params.append(id_plan)
+    if id_aula:
+        where.append('mem.IDAULA = %s')
+        params.append(id_aula)
+    if id_tutor:
+        where.append('(mem.IDTUTOR = %s OR au.IDTUTOR = %s)')
+        params.extend([id_tutor, id_tutor])
+    if buscar:
+        where.append(
+            f"""(
+                u.DNI LIKE {concat_like}
+                OR u.NOMBRE LIKE {concat_like}
+                OR u.APELLIDO LIKE {concat_like}
+                OR u.IDUSUARIO LIKE {concat_like}
+                OR {ifnull}(au.NOMBRE, '') LIKE {concat_like}
+                OR {ifnull}(pl.NOMBRE, '') LIKE {concat_like}
+                OR {ifnull}(tu.DESCRIPCION, '') LIKE {concat_like}
+                OR {ifnull}(tut_mem.NOMBRE, '') LIKE {concat_like}
+            )"""
+        )
+        params.extend([buscar] * 8)
+
+    sql = f"""
+        SELECT
+            u.IDUSUARIO,
+            {trim_concat_nombre} AS NOMBRE_COMPLETO,
+            UPPER({ifnull}(u.ESTADO, 'Activo')) AS ESTADO,
+            {tutora_expr} AS TUTORA,
+            {ifnull}(au.NOMBRE, '') AS AULA,
+            {ciclo_expr} AS CICLO,
+            mem.FECHAINICIO AS FECHA_INICIO_MEM,
+            mem.FECHAFIN AS FECHA_VENCE,
+            mem.IDPLAN,
+            mem.IDAULA,
+            mem.IDTUTOR,
+            {ifnull}(pl.DIASASISTENCIA, 63) AS DIASASISTENCIA
+        FROM USUARIO u
+        {mem_join}
+        LEFT JOIN AULA au ON au.IDAULA = mem.IDAULA
+        LEFT JOIN TUTOR tut_mem ON tut_mem.IDTUTOR = mem.IDTUTOR
+        LEFT JOIN TUTOR tut_aula ON tut_aula.IDTUTOR = au.IDTUTOR
+        LEFT JOIN {plan_table} pl ON pl.IDPLAN = mem.IDPLAN
+        LEFT JOIN TURNO tu ON tu.IDTURNO = mem.IDTURNO
+        WHERE {' AND '.join(where)}
+        ORDER BY u.APELLIDO, u.NOMBRE
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql, params)
+        return _cursor_rows(cursor)
+
+
+def informe_asistencias(
+    fecha_desde,
+    fecha_hasta,
+    buscar=None,
+    id_plan=None,
+    estado_usuario=None,
+    id_aula=None,
+    id_tutor=None,
+):
     fecha_desde = (fecha_desde or '').strip()
     fecha_hasta = (fecha_hasta or '').strip()
     id_plan = (id_plan or '').strip() or None
+    id_aula = (id_aula or '').strip() or None
+    id_tutor = (id_tutor or '').strip() or None
     estado_usuario = _normalizar_estado_usuario(estado_usuario)
     if not fecha_desde or not fecha_hasta:
         raise ValueError('Debe indicar fecha desde y fecha hasta.')
@@ -452,27 +610,42 @@ def informe_asistencias(fecha_desde, fecha_hasta, buscar=None, id_plan=None, est
     if not dias:
         raise ValueError('Rango de fechas inválido.')
 
-    with connection.cursor() as cursor:
-        params = [fecha_desde, fecha_hasta, buscar, id_plan, estado_usuario]
-        if sp.is_mysql():
-            cursor.execute(
-                'CALL usp_asistencia_informe(%s, %s, %s, %s, %s)',
-                params,
-            )
-        else:
-            cursor.execute(
-                """
-                EXEC dbo.usp_asistencia_informe
-                    @FechaDesde=%s, @FechaHasta=%s, @Buscar=%s, @IDPlan=%s, @EstadoUsuario=%s;
-                """,
-                params,
-            )
-        estudiantes = _cursor_rows(cursor)
-        # Consumir 2.º result set del SP (si existe) para no dejar el cursor abierto.
-        while cursor.nextset():
-            pass
+    estudiantes = None
+    try:
+        estudiantes = _listar_estudiantes_informe(
+            fecha_desde,
+            fecha_hasta,
+            buscar=buscar,
+            id_plan=id_plan,
+            estado_usuario=estado_usuario,
+            id_aula=id_aula,
+            id_tutor=id_tutor,
+        )
+    except Exception:
+        if id_aula or id_tutor:
+            raise
+        estudiantes = None
 
-    # Cargar marcas por los IDs ya filtrados (no reaplicar "buscar" incompleto del SP).
+    if estudiantes is None:
+        with connection.cursor() as cursor:
+            params = [fecha_desde, fecha_hasta, buscar, id_plan, estado_usuario]
+            if sp.is_mysql():
+                cursor.execute(
+                    'CALL usp_asistencia_informe(%s, %s, %s, %s, %s)',
+                    params,
+                )
+            else:
+                cursor.execute(
+                    """
+                    EXEC dbo.usp_asistencia_informe
+                        @FechaDesde=%s, @FechaHasta=%s, @Buscar=%s, @IDPlan=%s, @EstadoUsuario=%s;
+                    """,
+                    params,
+                )
+            estudiantes = _cursor_rows(cursor)
+            while cursor.nextset():
+                pass
+
     asistencias = _cargar_asistencias_estudiantes(
         fecha_desde,
         fecha_hasta,
@@ -483,13 +656,23 @@ def informe_asistencias(fecha_desde, fecha_hasta, buscar=None, id_plan=None, est
     return _respuesta_informe(fecha_desde, fecha_hasta, dias, filas)
 
 
-def informe_asistencias_orm(fecha_desde, fecha_hasta, buscar=None, id_plan=None, estado_usuario=None):
+def informe_asistencias_orm(
+    fecha_desde,
+    fecha_hasta,
+    buscar=None,
+    id_plan=None,
+    estado_usuario=None,
+    id_aula=None,
+    id_tutor=None,
+):
     from django.db.models import Q
     from .models import Usuario, Asistencia
 
     fecha_desde = (fecha_desde or '').strip()
     fecha_hasta = (fecha_hasta or '').strip()
     id_plan = (id_plan or '').strip() or None
+    id_aula = (id_aula or '').strip() or None
+    id_tutor = (id_tutor or '').strip() or None
     estado_usuario = _normalizar_estado_usuario(estado_usuario)
     if not fecha_desde or not fecha_hasta:
         raise ValueError('Debe indicar fecha desde y fecha hasta.')
@@ -515,6 +698,10 @@ def informe_asistencias_orm(fecha_desde, fecha_hasta, buscar=None, id_plan=None,
         if id_plan and not meta:
             continue
         meta = meta or {}
+        if id_aula and str(meta.get('IDAULA') or '') != id_aula:
+            continue
+        if id_tutor and str(meta.get('IDTUTOR') or '') != id_tutor:
+            continue
         estudiantes.append({
             'IDUSUARIO': u.IDUSUARIO,
             'NOMBRE_COMPLETO': f'{u.APELLIDO} {u.NOMBRE}'.strip().upper(),
@@ -569,12 +756,12 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                     )))"""
             mem_join = """
                 LEFT JOIN (
-                    SELECT t.IDUSUARIO, t.IDAULA, t.IDPLAN, t.IDTURNO,
+                    SELECT t.IDUSUARIO, t.IDAULA, t.IDPLAN, t.IDTURNO, t.IDTUTOR,
                            t.FECHAINICIO, t.FECHA_VENCE
                     FROM (
                         SELECT
                             m.IDUSUARIO,
-                            m.IDAULA, m.IDPLAN, m.IDTURNO,
+                            m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR,
                             m.FECHAINICIO, m.FECHAFIN AS FECHA_VENCE,
                             ROW_NUMBER() OVER (
                                 PARTITION BY m.IDUSUARIO
@@ -602,7 +789,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                     )))"""
             mem_join = """
                 OUTER APPLY (
-                    SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO,
+                    SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR,
                            m.FECHAINICIO, m.FECHAFIN AS FECHA_VENCE
                     FROM MENSUALIDAD m
                     WHERE m.IDUSUARIO = u.IDUSUARIO
@@ -624,6 +811,8 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                 SELECT
                     u.IDUSUARIO,
                     mem.IDPLAN,
+                    mem.IDAULA,
+                    mem.IDTUTOR,
                     {isnull('pl.DIASASISTENCIA', '63')} AS DIASASISTENCIA,
                     UPPER({isnull('tut.NOMBRE', "''")}) AS TUTORA,
                     {isnull("au.NOMBRE", "''")} AS AULA,
@@ -633,7 +822,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                 FROM USUARIO u
                 {mem_join}
                 LEFT JOIN AULA au ON au.IDAULA = mem.IDAULA
-                LEFT JOIN USUARIO tut ON tut.IDUSUARIO = au.IDTUTORA
+                LEFT JOIN TUTOR tut ON tut.IDTUTOR = mem.IDTUTOR
                 LEFT JOIN {plan_table} pl ON pl.IDPLAN = mem.IDPLAN
                 LEFT JOIN TURNO tu ON tu.IDTURNO = mem.IDTURNO
                 WHERE u.IDTIPOUSUARIO = '1'

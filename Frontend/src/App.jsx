@@ -21,11 +21,13 @@ import HorarioPage from "./modules/horario/HorarioPage";
 import ExamenPage from "./modules/examen/ExamenPage";
 import ExamenEstudiantePage from "./modules/examenEstudiante/ExamenEstudiantePage";
 import InformeAsistenciasPage from "./modules/informes/InformeAsistenciasPage";
+import InformeAsistenciasSalonPage from "./modules/informes/InformeAsistenciasSalonPage";
 import DashboardPage from "./modules/dashboard/DashboardPage";
 import NotasPage from "./modules/notas/NotasPage";
 import AuditoriaPage from "./modules/auditoria/AuditoriaPage";
 import ClasesGrabadasPorRol from "./modules/claseGrabada/ClaseGrabadaPage";
 import MensajePage from "./modules/mensaje/MensajePage";
+import ResultadosPage from "./modules/resultados/ResultadosPage";
 import "./App.css";
 
 function ExamenesPorRol({ role }) {
@@ -170,14 +172,24 @@ const pageContent = {
     description: "Avisos para estudiantes y trabajadores.",
     component: MensajePage,
   },
+  "academico-resultados": {
+    title: "Resultados",
+    description: "Resultados de exámenes y detalle de respuestas.",
+    component: ResultadosPage,
+  },
   informes: {
     title: "Informes",
     description: "Reportes y estadísticas del instituto.",
   },
   "informes-asistencias": {
-    title: "Informe de asistencias",
+    title: "Asistencias",
     description: "Matriz de asistencias por rango de fechas.",
     component: InformeAsistenciasPage,
+  },
+  "informes-salon": {
+    title: "Por salón",
+    description: "Asistencias por salón, tutor, plan y estado.",
+    component: InformeAsistenciasSalonPage,
   },
 };
 

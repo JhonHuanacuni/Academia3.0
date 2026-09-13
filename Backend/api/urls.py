@@ -17,6 +17,7 @@ from . import categoria_views
 from . import materia_views
 from . import examen_views
 from . import examen_estudiante_views
+from . import examen_resultados_views
 from . import justificacion_views
 from . import nota_import_views
 from . import auditoria_views
@@ -116,6 +117,21 @@ urlpatterns = [
         'examenes/estudiante/intento/<str:id_intento>/finalizar/',
         examen_estudiante_views.examenes_estudiante_finalizar,
         name='examenes_estudiante_finalizar',
+    ),
+    path(
+        'examenes/resultados/catalogos/',
+        examen_resultados_views.resultados_catalogos,
+        name='examenes_resultados_catalogos',
+    ),
+    path(
+        'examenes/resultados/',
+        examen_resultados_views.resultados_listar,
+        name='examenes_resultados_listar',
+    ),
+    path(
+        'examenes/resultados/<str:id_intento>/',
+        examen_resultados_views.resultados_detalle,
+        name='examenes_resultados_detalle',
     ),
     path('examenes/', examen_views.examenes_mantenedor, name='examenes_mantenedor'),
     path('examenes/<str:id_examen>/', examen_views.examenes_mantenedor, name='examenes_mantenedor_detail'),
