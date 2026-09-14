@@ -28,6 +28,8 @@ def asistencias_api(request):
                 buscar=buscar,
                 pagina=pagina,
                 tamanio=tamanio,
+                ordenar_por=request.GET.get('ordenarPor'),
+                direccion=request.GET.get('direccion'),
             )
         except Exception:
             data, total = listar_asistencias_orm(

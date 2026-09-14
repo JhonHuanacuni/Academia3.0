@@ -91,10 +91,28 @@ function renderCell(col, row, index = 0, offset = 0) {
     );
   }
   if (col.tipo === "asistenciaEstado") {
+    const justificado =
+      row.JUSTIFICADO === true ||
+      row.JUSTIFICADO === 1 ||
+      row.JUSTIFICADO === "1" ||
+      String(row.JUSTIFICADO || "").toLowerCase() === "true";
+    if (justificado) {
+      return <span className="badge-estado activo">Justificado</span>;
+    }
     const v = String(value || "").toLowerCase();
-    const clase =
-      v === "presente" ? "activo" : v === "tarde" ? "inactivo" : v === "justificado" ? "activo" : "vencido";
-    return <span className={`badge-estado ${clase}`}>{value || "—"}</span>;
+    if (v === "presente" || v === "asistencia") {
+      return <span className="badge-estado activo">Presente</span>;
+    }
+    if (v === "tarde") {
+      return <span className="badge-estado inactivo">Tarde</span>;
+    }
+    if (v.includes("justific")) {
+      return <span className="badge-estado activo">Justificado</span>;
+    }
+    if (v === "falta" || v === "ausente") {
+      return <span className="badge-estado vencido">Falta</span>;
+    }
+    return <span className="badge-estado">{value || "—"}</span>;
   }
   if (col.tipo === "visibleExamen") {
     const on = value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";

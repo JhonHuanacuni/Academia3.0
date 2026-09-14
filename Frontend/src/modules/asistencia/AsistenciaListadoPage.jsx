@@ -14,7 +14,7 @@ export default function AsistenciaListadoPage() {
   const crud = useCrud({
     entidad: cfg.entidad,
     pk: cfg.pk,
-    ordenInicial: { campo: "HORAINICIO", direccion: "DESC" },
+    ordenInicial: { campo: "FECHAREGISTRO", direccion: "DESC" },
     filtrosIniciales: {
       fechaInicio: inputToDb(hoy),
       fechaFin: inputToDb(hoy),
@@ -92,6 +92,7 @@ export default function AsistenciaListadoPage() {
           orden={crud.orden}
           loading={crud.loading}
           error={crud.error}
+          onOrden={crud.toggleOrden}
           onReintentar={crud.listar}
           pagina={crud.pagina}
           tamanio={crud.tamanio}

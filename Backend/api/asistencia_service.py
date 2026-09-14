@@ -218,6 +218,8 @@ def listar_asistencias(
     pagina=1,
     tamanio=50,
     fecha=None,
+    ordenar_por=None,
+    direccion=None,
 ):
     """Lista asistencias. Acepta rango (fechaDesde/fechaHasta) o fecha única (legacy)."""
     desde = (fecha_desde or fecha or '').strip() or None
@@ -227,7 +229,9 @@ def listar_asistencias(
     if hasta and not desde:
         desde = hasta
 
-    params = [desde, hasta, buscar, 'HORAINICIO', 'DESC', pagina, tamanio]
+    campo = _normalizar_orden_asistencia(ordenar_por)
+    dir_ = 'ASC' if str(direccion or '').upper() == 'ASC' else 'DESC'
+    params = [desde, hasta, buscar, campo, dir_, pagina, tamanio]
     with connection.cursor() as cursor:
         if sp.is_mysql():
             return sp.call_list(cursor, 'usp_asistencia_listar', params)
@@ -249,6 +253,22 @@ def listar_asistencias(
             if row:
                 total = int(row[0])
     return data, total
+
+
+def _normalizar_orden_asistencia(campo):
+    raw = str(campo or '').strip().upper()
+    mapa = {
+        'FECHAREGISTRO': 'FECHAREGISTRO',
+        'FECHA': 'FECHAREGISTRO',
+        'HORAINICIO': 'HORAINICIO',
+        'HORA': 'HORAINICIO',
+        'DNI': 'DNI',
+        'ESTADO': 'ESTADO',
+        'NOMBRE': 'NOMBRE',
+        'APELLIDO': 'NOMBRE',
+        'ESTUDIANTE_NOMBRE': 'NOMBRE',
+    }
+    return mapa.get(raw, 'FECHAREGISTRO')
 
 
 def listar_asistencias_orm(fecha_desde=None, fecha_hasta=None, buscar=None, fecha=None):
@@ -279,7 +299,7 @@ def listar_asistencias_orm(fecha_desde=None, fecha_hasta=None, buscar=None, fech
         qs = qs.filter(IDUSUARIO__in=list(user_ids))
 
     rows = []
-    for a in qs.order_by('-FECHAREGISTRO', '-HORAINICIO'):
+    for a in qs:
         key = ymd(a.FECHAREGISTRO)
         if ymd_desde and key < ymd_desde:
             continue
@@ -293,11 +313,16 @@ def listar_asistencias_orm(fecha_desde=None, fecha_hasta=None, buscar=None, fech
             'FECHAREGISTRO': a.FECHAREGISTRO,
             'HORAINICIO': a.HORAINICIO,
             'ESTADO': a.ESTADO,
+            'JUSTIFICADO': getattr(a, 'JUSTIFICADO', 0),
             'IDUSUARIO': u.IDUSUARIO,
             'NOMBRE': u.NOMBRE,
             'APELLIDO': u.APELLIDO,
             'DNI': u.DNI,
         })
+    rows.sort(
+        key=lambda r: (ymd(r.get('FECHAREGISTRO')), str(r.get('HORAINICIO') or '')),
+        reverse=True,
+    )
     return rows, len(rows)
 
 

@@ -4,14 +4,14 @@ export const asistenciaListadoConfig = {
   entidad: "asistencias",
   pk: "IDASISTENCIA",
   columnas: [
-    { campo: "FECHAREGISTRO", etiqueta: "Fecha", tipo: "fecha", ordenable: false },
-    { campo: "HORAINICIO", etiqueta: "Hora", tipo: "hora", ordenable: false },
-    { campo: "DNI", etiqueta: "DNI", ordenable: false },
+    { campo: "FECHAREGISTRO", etiqueta: "Fecha", tipo: "fecha", ordenable: true },
+    { campo: "HORAINICIO", etiqueta: "Hora", tipo: "hora", ordenable: true },
+    { campo: "DNI", etiqueta: "DNI", ordenable: true },
     {
       campo: "ESTUDIANTE_NOMBRE",
       etiqueta: "Nombre",
-      ordenable: false,
+      ordenable: true,
     },
-    { campo: "ESTADO", etiqueta: "Estado", tipo: "asistenciaEstado", ordenable: false },
+    { campo: "ESTADO", etiqueta: "Estado", tipo: "asistenciaEstado", ordenable: true },
   ],
 };
