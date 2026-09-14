@@ -244,6 +244,13 @@ export default function InformeAsistenciasPage() {
         dias: diasExport,
         fechaDesde: desdeDb,
         fechaHasta: hastaDb,
+        meta: {
+          plan: planes.find((p) => String(p.IDPLAN) === String(idPlan))?.NOMBRE || "Todos",
+          estado:
+            estado === "Activo" ? "Activos" : estado === "Retirado" ? "Retirados" : "Todos",
+          tipoMarca:
+            TIPOS_MARCA_INFORME.find((op) => op.value === tipoMarca)?.label || "Todas",
+        },
       });
     } catch (err) {
       setError(err.message);
@@ -257,6 +264,7 @@ export default function InformeAsistenciasPage() {
     idPlan,
     estado,
     tipoMarca,
+    planes,
     consultado,
     rangoConsultado,
     filasVisibles,
@@ -304,7 +312,7 @@ export default function InformeAsistenciasPage() {
 
             <select value={idPlan} onChange={(e) => setIdPlan(e.target.value)}>
 
-              <option value="">SELECCIONE PLAN</option>
+              <option value="">SELECCIONAR PLAN</option>
 
               {planes.map((p) => (
 
@@ -325,7 +333,7 @@ export default function InformeAsistenciasPage() {
             <select value={estado} onChange={(e) => setEstado(e.target.value)}>
               <option value="Activo">Activos</option>
               <option value="Retirado">Retirados</option>
-              <option value="">SELECCIONE ESTADO</option>
+              <option value="">SELECCIONAR ESTADO</option>
             </select>
           </label>
 
@@ -334,7 +342,7 @@ export default function InformeAsistenciasPage() {
             <select value={tipoMarca} onChange={(e) => setTipoMarca(e.target.value)}>
               {TIPOS_MARCA_INFORME.map((op) => (
                 <option key={op.value || "todas"} value={op.value}>
-                  {op.value === "" ? "SELECCIONE TIPO DE MARCA" : op.label}
+                  {op.value === "" ? "SELECCIONAR TIPO DE MARCA" : op.label}
                 </option>
               ))}
             </select>

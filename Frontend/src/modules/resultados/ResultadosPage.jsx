@@ -7,7 +7,6 @@ import {
   faSpinner,
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
-import PageHeader from "../../components/mantenedor/PageHeader";
 import Toast from "../../components/mantenedor/feedback/Toast";
 import { parseJsonResponse } from "../../utils/api";
 import { dbToView } from "../../utils/fecha";
@@ -188,8 +187,15 @@ export default function ResultadosPage({ role, idusuario }) {
       );
       const data = await parseJsonResponse(res);
       if (res.ok && data.ok) {
-        setExamenes(data.data?.examenes || []);
-        setAulas(data.data?.aulas || []);
+        const payload = data.data || {};
+        const listaExamenes = payload.examenes || [];
+        setExamenes(
+          listaExamenes.map((ex) => ({
+            IDEXAMEN: ex.IDEXAMEN || ex.idexamen || ex.IdExamen,
+            TITULO: ex.TITULO || ex.titulo || ex.Titulo || "",
+          })),
+        );
+        setAulas(payload.aulas || []);
       }
     } catch {
       /* opcional */
@@ -263,18 +269,13 @@ export default function ResultadosPage({ role, idusuario }) {
 
   return (
     <div className="mantenedor-page resultados-page">
-      <PageHeader
-        titulo="Resultados"
-        mostrarNuevo={false}
-      />
-
       <div className="mantenedor-card resultados-filtros">
         <div className="resultados-filtros-grid">
           {!esEstudiante && (
             <label>
               Salón
               <select value={idAula} onChange={(e) => { setIdAula(e.target.value); setPagina(1); }}>
-                <option value="">SELECCIONE SALÓN</option>
+                <option value="">SELECCIONAR SALÓN</option>
                 {aulas.map((a) => (
                   <option key={a.IDAULA} value={a.IDAULA}>
                     {a.NOMBRE}
@@ -286,7 +287,7 @@ export default function ResultadosPage({ role, idusuario }) {
           <label>
             Examen
             <select value={idExamen} onChange={(e) => { setIdExamen(e.target.value); setPagina(1); }}>
-              <option value="">SELECCIONE EXAMEN</option>
+              <option value="">SELECCIONAR EXAMEN</option>
               {examenes.map((ex) => (
                 <option key={ex.IDEXAMEN} value={ex.IDEXAMEN}>
                   {ex.TITULO}

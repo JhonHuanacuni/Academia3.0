@@ -21,7 +21,7 @@ export default function Toolbar({ buscar, onBuscarChange, filtros = [], placehol
           aria-label={f.etiqueta}
         >
           <option value="">
-            {`SELECCIONE ${String(f.etiqueta || "")
+            {`SELECCIONAR ${String(f.etiqueta || "")
               .replace(/[¿?]/g, "")
               .replace(/\s+/g, " ")
               .trim()

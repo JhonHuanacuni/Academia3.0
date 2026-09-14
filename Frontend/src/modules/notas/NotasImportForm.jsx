@@ -186,7 +186,7 @@ export default function NotasImportForm({ onCancel, onSuccess }) {
 
   const salonOptions = (
     <>
-      <option value="">Seleccionar salón...</option>
+      <option value="">SELECCIONAR SALÓN</option>
       {aulas.map((a) => (
         <option key={a.IDAULA} value={a.IDAULA}>
           {a.NOMBRE}

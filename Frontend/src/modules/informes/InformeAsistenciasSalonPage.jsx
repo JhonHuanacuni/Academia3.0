@@ -9,11 +9,14 @@ import {
 import { parseJsonResponse } from "../../utils/api";
 import "../../styles/mantenedor.css";
 import "./informes.css";
+import { exportarInformeEstudiantesExcel } from "./exportarEstudiantesExcel";
 
 const TABS = [
   { id: "indicadores", label: "Indicadores", icon: faChartColumn },
   { id: "estudiantes", label: "Estudiantes", icon: faUsers },
 ];
+
+const PIE_COLORS = ["#1e9e5a", "#6a42e5", "#2563eb", "#c7891b", "#d23b3b", "#0891b2", "#7c3aed", "#db2777"];
 
 function DistList({ titulo, items, total }) {
   if (!items?.length) {
@@ -54,10 +57,73 @@ function DistList({ titulo, items, total }) {
   );
 }
 
+function DistCircular({ titulo, items, total }) {
+  if (!items?.length) {
+    return (
+      <section className="informes-dist-side">
+        <div className="informes-panel-header">
+          <h2>{titulo}</h2>
+          <p>Sin datos</p>
+        </div>
+      </section>
+    );
+  }
+
+  let acumulado = 0;
+  const segmentos = items.map((item, i) => {
+    const pctRaw = total > 0 ? (item.cantidad / total) * 100 : 0;
+    const inicio = acumulado;
+    acumulado += pctRaw;
+    return {
+      ...item,
+      color: PIE_COLORS[i % PIE_COLORS.length],
+      pct: Math.round(pctRaw),
+      inicio,
+      fin: acumulado,
+    };
+  });
+  const gradient =
+    segmentos.length === 1
+      ? segmentos[0].color
+      : segmentos.map((s) => `${s.color} ${s.inicio}% ${s.fin}%`).join(", ");
+
+  return (
+    <section className="informes-dist-side">
+      <div className="informes-panel-header">
+        <h2>{titulo}</h2>
+        <p>Distribución circular del listado filtrado</p>
+      </div>
+      <div className="informes-pie-wrap">
+        <div
+          className="informes-pie"
+          style={{ background: `conic-gradient(${gradient})` }}
+          role="img"
+          aria-label={titulo}
+        >
+          <div className="informes-pie-hole">
+            <strong>{total}</strong>
+            <span>total</span>
+          </div>
+        </div>
+        <ul className="informes-pie-legend">
+          {segmentos.map((s) => (
+            <li key={s.etiqueta}>
+              <span className="informes-pie-dot" style={{ background: s.color }} />
+              <span className="informes-pie-legend-text">
+                {s.etiqueta} · {s.cantidad} ({s.pct}%)
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 function DistBarrasDistrito({ items, total }) {
   if (!items?.length) {
     return (
-      <section className="informes-chart-side">
+      <section className="informes-chart-side informes-chart-side--full">
         <div className="informes-panel-header">
           <h2>Por distrito</h2>
           <p>Sin datos</p>
@@ -67,21 +133,22 @@ function DistBarrasDistrito({ items, total }) {
   }
   const maxCant = Math.max(...items.map((i) => i.cantidad), 1);
   return (
-    <section className="informes-chart-side">
+    <section className="informes-chart-side informes-chart-side--full">
       <div className="informes-panel-header">
         <h2>Por distrito</h2>
-        <p>Comparativo vertical del listado filtrado</p>
+        <p>Comparativo en barras verticales</p>
       </div>
       <div className="informes-chart-bars informes-chart-bars--distrito">
-        {items.map((item) => {
+        {items.map((item, idx) => {
           const pct = total > 0 ? Math.round((item.cantidad / total) * 100) : 0;
           const altura = Math.max(Math.round((item.cantidad / maxCant) * 100), item.cantidad > 0 ? 8 : 0);
+          const color = PIE_COLORS[idx % PIE_COLORS.length];
           return (
             <div key={item.etiqueta} className="informes-chart-col" title={`${item.etiqueta}: ${item.cantidad}`}>
               <div className="informes-chart-bar-wrap">
                 <div
-                  className="informes-chart-bar informes-chart-bar--asist"
-                  style={{ height: `${altura}%` }}
+                  className="informes-chart-bar"
+                  style={{ height: `${altura}%`, background: color }}
                 >
                   {altura > 18 && <span>{pct}%</span>}
                 </div>
@@ -117,10 +184,10 @@ function IndicadoresEstudiantes({ resumen }) {
       </div>
       <div className="informes-resumen-panel">
         <div className="informes-resumen-grid">
-          <DistList titulo="¿De qué manera se enteraron?" items={resumen.porComoEntero} total={total} />
+          <DistCircular titulo="¿De qué manera se enteraron?" items={resumen.porComoEntero} total={total} />
           <DistList titulo="Por plan / ciclo" items={resumen.porPlan} total={total} />
         </div>
-        <div className="informes-resumen-grid" style={{ marginTop: "1rem" }}>
+        <div className="informes-resumen-grid informes-resumen-grid--distrito">
           <DistBarrasDistrito items={resumen.porDistrito} total={total} />
         </div>
       </div>
@@ -273,37 +340,27 @@ export default function InformeAsistenciasSalonPage() {
     }
     try {
       setExportando(true);
-      const ExcelJS = (await import("exceljs")).default;
-      const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet("Estudiantes");
-      ws.columns = [
-        { header: "N°", key: "numero", width: 6 },
-        { header: "NOMBRES Y APELLIDOS", key: "nombres", width: 36 },
-        { header: "DNI", key: "dni", width: 12 },
-        { header: "TUTOR", key: "tutora", width: 18 },
-        { header: "AULA", key: "aula", width: 28 },
-        { header: "PLAN / CICLO", key: "ciclo", width: 28 },
-        { header: "CÓMO SE ENTERÓ", key: "comoEntero", width: 22 },
-        { header: "DISTRITO", key: "distrito", width: 16 },
-        { header: "ESTADO", key: "estado", width: 12 },
-      ];
-      filas.forEach((f) => ws.addRow(f));
-      const buffer = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      const salon = aulas.find((a) => String(a.IDAULA) === String(idAula))?.NOMBRE || "";
+      const tutor = tutores.find((t) => String(t.IDTUTOR) === String(idTutor))?.NOMBRE || "";
+      const plan = planes.find((p) => String(p.IDPLAN) === String(idPlan))?.NOMBRE || "";
+      const estadoLabel =
+        estado === "Activo" ? "Activos" : estado === "Retirado" ? "Retirados" : "Todos";
+      await exportarInformeEstudiantesExcel({
+        filas,
+        meta: {
+          salon: salon || (idAula ? "Salón filtrado" : "Todos"),
+          tutor: tutor || "Todos",
+          plan: plan || "Todos",
+          estado: estadoLabel,
+          buscar: buscar.trim() || "",
+        },
       });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `estudiantes_salon_${Date.now()}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
     } catch (err) {
       setError(err.message || "No se pudo exportar");
     } finally {
       setExportando(false);
     }
-  }, [filas]);
+  }, [filas, aulas, tutores, planes, idAula, idTutor, idPlan, estado, buscar]);
 
   const hayDatos = consultado && total > 0;
 
@@ -314,7 +371,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Salón
             <select value={idAula} onChange={(e) => setIdAula(e.target.value)}>
-              <option value="">SELECCIONE SALÓN</option>
+              <option value="">SELECCIONAR SALÓN</option>
               {aulasFiltradas.map((a) => (
                 <option key={a.IDAULA} value={a.IDAULA}>
                   {a.NOMBRE}
@@ -325,7 +382,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Tutor
             <select value={idTutor} onChange={(e) => setIdTutor(e.target.value)}>
-              <option value="">SELECCIONE TUTOR</option>
+              <option value="">SELECCIONAR TUTOR</option>
               {tutores.map((t) => (
                 <option key={t.IDTUTOR} value={t.IDTUTOR}>
                   {t.NOMBRE}
@@ -336,7 +393,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Tipo de plan
             <select value={idPlan} onChange={(e) => setIdPlan(e.target.value)}>
-              <option value="">SELECCIONE PLAN</option>
+              <option value="">SELECCIONAR PLAN</option>
               {planes.map((p) => (
                 <option key={p.IDPLAN} value={p.IDPLAN}>
                   {p.NOMBRE}
@@ -347,9 +404,9 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Estado
             <select value={estado} onChange={(e) => setEstado(e.target.value)}>
+              <option value="">SELECCIONAR ESTADO</option>
               <option value="Activo">Activos</option>
               <option value="Retirado">Retirados</option>
-              <option value="">SELECCIONE ESTADO</option>
             </select>
           </label>
           <label className="informes-filtro-buscar">

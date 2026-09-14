@@ -10,7 +10,7 @@ function placeholderSelect(etiqueta) {
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
-  return limpia ? `SELECCIONE ${limpia}` : "SELECCIONE";
+  return limpia ? `SELECCIONAR ${limpia}` : "SELECCIONAR";
 }
 
 export default function FieldRenderer({
@@ -115,7 +115,7 @@ export default function FieldRenderer({
               </>
             ) : (
               <>
-                <strong>SELECCIONE FOTO</strong>
+                <strong>SELECCIONAR FOTO</strong>
                 <span>JPG, PNG o WEBP · Máximo 5 MB</span>
               </>
             )}

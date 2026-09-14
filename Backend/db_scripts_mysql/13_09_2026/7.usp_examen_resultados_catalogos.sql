@@ -1,8 +1,7 @@
 -- ============================================================================
--- 4. usp_examen_resultados_catalogos
+-- 7. usp_examen_resultados_catalogos (todos los examenes para docente/admin)
 -- Fecha: 13/09/2026
 -- phpMyAdmin: selecciona tu BD, pega TODO y ejecuta
--- Docente/admin: todos los examenes del modulo. Estudiante: solo los rendidos.
 -- ============================================================================
 
 DROP PROCEDURE IF EXISTS usp_examen_resultados_catalogos;
@@ -48,4 +47,4 @@ END$$
 
 DELIMITER ;
 
-SELECT '4. usp_examen_resultados_catalogos listo (todos los examenes).' AS info;
+SELECT '7. Catalogo de resultados: lista todos los examenes.' AS info;

@@ -1,0 +1,56 @@
+---
+description: Formato único de exportación Excel (encabezado formal Academia Vita para gerencia)
+globs: Frontend/src/**/*.{js,jsx}
+alwaysApply: false
+---
+
+# Exportaciones Excel (Academia 3.0)
+
+Toda exportación `.xlsx` de informes debe usar el **formato único** en:
+
+`Frontend/src/utils/excelInformeFormato.js`
+
+## Obligatorio en el encabezado
+
+1. Logo (`Frontend/src/images/logo.jpg`)
+2. Nombre: **ACADEMIA VITA**
+3. Eslogan: **¡Tu límite es el cosmos!**
+4. Título del informe (mayúsculas)
+5. Metadatos de filtros + fecha/hora de emisión + total de registros
+6. Leyenda: documento interno / uso gerencial
+
+## Cómo usarlo
+
+```js
+import {
+  crearWorkbookInforme,
+  escribirEncabezadoInforme,
+  escribirFilaEncabezados,
+  escribirFilaDatos,
+  descargarBufferExcel,
+} from "../../utils/excelInformeFormato";
+
+const wb = await crearWorkbookInforme();
+const ws = wb.addWorksheet("Hoja");
+const filaHeader = await escribirEncabezadoInforme(wb, ws, {
+  titulo: "Informe de …",
+  subtitulo: "… para revisión gerencial",
+  metadatos: ["Plan: …", "Estado: …"],
+  totalColumnas: N,
+  totalRegistros: filas.length,
+});
+escribirFilaEncabezados(ws, filaHeader, ["COL1", "COL2", …]);
+filas.forEach((f, i) => escribirFilaDatos(ws, […], i));
+descargarBufferExcel(await wb.xlsx.writeBuffer(), `informe_….xlsx`);
+```
+
+## Informes existentes
+
+- Asistencias → `Frontend/src/modules/informes/exportarExcel.js`
+- Estudiantes → `Frontend/src/modules/informes/exportarEstudiantesExcel.js`
+
+## No hacer
+
+- Exportar solo la tabla cruda sin encabezado institucional
+- Duplicar estilos/logo/nombre en cada módulo
+- Inventar otro layout de cabecera por informe

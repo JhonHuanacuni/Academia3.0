@@ -1,49 +1,33 @@
-import ExcelJS from "exceljs";
 import { estadoVencimientoDesdeFila } from "./informeAsistenciasUtils";
+import {
+  EXCEL_COLORES,
+  aplicarEstilo,
+  borde,
+  crearWorkbookInforme,
+  descargarBufferExcel,
+  escribirEncabezadoInforme,
+  relleno,
+} from "../../utils/excelInformeFormato";
 
 const C = {
-  headerBlue: "FF5B9BD5",
-  headerDateBlue: "FF2F75B5",
-  headerFont: "FFFFFFFF",
-  rowEven: "FFDCE6F1",
-  rowOdd: "FFFFFFFF",
+  ...EXCEL_COLORES,
   sundayBg: "FFB4C6E7",
   noLectivoBg: "FFECEEF4",
-  border: "FF8EA9DB",
-  borderDark: "FF2F5597",
   greenA: "FF006100",
   redT: "FFC00000",
   redF: "FFFF0000",
   yellowTard: "FFFFFF00",
   cellVenceProxima: "FFFFFF66",
   cellVencida: "FFFF9999",
-  black: "FF000000",
-  white: "FFFFFFFF",
 };
 
 const FIJAS = 7;
 const COL_VENCE = 2;
 
-function aplicarEstilo(cell, { fill, font, alignment, border }) {
-  if (fill) cell.fill = fill;
-  if (font) cell.font = font;
-  if (alignment) cell.alignment = alignment;
-  if (border) cell.border = border;
-}
-
-function borde(estilo = "thin", color = C.border) {
-  const b = { style: estilo, color: { argb: color } };
-  return { top: b, left: b, bottom: b, right: b };
-}
-
 function bordeSemana() {
   const t = { style: "thin", color: { argb: C.border } };
   const r = { style: "medium", color: { argb: C.borderDark } };
   return { top: t, left: t, bottom: t, right: r };
-}
-
-function relleno(argb) {
-  return { type: "pattern", pattern: "solid", fgColor: { argb } };
 }
 
 function fondoCeldaVence(estado, fondoBase) {
@@ -78,25 +62,17 @@ function estiloMarca(codigo, fondoFila, fueraPlan = false) {
   return base;
 }
 
-function descargarBuffer(buffer, nombre) {
-  const blob = new Blob([buffer], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nombre;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde, fechaHasta }) {
+export async function exportarInformeAsistenciasExcel({
+  filas,
+  dias,
+  fechaDesde,
+  fechaHasta,
+  meta = {},
+}) {
   if (!filas?.length || !dias?.length) return;
 
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet("Asistencias", {
-    views: [{ state: "frozen", ySplit: 1, xSplit: 3 }],
-  });
+  const wb = await crearWorkbookInforme();
+  const ws = wb.addWorksheet("Asistencias");
 
   const encabezadosFijos = [
     "N°",
@@ -109,12 +85,29 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
   ];
   const encabezadosTotales = ["TOTAL\nASIST", "TOTAL\nTARD", "TOTAL\nFALTAS", "TOTAL\nJUST"];
   const encabezados = [...encabezadosFijos, ...dias.map((d) => d.etiqueta), ...encabezadosTotales];
+  const totalCols = encabezados.length;
 
-  const headerRow = ws.addRow(encabezados);
+  const metadatos = [
+    fechaDesde && fechaHasta ? `Periodo: ${fechaDesde} al ${fechaHasta}` : null,
+    meta.plan ? `Plan: ${meta.plan}` : null,
+    meta.estado ? `Estado: ${meta.estado}` : null,
+    meta.tipoMarca ? `Tipo de marca: ${meta.tipoMarca}` : null,
+  ].filter(Boolean);
+
+  const filaHeader = await escribirEncabezadoInforme(wb, ws, {
+    titulo: "Informe de asistencias",
+    subtitulo: "Matriz de marcas diaria — documento para revisión gerencial",
+    metadatos,
+    totalColumnas: Math.min(totalCols, 12),
+    totalRegistros: filas.length,
+  });
+
+  const headerRow = ws.getRow(filaHeader);
   headerRow.height = 52;
 
-  encabezados.forEach((_, colIdx) => {
+  encabezados.forEach((texto, colIdx) => {
     const cell = headerRow.getCell(colIdx + 1);
+    cell.value = texto;
     const esDia = colIdx >= FIJAS && colIdx < FIJAS + dias.length;
     const esTotal = colIdx >= FIJAS + dias.length;
     const diaInfo = esDia ? dias[colIdx - FIJAS] : null;
@@ -135,6 +128,8 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
       textRotation: esDia ? 45 : 0,
     };
   });
+
+  ws.views = [{ state: "frozen", ySplit: filaHeader, xSplit: 3 }];
 
   filas.forEach((fila, rowIdx) => {
     const fondoFila = rowIdx % 2 === 1 ? C.rowEven : C.rowOdd;
@@ -233,7 +228,7 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
   });
 
   ws.columns = [
-    { width: 4 },
+    { width: 12 },
     { width: 36 },
     { width: 12 },
     { width: 12 },
@@ -248,5 +243,5 @@ export async function exportarInformeAsistenciasExcel({ filas, dias, fechaDesde,
   ];
 
   const buffer = await wb.xlsx.writeBuffer();
-  descargarBuffer(buffer, `informe_asistencias_${fechaDesde}_${fechaHasta}.xlsx`);
+  descargarBufferExcel(buffer, `informe_asistencias_${fechaDesde}_${fechaHasta}.xlsx`);
 }

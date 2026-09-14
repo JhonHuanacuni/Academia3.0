@@ -325,55 +325,36 @@ def _detalle_resultado_sql(id_intento, id_solicitante):
 
 def catalogos_resultados(id_solicitante: str):
     id_solicitante = (id_solicitante or '').strip()
-    try:
-        with connection.cursor() as cursor:
+    solo_propios = _es_estudiante(id_solicitante)
+    with connection.cursor() as cursor:
+        if solo_propios:
             cursor.execute(
-                'CALL usp_examen_resultados_catalogos(%s)',
+                """
+                SELECT DISTINCT e.IDEXAMEN, e.TITULO
+                FROM INTENTO_EXAMEN i
+                INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
+                WHERE i.IDUSUARIO = %s AND IFNULL(i.ESTADO, 0) = 1
+                ORDER BY e.TITULO
+                """,
                 [id_solicitante],
             )
-            meta = _cursor_rows(cursor)
-            solo = bool((meta[0] if meta else {}).get('SOLOPROPIOS'))
-            cursor.nextset()
-            examenes = _cursor_rows(cursor)
-            cursor.nextset()
+        else:
+            cursor.execute(
+                """
+                SELECT e.IDEXAMEN, e.TITULO
+                FROM EXAMEN e
+                ORDER BY e.TITULO
+                """
+            )
+        examenes = _cursor_rows(cursor)
+        if solo_propios:
+            aulas = []
+        else:
+            cursor.execute(
+                """
+                SELECT IDAULA, NOMBRE FROM AULA
+                WHERE IFNULL(ACTIVO, 1) = 1 ORDER BY NOMBRE
+                """
+            )
             aulas = _cursor_rows(cursor)
-            while cursor.nextset():
-                pass
-        return {'examenes': examenes, 'aulas': aulas, 'soloPropios': solo}
-    except Exception:
-        solo_propios = _es_estudiante(id_solicitante)
-        with connection.cursor() as cursor:
-            if solo_propios:
-                cursor.execute(
-                    """
-                    SELECT DISTINCT e.IDEXAMEN, e.TITULO
-                    FROM INTENTO_EXAMEN i
-                    INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
-                    WHERE i.IDUSUARIO = %s AND IFNULL(i.ESTADO, 0) = 1
-                    ORDER BY e.TITULO
-                    """,
-                    [id_solicitante],
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT e.IDEXAMEN, e.TITULO FROM EXAMEN e
-                    WHERE EXISTS (
-                        SELECT 1 FROM INTENTO_EXAMEN i
-                        WHERE i.IDEXAMEN = e.IDEXAMEN AND IFNULL(i.ESTADO, 0) = 1
-                    )
-                    ORDER BY e.TITULO
-                    """
-                )
-            examenes = _cursor_rows(cursor)
-            if solo_propios:
-                aulas = []
-            else:
-                cursor.execute(
-                    """
-                    SELECT IDAULA, NOMBRE FROM AULA
-                    WHERE IFNULL(ACTIVO, 1) = 1 ORDER BY NOMBRE
-                    """
-                )
-                aulas = _cursor_rows(cursor)
-        return {'examenes': examenes, 'aulas': aulas, 'soloPropios': solo_propios}
+    return {'examenes': examenes, 'aulas': aulas, 'soloPropios': solo_propios}
