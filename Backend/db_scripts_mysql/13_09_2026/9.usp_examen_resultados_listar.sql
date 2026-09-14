@@ -1,6 +1,6 @@
 -- ============================================================================
--- 2. usp_examen_resultados_listar
--- Lista TODOS los intentos (en curso y finalizados), no solo ESTADO = 1.
+-- 9. usp_examen_resultados_listar (reemplazo: incluye en curso + finalizados)
+-- phpMyAdmin: selecciona tu BD, pega TODO y ejecuta
 -- ============================================================================
 
 DROP PROCEDURE IF EXISTS usp_examen_resultados_listar;
@@ -122,4 +122,4 @@ END$$
 
 DELIMITER ;
 
-SELECT '2. usp_examen_resultados_listar listo (incluye intentos en curso).' AS info;
+SELECT '9. usp_examen_resultados_listar actualizado.' AS info;

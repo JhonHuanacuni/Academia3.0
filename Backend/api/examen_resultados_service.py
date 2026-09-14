@@ -50,6 +50,7 @@ def _map_fila_listado(r):
         'CANTINCORRECTAS': r.get('CANTINCORRECTAS'),
         'CANTSINRESPONDER': r.get('CANTSINRESPONDER'),
         'APROBADO': bool(r.get('APROBADO')) if r.get('APROBADO') is not None else None,
+        'ESTADOINTENTO': int(r.get('ESTADO') or 0),
     }
 
 
@@ -109,35 +110,16 @@ def listar_resultados(
     except (TypeError, ValueError):
         tamanio = 20
 
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                'CALL usp_examen_resultados_listar(%s, %s, %s, %s, %s, %s)',
-                [id_solicitante, buscar, id_examen, id_aula, pagina, tamanio],
-            )
-            meta_rows = _cursor_rows(cursor)
-            meta = meta_rows[0] if meta_rows else {}
-            cursor.nextset()
-            rows = _cursor_rows(cursor)
-            while cursor.nextset():
-                pass
-        return {
-            'data': [_map_fila_listado(r) for r in rows],
-            'total': int(meta.get('TOTAL') or 0),
-            'pagina': int(meta.get('PAGINA') or pagina),
-            'tamanioPagina': int(meta.get('TAMANIOPAGINA') or tamanio),
-            'soloPropios': bool(meta.get('SOLOPROPIOS')),
-        }
-    except Exception:
-        return _listar_resultados_sql(
-            id_solicitante, buscar, id_examen, id_aula, pagina, tamanio
-        )
+    # SQL directo: el CALL con 2 resultsets a veces deja el listado vacío en Django/MySQL.
+    return _listar_resultados_sql(
+        id_solicitante, buscar, id_examen, id_aula, pagina, tamanio
+    )
 
 
 def _listar_resultados_sql(id_solicitante, buscar, id_examen, id_aula, pagina, tamanio):
     offset = (pagina - 1) * tamanio
     solo_propios = _es_estudiante(id_solicitante)
-    where = ['IFNULL(i.ESTADO, 0) = 1']
+    where = ['1 = 1']
     params = []
 
     if solo_propios:
@@ -182,7 +164,7 @@ def _listar_resultados_sql(id_solicitante, buscar, id_examen, id_aula, pagina, t
             SELECT COUNT(*) AS TOTAL
             FROM INTENTO_EXAMEN i
             INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
-            INNER JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO
+            LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO
             WHERE {where_sql}
             """,
             params,
@@ -195,7 +177,8 @@ def _listar_resultados_sql(id_solicitante, buscar, id_examen, id_aula, pagina, t
                 UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE,
                 u.DNI, i.NUMEROINTENTO, i.FECHAINICIO, i.HORAINICIO, i.FECHAFIN, i.HORAFIN,
                 i.PUNTAJEOBTENIDO, i.CANTCORRECTAS, i.CANTINCORRECTAS, i.CANTSINRESPONDER,
-                i.APROBADO, IFNULL(e.PUNTAJETOTAL, 0) AS PUNTAJETOTAL, e.PUNTAJEAPROBADO,
+                i.APROBADO, IFNULL(i.ESTADO, 0) AS ESTADO,
+                IFNULL(e.PUNTAJETOTAL, 0) AS PUNTAJETOTAL, e.PUNTAJEAPROBADO,
                 (
                     SELECT au.NOMBRE FROM MENSUALIDAD m
                     LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
@@ -204,10 +187,10 @@ def _listar_resultados_sql(id_solicitante, buscar, id_examen, id_aula, pagina, t
                 ) AS AULA
             FROM INTENTO_EXAMEN i
             INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
-            INNER JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO
+            LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO
             WHERE {where_sql}
             ORDER BY
-                STR_TO_DATE(IFNULL(i.FECHAFIN, i.FECHAINICIO), '%%d%%m%%Y') DESC,
+                STR_TO_DATE(NULLIF(IFNULL(i.FECHAFIN, i.FECHAINICIO), ''), '%%d%%m%%Y') DESC,
                 IFNULL(i.HORAFIN, i.HORAINICIO) DESC,
                 i.IDINTENTOEXAMEN DESC
             LIMIT %s OFFSET %s
@@ -231,34 +214,7 @@ def detalle_resultado(id_intento: str, id_solicitante: str):
     if not id_intento or not id_solicitante:
         raise ValueError('Faltan idintento o idusuario')
 
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                'CALL usp_examen_resultados_detalle(%s, %s)',
-                [id_intento, id_solicitante],
-            )
-            intentos = _cursor_rows(cursor)
-            if not intentos:
-                return None
-            intento = intentos[0]
-            cursor.nextset()
-            preguntas_raw = _cursor_rows(cursor)
-            while cursor.nextset():
-                pass
-        return {
-            'intento': _map_fila_listado(intento),
-            'preguntas': _map_preguntas(preguntas_raw),
-            'soloPropios': bool(intento.get('SOLOPROPIOS')),
-        }
-    except Exception as exc:
-        msg = str(exc).lower()
-        if 'permiso' in msg:
-            raise PermissionError('No tienes permiso para ver este resultado') from exc
-        if 'finalizado' in msg:
-            raise ValueError('El intento aún no está finalizado') from exc
-        if 'no encontrado' in msg:
-            return None
-        return _detalle_resultado_sql(id_intento, id_solicitante)
+    return _detalle_resultado_sql(id_intento, id_solicitante)
 
 
 def _detalle_resultado_sql(id_intento, id_solicitante):
@@ -275,7 +231,7 @@ def _detalle_resultado_sql(id_intento, id_solicitante):
                 IFNULL(e.PUNTAJETOTAL, 0) AS PUNTAJETOTAL, e.PUNTAJEAPROBADO
             FROM INTENTO_EXAMEN i
             INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
-            INNER JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO
+            LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO
             WHERE i.IDINTENTOEXAMEN = %s
             """,
             [id_intento],
@@ -286,9 +242,6 @@ def _detalle_resultado_sql(id_intento, id_solicitante):
         intento = rows[0]
         if solo_propios and str(intento.get('IDUSUARIO')) != id_solicitante:
             raise PermissionError('No tienes permiso para ver este resultado')
-        if int(intento.get('ESTADO') or 0) != 1:
-            raise ValueError('El intento aún no está finalizado')
-
         cursor.execute(
             """
             SELECT

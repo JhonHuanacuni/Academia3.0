@@ -170,6 +170,8 @@ export default function ResultadosPage({ role, idusuario }) {
   const [buscarAplicado, setBuscarAplicado] = useState("");
   const [idExamen, setIdExamen] = useState("");
   const [idAula, setIdAula] = useState("");
+  const [idExamenAplicado, setIdExamenAplicado] = useState("");
+  const [idAulaAplicado, setIdAulaAplicado] = useState("");
   const [examenes, setExamenes] = useState([]);
   const [aulas, setAulas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -212,8 +214,8 @@ export default function ResultadosPage({ role, idusuario }) {
         tamanio: String(tamanio),
       });
       if (buscarAplicado.trim()) params.set("buscar", buscarAplicado.trim());
-      if (idExamen) params.set("idExamen", idExamen);
-      if (idAula) params.set("idAula", idAula);
+      if (idExamenAplicado) params.set("idExamen", idExamenAplicado);
+      if (idAulaAplicado) params.set("idAula", idAulaAplicado);
 
       const res = await fetch(`/api/examenes/resultados/?${params}`);
       const data = await parseJsonResponse(res);
@@ -229,7 +231,7 @@ export default function ResultadosPage({ role, idusuario }) {
     } finally {
       setCargando(false);
     }
-  }, [uid, pagina, tamanio, buscarAplicado, idExamen, idAula]);
+  }, [uid, pagina, tamanio, buscarAplicado, idExamenAplicado, idAulaAplicado]);
 
   useEffect(() => {
     cargarCatalogos();
@@ -241,6 +243,8 @@ export default function ResultadosPage({ role, idusuario }) {
 
   const aplicarBusqueda = () => {
     setBuscarAplicado(buscar.trim());
+    setIdExamenAplicado(idExamen);
+    setIdAulaAplicado(idAula);
     setPagina(1);
   };
 
@@ -274,7 +278,7 @@ export default function ResultadosPage({ role, idusuario }) {
           {!esEstudiante && (
             <label>
               Salón
-              <select value={idAula} onChange={(e) => { setIdAula(e.target.value); setPagina(1); }}>
+              <select value={idAula} onChange={(e) => setIdAula(e.target.value)}>
                 <option value="">SELECCIONAR SALÓN</option>
                 {aulas.map((a) => (
                   <option key={a.IDAULA} value={a.IDAULA}>
@@ -286,7 +290,7 @@ export default function ResultadosPage({ role, idusuario }) {
           )}
           <label>
             Examen
-            <select value={idExamen} onChange={(e) => { setIdExamen(e.target.value); setPagina(1); }}>
+            <select value={idExamen} onChange={(e) => setIdExamen(e.target.value)}>
               <option value="">SELECCIONAR EXAMEN</option>
               {examenes.map((ex) => (
                 <option key={ex.IDEXAMEN} value={ex.IDEXAMEN}>
@@ -324,7 +328,9 @@ export default function ResultadosPage({ role, idusuario }) {
             <FontAwesomeIcon icon={faSpinner} spin /> Cargando resultados...
           </div>
         ) : filas.length === 0 ? (
-          <div className="mantenedor-state">No hay resultados para mostrar.</div>
+          <div className="mantenedor-state">
+            No hay intentos para mostrar. El examen debe haber sido iniciado o rendido por un estudiante.
+          </div>
         ) : (
           <div className="table-wrap">
             <table className="data-table">
@@ -339,6 +345,7 @@ export default function ResultadosPage({ role, idusuario }) {
                   <th>Puntaje</th>
                   <th>Correctas</th>
                   <th>Incorrectas</th>
+                  <th>Intento</th>
                   <th>Estado</th>
                   <th>Acción</th>
                 </tr>
@@ -363,6 +370,13 @@ export default function ResultadosPage({ role, idusuario }) {
                     </td>
                     <td>{row.CANTCORRECTAS ?? "—"}</td>
                     <td>{row.CANTINCORRECTAS ?? "—"}</td>
+                    <td>
+                      {Number(row.ESTADOINTENTO) === 1 ? (
+                        <span className="badge-estado activo">Finalizado</span>
+                      ) : (
+                        <span className="badge-estado">En curso</span>
+                      )}
+                    </td>
                     <td>
                       {row.APROBADO == null ? (
                         "—"

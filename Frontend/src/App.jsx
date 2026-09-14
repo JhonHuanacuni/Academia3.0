@@ -173,8 +173,8 @@ const pageContent = {
     component: MensajePage,
   },
   "academico-resultados": {
-    title: "Resultados",
-    description: "Resultados de exámenes y detalle de respuestas.",
+    title: "",
+    description: "",
     component: ResultadosPage,
   },
   informes: {
