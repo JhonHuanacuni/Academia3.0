@@ -30,13 +30,6 @@ export const usuarioConfig = {
           catalogo: "mediosEntero",
           soloTiposUsuario: ["1"],
         },
-        {
-          campo: "SEXO",
-          etiqueta: "Sexo",
-          control: "select",
-          opciones: ["Masculino", "Femenino"],
-          soloTiposUsuario: ["1"],
-        },
         { campo: "FOTO", etiqueta: "Foto de perfil", control: "image", full: true },
       ],
     },

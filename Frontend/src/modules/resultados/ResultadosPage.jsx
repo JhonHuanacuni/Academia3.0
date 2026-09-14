@@ -274,7 +274,7 @@ export default function ResultadosPage({ role, idusuario }) {
             <label>
               Salón
               <select value={idAula} onChange={(e) => { setIdAula(e.target.value); setPagina(1); }}>
-                <option value="">Todos</option>
+                <option value="">SELECCIONE SALÓN</option>
                 {aulas.map((a) => (
                   <option key={a.IDAULA} value={a.IDAULA}>
                     {a.NOMBRE}
@@ -286,7 +286,7 @@ export default function ResultadosPage({ role, idusuario }) {
           <label>
             Examen
             <select value={idExamen} onChange={(e) => { setIdExamen(e.target.value); setPagina(1); }}>
-              <option value="">Todos</option>
+              <option value="">SELECCIONE EXAMEN</option>
               {examenes.map((ex) => (
                 <option key={ex.IDEXAMEN} value={ex.IDEXAMEN}>
                   {ex.TITULO}
@@ -298,7 +298,7 @@ export default function ResultadosPage({ role, idusuario }) {
             Buscar
             <input
               type="text"
-              placeholder={esEstudiante ? "Título del examen..." : "DNI, estudiante o examen..."}
+              placeholder={esEstudiante ? "BUSCAR EXAMEN" : "BUSCAR DNI, ESTUDIANTE O EXAMEN"}
               value={buscar}
               onChange={(e) => setBuscar(e.target.value)}
               onKeyDown={(e) => {

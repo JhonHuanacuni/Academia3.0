@@ -4,6 +4,15 @@ import { faImage, faUpload } from "@fortawesome/free-solid-svg-icons";
 
 const MAX_FOTO_BYTES = 5 * 1024 * 1024;
 
+function placeholderSelect(etiqueta) {
+  const limpia = String(etiqueta || "")
+    .replace(/[¿?]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+  return limpia ? `SELECCIONE ${limpia}` : "SELECCIONE";
+}
+
 export default function FieldRenderer({
   campo,
   value,
@@ -19,7 +28,7 @@ export default function FieldRenderer({
     if (campo.control === "select" && campo.catalogo) {
       return (
         <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Selecciona...</option>
+          <option value="">{placeholderSelect(campo.etiqueta)}</option>
           {catalogo.map((op) => (
             <option key={op.value} value={op.value}>
               {op.label}
@@ -31,7 +40,7 @@ export default function FieldRenderer({
     if (campo.control === "select") {
       return (
         <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-          {!campo.obligatorio && <option value="">Selecciona...</option>}
+          {!campo.obligatorio && <option value="">{placeholderSelect(campo.etiqueta)}</option>}
           {(campo.opciones || []).map((op) => (
             <option key={op} value={op}>
               {op}
@@ -106,7 +115,7 @@ export default function FieldRenderer({
               </>
             ) : (
               <>
-                <strong>Seleccionar foto</strong>
+                <strong>SELECCIONE FOTO</strong>
                 <span>JPG, PNG o WEBP · Máximo 5 MB</span>
               </>
             )}

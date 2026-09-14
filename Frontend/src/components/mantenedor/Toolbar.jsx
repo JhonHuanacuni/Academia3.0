@@ -20,7 +20,13 @@ export default function Toolbar({ buscar, onBuscarChange, filtros = [], placehol
           onChange={(e) => f.onChange(e.target.value)}
           aria-label={f.etiqueta}
         >
-          <option value="">{f.etiqueta}: Todos</option>
+          <option value="">
+            {`SELECCIONE ${String(f.etiqueta || "")
+              .replace(/[¿?]/g, "")
+              .replace(/\s+/g, " ")
+              .trim()
+              .toUpperCase()}`}
+          </option>
           {f.opciones.map((op) => {
             const value = typeof op === "object" ? op.value : op;
             const label = typeof op === "object" ? op.label : op;

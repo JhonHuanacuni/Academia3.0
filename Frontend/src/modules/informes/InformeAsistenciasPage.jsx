@@ -304,7 +304,7 @@ export default function InformeAsistenciasPage() {
 
             <select value={idPlan} onChange={(e) => setIdPlan(e.target.value)}>
 
-              <option value="">Todos</option>
+              <option value="">SELECCIONE PLAN</option>
 
               {planes.map((p) => (
 
@@ -325,7 +325,7 @@ export default function InformeAsistenciasPage() {
             <select value={estado} onChange={(e) => setEstado(e.target.value)}>
               <option value="Activo">Activos</option>
               <option value="Retirado">Retirados</option>
-              <option value="">Todos</option>
+              <option value="">SELECCIONE ESTADO</option>
             </select>
           </label>
 
@@ -334,7 +334,7 @@ export default function InformeAsistenciasPage() {
             <select value={tipoMarca} onChange={(e) => setTipoMarca(e.target.value)}>
               {TIPOS_MARCA_INFORME.map((op) => (
                 <option key={op.value || "todas"} value={op.value}>
-                  {op.label}
+                  {op.value === "" ? "SELECCIONE TIPO DE MARCA" : op.label}
                 </option>
               ))}
             </select>
@@ -348,7 +348,7 @@ export default function InformeAsistenciasPage() {
 
               type="text"
 
-              placeholder="DNI, nombre o aula..."
+              placeholder="BUSCAR DNI, NOMBRE O AULA"
 
               value={buscar}
 

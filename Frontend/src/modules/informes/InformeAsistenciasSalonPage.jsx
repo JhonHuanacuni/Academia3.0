@@ -54,7 +54,49 @@ function DistList({ titulo, items, total }) {
   );
 }
 
-function IndicadoresEstudiantes({ resumen, tieneGenero }) {
+function DistBarrasDistrito({ items, total }) {
+  if (!items?.length) {
+    return (
+      <section className="informes-chart-side">
+        <div className="informes-panel-header">
+          <h2>Por distrito</h2>
+          <p>Sin datos</p>
+        </div>
+      </section>
+    );
+  }
+  const maxCant = Math.max(...items.map((i) => i.cantidad), 1);
+  return (
+    <section className="informes-chart-side">
+      <div className="informes-panel-header">
+        <h2>Por distrito</h2>
+        <p>Comparativo vertical del listado filtrado</p>
+      </div>
+      <div className="informes-chart-bars informes-chart-bars--distrito">
+        {items.map((item) => {
+          const pct = total > 0 ? Math.round((item.cantidad / total) * 100) : 0;
+          const altura = Math.max(Math.round((item.cantidad / maxCant) * 100), item.cantidad > 0 ? 8 : 0);
+          return (
+            <div key={item.etiqueta} className="informes-chart-col" title={`${item.etiqueta}: ${item.cantidad}`}>
+              <div className="informes-chart-bar-wrap">
+                <div
+                  className="informes-chart-bar informes-chart-bar--asist"
+                  style={{ height: `${altura}%` }}
+                >
+                  {altura > 18 && <span>{pct}%</span>}
+                </div>
+              </div>
+              <span className="informes-chart-label">{item.etiqueta}</span>
+              <span className="informes-chart-pct-small">{item.cantidad}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function IndicadoresEstudiantes({ resumen }) {
   if (!resumen) return null;
   const total = resumen.total || 0;
   const kpis = [
@@ -62,16 +104,10 @@ function IndicadoresEstudiantes({ resumen, tieneGenero }) {
     { key: "act", valor: resumen.activos || 0, etiqueta: "Activos", tono: "asist" },
     { key: "ret", valor: resumen.retirados || 0, etiqueta: "Retirados", tono: "falta" },
   ];
-  if (tieneGenero) {
-    kpis.push(
-      { key: "h", valor: resumen.hombres || 0, etiqueta: "Hombres", tono: "total" },
-      { key: "m", valor: resumen.mujeres || 0, etiqueta: "Mujeres", tono: "tard" },
-    );
-  }
 
   return (
     <div className="informes-dashboard">
-      <div className="informes-kpi-row">
+      <div className="informes-kpi-row informes-kpi-row--3">
         {kpis.map((k) => (
           <div key={k.key} className={`informes-kpi informes-kpi--${k.tono}`}>
             <span className="informes-kpi-valor">{k.valor}</span>
@@ -85,10 +121,7 @@ function IndicadoresEstudiantes({ resumen, tieneGenero }) {
           <DistList titulo="Por plan / ciclo" items={resumen.porPlan} total={total} />
         </div>
         <div className="informes-resumen-grid" style={{ marginTop: "1rem" }}>
-          {tieneGenero && (
-            <DistList titulo="Por género" items={resumen.porGenero} total={total} />
-          )}
-          <DistList titulo="Por distrito" items={resumen.porDistrito} total={total} />
+          <DistBarrasDistrito items={resumen.porDistrito} total={total} />
         </div>
       </div>
     </div>
@@ -150,7 +183,6 @@ export default function InformeAsistenciasSalonPage() {
   const [resumen, setResumen] = useState(null);
   const [filas, setFilas] = useState([]);
   const [total, setTotal] = useState(0);
-  const [tieneGenero, setTieneGenero] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [error, setError] = useState("");
@@ -183,7 +215,6 @@ export default function InformeAsistenciasSalonPage() {
       setResumen(data.resumen || null);
       setFilas(data.filas || []);
       setTotal(data.total || 0);
-      setTieneGenero(Boolean(data.tieneGenero));
       setConsultado(true);
     } catch (err) {
       setError(err.message);
@@ -283,7 +314,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Salón
             <select value={idAula} onChange={(e) => setIdAula(e.target.value)}>
-              <option value="">Seleccionar...</option>
+              <option value="">SELECCIONE SALÓN</option>
               {aulasFiltradas.map((a) => (
                 <option key={a.IDAULA} value={a.IDAULA}>
                   {a.NOMBRE}
@@ -294,7 +325,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Tutor
             <select value={idTutor} onChange={(e) => setIdTutor(e.target.value)}>
-              <option value="">Todos</option>
+              <option value="">SELECCIONE TUTOR</option>
               {tutores.map((t) => (
                 <option key={t.IDTUTOR} value={t.IDTUTOR}>
                   {t.NOMBRE}
@@ -305,7 +336,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Tipo de plan
             <select value={idPlan} onChange={(e) => setIdPlan(e.target.value)}>
-              <option value="">Todos</option>
+              <option value="">SELECCIONE PLAN</option>
               {planes.map((p) => (
                 <option key={p.IDPLAN} value={p.IDPLAN}>
                   {p.NOMBRE}
@@ -318,14 +349,14 @@ export default function InformeAsistenciasSalonPage() {
             <select value={estado} onChange={(e) => setEstado(e.target.value)}>
               <option value="Activo">Activos</option>
               <option value="Retirado">Retirados</option>
-              <option value="">Todos</option>
+              <option value="">SELECCIONE ESTADO</option>
             </select>
           </label>
           <label className="informes-filtro-buscar">
             Buscar
             <input
               type="text"
-              placeholder="DNI, nombre..."
+              placeholder="BUSCAR DNI O NOMBRE"
               value={buscar}
               onChange={(e) => setBuscar(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && cargar()}
@@ -378,7 +409,7 @@ export default function InformeAsistenciasSalonPage() {
           </div>
           <div className="ui-tabs-panel-body" role="tabpanel">
             {tabActiva === "indicadores" ? (
-              <IndicadoresEstudiantes resumen={resumen} tieneGenero={tieneGenero} />
+              <IndicadoresEstudiantes resumen={resumen} />
             ) : (
               <TablaEstudiantes filas={filas} />
             )}

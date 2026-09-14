@@ -88,7 +88,7 @@ export default function ClaseGrabadaFormModal({
                   onChange={(e) => set("IDAULA", e.target.value)}
                   required
                 >
-                  <option value="">Seleccione un salón</option>
+                  <option value="">SELECCIONE SALÓN</option>
                   {aulas.map((a) => (
                     <option key={a.value} value={a.value}>
                       {a.label}
@@ -104,7 +104,7 @@ export default function ClaseGrabadaFormModal({
                   onChange={(e) => set("IDMATERIA", e.target.value)}
                   required
                 >
-                  <option value="">Seleccione materia</option>
+                  <option value="">SELECCIONE MATERIA</option>
                   {materias.map((m) => (
                     <option key={m.value} value={m.value}>
                       {m.label}

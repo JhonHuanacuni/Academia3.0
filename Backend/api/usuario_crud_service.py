@@ -14,34 +14,6 @@ def _email_guardar(payload):
     return email or None
 
 
-def _tiene_columna_sexo():
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT COUNT(*) FROM information_schema.COLUMNS
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'USUARIO'
-                  AND COLUMN_NAME = 'SEXO'
-                """
-            )
-            row = cursor.fetchone()
-            return bool(row and int(row[0] or 0) > 0)
-    except Exception:
-        return False
-
-
-def _guardar_sexo(id_usuario, payload):
-    if not id_usuario or 'SEXO' not in payload or not _tiene_columna_sexo():
-        return
-    sexo = (payload.get('SEXO') or '').strip() or None
-    with connection.cursor() as cursor:
-        cursor.execute(
-            'UPDATE USUARIO SET SEXO = %s WHERE IDUSUARIO = %s',
-            [sexo, id_usuario],
-        )
-
-
 def listar_usuarios(
     buscar=None,
     estado=None,
@@ -74,20 +46,7 @@ def listar_usuarios(
 
 
 def obtener_usuario(id_usuario: str):
-    row = sp.call_obtain('usp_usuario_obtener', id_usuario)
-    if row and _tiene_columna_sexo() and 'SEXO' not in row:
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    'SELECT SEXO FROM USUARIO WHERE IDUSUARIO = %s',
-                    [id_usuario],
-                )
-                sexo_row = cursor.fetchone()
-                if sexo_row:
-                    row['SEXO'] = sexo_row[0] or ''
-        except Exception:
-            pass
-    return row
+    return sp.call_obtain('usp_usuario_obtener', id_usuario)
 
 
 def insertar_usuario(payload: dict, id_usuario=None):
@@ -108,26 +67,22 @@ def insertar_usuario(payload: dict, id_usuario=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_usuario, payload)
         if sp.is_mysql():
-            resultado = sp.call_write_inout(cursor, 'usp_usuario_insertar', id_val, contra_val, rest)
-        else:
-            cursor.execute(
-                """
-                DECLARE @R INT, @M NVARCHAR(200);
-                EXEC dbo.usp_usuario_insertar
-                    @Id=%s, @Contra=%s, @Nombre=%s, @Apellido=%s, @Dni=%s, @Email=%s,
-                    @IdTipoUsuario=%s, @Estado=%s, @FechaNacimiento=%s, @Direccion=%s,
-                    @Distrito=%s, @Colegio=%s, @Grado=%s, @TelPersonal=%s,
-                    @TelApoderado=%s, @NombreApoderado=%s, @Parentesco=%s,
-                    @SituacionAcademica=%s, @ComoEntero=%s, @Foto=%s,
-                    @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
-                SELECT @R AS Resultado, @M AS Mensaje;
-                """,
-                [id_val, contra_val, *rest],
-            )
-            resultado = _read_sp_write_result(cursor)
-    if isinstance(resultado, tuple) and int(resultado[0] or 0) == 1:
-        _guardar_sexo(id_val, payload)
-    return resultado
+            return sp.call_write_inout(cursor, 'usp_usuario_insertar', id_val, contra_val, rest)
+        cursor.execute(
+            """
+            DECLARE @R INT, @M NVARCHAR(200);
+            EXEC dbo.usp_usuario_insertar
+                @Id=%s, @Contra=%s, @Nombre=%s, @Apellido=%s, @Dni=%s, @Email=%s,
+                @IdTipoUsuario=%s, @Estado=%s, @FechaNacimiento=%s, @Direccion=%s,
+                @Distrito=%s, @Colegio=%s, @Grado=%s, @TelPersonal=%s,
+                @TelApoderado=%s, @NombreApoderado=%s, @Parentesco=%s,
+                @SituacionAcademica=%s, @ComoEntero=%s, @Foto=%s,
+                @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
+            SELECT @R AS Resultado, @M AS Mensaje;
+            """,
+            [id_val, contra_val, *rest],
+        )
+        return _read_sp_write_result(cursor)
 
 
 def actualizar_usuario(id_usuario: str, payload: dict, id_actor=None):
@@ -149,26 +104,22 @@ def actualizar_usuario(id_usuario: str, payload: dict, id_actor=None):
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_actor, payload)
         if sp.is_mysql():
-            resultado = sp.call_write(cursor, 'usp_usuario_actualizar', params)
-        else:
-            cursor.execute(
-                """
-                DECLARE @R INT, @M NVARCHAR(200);
-                EXEC dbo.usp_usuario_actualizar
-                    @Id=%s, @Contra=%s, @Nombre=%s, @Apellido=%s, @Dni=%s, @Email=%s,
-                    @IdTipoUsuario=%s, @Estado=%s, @FechaNacimiento=%s, @Direccion=%s,
-                    @Distrito=%s, @Colegio=%s, @Grado=%s, @TelPersonal=%s,
-                    @TelApoderado=%s, @NombreApoderado=%s, @Parentesco=%s,
-                    @SituacionAcademica=%s, @ComoEntero=%s, @Foto=%s, @ActualizarFoto=%s,
-                    @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
-                SELECT @R AS Resultado, @M AS Mensaje;
-                """,
-                params,
-            )
-            resultado = _read_sp_write_result(cursor)
-    if isinstance(resultado, tuple) and int(resultado[0] or 0) == 1:
-        _guardar_sexo(id_usuario, payload)
-    return resultado
+            return sp.call_write(cursor, 'usp_usuario_actualizar', params)
+        cursor.execute(
+            """
+            DECLARE @R INT, @M NVARCHAR(200);
+            EXEC dbo.usp_usuario_actualizar
+                @Id=%s, @Contra=%s, @Nombre=%s, @Apellido=%s, @Dni=%s, @Email=%s,
+                @IdTipoUsuario=%s, @Estado=%s, @FechaNacimiento=%s, @Direccion=%s,
+                @Distrito=%s, @Colegio=%s, @Grado=%s, @TelPersonal=%s,
+                @TelApoderado=%s, @NombreApoderado=%s, @Parentesco=%s,
+                @SituacionAcademica=%s, @ComoEntero=%s, @Foto=%s, @ActualizarFoto=%s,
+                @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
+            SELECT @R AS Resultado, @M AS Mensaje;
+            """,
+            params,
+        )
+        return _read_sp_write_result(cursor)
 
 
 def eliminar_usuario(id_usuario: str, id_actor=None):

@@ -870,17 +870,6 @@ def _columna_existe(tabla, columna):
         return False
 
 
-def _normalizar_genero(val):
-    s = str(val or '').strip().upper()
-    if not s:
-        return 'Sin dato'
-    if s in ('M', 'H', 'MASCULINO', 'HOMBRE', 'MALE'):
-        return 'Hombre'
-    if s in ('F', 'MUJER', 'FEMENINO', 'FEMALE'):
-        return 'Mujer'
-    return 'Sin dato'
-
-
 def _agregar_conteo(mapa, clave):
     k = (clave or '').strip() or 'Sin dato'
     mapa[k] = mapa.get(k, 0) + 1
@@ -897,9 +886,6 @@ def informe_estudiantes(buscar=None, id_plan=None, estado_usuario=None, id_aula=
     ifnull = 'IFNULL' if is_mysql() else 'ISNULL'
     plan_table = '`PLAN`' if is_mysql() else '[PLAN]'
     concat_like = "CONCAT('%%', %s, '%%')" if is_mysql() else "('%%' + %s + '%%')"
-    tiene_sexo = _columna_existe('USUARIO', 'SEXO') or _columna_existe('USUARIO', 'GENERO')
-    col_sexo = 'SEXO' if _columna_existe('USUARIO', 'SEXO') else ('GENERO' if _columna_existe('USUARIO', 'GENERO') else None)
-    sexo_select = f"{ifnull}(u.{col_sexo}, '') AS SEXO" if col_sexo else "'' AS SEXO"
     tiene_como = _columna_existe('USUARIO', 'COMOENTERO')
     como_select = f"{ifnull}(u.COMOENTERO, '') AS COMOENTERO" if tiene_como else "'' AS COMOENTERO"
     distrito_select = f"{ifnull}(u.DISTRITO, '') AS DISTRITO" if _columna_existe('USUARIO', 'DISTRITO') else "'' AS DISTRITO"
@@ -999,7 +985,6 @@ def informe_estudiantes(buscar=None, id_plan=None, estado_usuario=None, id_aula=
             {como_select},
             {distrito_select},
             {grado_select},
-            {sexo_select},
             mem.IDPLAN,
             mem.IDAULA,
             mem.IDTUTOR
@@ -1019,20 +1004,17 @@ def informe_estudiantes(buscar=None, id_plan=None, estado_usuario=None, id_aula=
         rows = _cursor_rows(cursor)
 
     filas = []
-    por_genero = {}
     por_como = {}
     por_estado = {}
     por_plan = {}
     por_distrito = {}
 
     for idx, r in enumerate(rows, start=1):
-        genero = _normalizar_genero(r.get('SEXO')) if tiene_sexo else 'Sin dato'
         como = (r.get('COMOENTERO') or '').strip() or 'Sin dato'
         estado = (r.get('ESTADO') or 'ACTIVO').strip() or 'ACTIVO'
         plan = (r.get('CICLO') or '').strip() or 'Sin plan'
         distrito = (r.get('DISTRITO') or '').strip() or 'Sin distrito'
 
-        _agregar_conteo(por_genero, genero)
         _agregar_conteo(por_como, como)
         _agregar_conteo(por_estado, estado.title() if estado else 'Activo')
         _agregar_conteo(por_plan, plan)
@@ -1050,7 +1032,6 @@ def informe_estudiantes(buscar=None, id_plan=None, estado_usuario=None, id_aula=
             'comoEntero': como if como != 'Sin dato' else '',
             'distrito': r.get('DISTRITO') or '',
             'grado': r.get('GRADO') or '',
-            'genero': genero if tiene_sexo else '',
         })
 
     def _lista_mapa(mapa):
@@ -1062,15 +1043,10 @@ def informe_estudiantes(buscar=None, id_plan=None, estado_usuario=None, id_aula=
     return {
         'filas': filas,
         'total': total,
-        'tieneGenero': bool(tiene_sexo),
         'resumen': {
             'total': total,
             'activos': por_estado.get('Activo', 0),
             'retirados': por_estado.get('Retirado', 0),
-            'hombres': por_genero.get('Hombre', 0),
-            'mujeres': por_genero.get('Mujer', 0),
-            'sinGenero': por_genero.get('Sin dato', 0),
-            'porGenero': _lista_mapa(por_genero),
             'porComoEntero': _lista_mapa(por_como),
             'porEstado': _lista_mapa(por_estado),
             'porPlan': _lista_mapa(por_plan),
