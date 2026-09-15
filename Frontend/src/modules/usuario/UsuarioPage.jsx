@@ -114,11 +114,12 @@ export default function UsuarioPage() {
 
   const abrirResetContra = (row) => {
     const nombre = `${row.NOMBRE} ${row.APELLIDO}`.trim();
+    const dni = row.DNI || "—";
     setConfirm({
       tipo: "resetContra",
       id: row[cfg.pk],
-      titulo: "Restablecer contraseña",
-      mensaje: `¿Restablecer la contraseña de «${nombre || row[cfg.pk]}» a su DNI (${row.DNI || "—"})?`,
+      titulo: "Restablecer credenciales",
+      mensaje: `¿Restablecer usuario y contraseña de «${nombre || row[cfg.pk]}» a su DNI (${dni})? Podrá iniciar sesión con ${dni} / ${dni}.`,
       confirmLabel: "Restablecer",
     });
   };
@@ -163,9 +164,10 @@ export default function UsuarioPage() {
         );
         const data = await parseJsonResponse(res);
         if (!res.ok || !data.ok) {
-          throw new Error(data.mensaje || data.error || "No se pudo restablecer la contraseña");
+          throw new Error(data.mensaje || data.error || "No se pudieron restablecer las credenciales");
         }
         setToast({ mensaje: data.mensaje, tipo: "success" });
+        await crud.listar();
       } else if (confirm.tipo === "retirar" || confirm.tipo === "eliminar") {
         const mensaje = await crud.eliminar(confirm.id);
         setToast({ mensaje, tipo: "success" });

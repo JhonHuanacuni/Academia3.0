@@ -150,19 +150,64 @@ def eliminar_usuario(id_usuario: str, id_actor=None):
 
 
 def resetear_contra_usuario(id_usuario: str, id_actor=None):
+    """Restablece usuario (IDUSUARIO) y contraseña al DNI."""
+    id_usuario = (id_usuario or '').strip()
+    if not id_usuario:
+        return 0, 'El usuario no existe.'
+
     with connection.cursor() as cursor:
         prepare_write_cursor(cursor, id_actor)
-        if sp.is_mysql():
-            return sp.call_write(cursor, 'usp_usuario_resetear_contra', [id_usuario])
         cursor.execute(
-            """
-            DECLARE @R INT, @M NVARCHAR(200);
-            EXEC dbo.usp_usuario_resetear_contra @Id=%s, @Resultado=@R OUTPUT, @Mensaje=@M OUTPUT;
-            SELECT @R AS Resultado, @M AS Mensaje;
-            """,
+            "SELECT IDUSUARIO, DNI FROM USUARIO WHERE IDUSUARIO = %s",
             [id_usuario],
         )
-        return _read_sp_write_result(cursor)
+        row = cursor.fetchone()
+        if not row:
+            return 0, 'El usuario no existe.'
+
+        id_actual = str(row[0] or '').strip()
+        dni = str(row[1] or '').strip()
+        if not dni:
+            return 0, 'El usuario no tiene DNI. No se pueden restablecer las credenciales.'
+
+        if id_actual != dni:
+            cursor.execute(
+                "SELECT 1 FROM USUARIO WHERE IDUSUARIO = %s AND IDUSUARIO <> %s LIMIT 1",
+                [dni, id_actual],
+            )
+            if cursor.fetchone():
+                return 0, f'No se pudo cambiar el usuario: ya existe otro registro con usuario {dni}.'
+
+            cursor.execute('SET FOREIGN_KEY_CHECKS = 0')
+            try:
+                cursor.execute(
+                    """
+                    SELECT TABLE_NAME, COLUMN_NAME
+                    FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND COLUMN_NAME IN ('IDUSUARIO', 'REGISTRADOPOR', 'IDREGISTRADOR', 'IMPORTADO_POR')
+                      AND TABLE_NAME <> 'USUARIO'
+                    """,
+                )
+                destinos = cursor.fetchall()
+                for tabla, columna in destinos:
+                    cursor.execute(
+                        f"UPDATE `{tabla}` SET `{columna}` = %s WHERE `{columna}` = %s",
+                        [dni, id_actual],
+                    )
+                cursor.execute(
+                    "UPDATE USUARIO SET IDUSUARIO = %s, CONTRA = %s WHERE IDUSUARIO = %s",
+                    [dni, dni, id_actual],
+                )
+            finally:
+                cursor.execute('SET FOREIGN_KEY_CHECKS = 1')
+        else:
+            cursor.execute(
+                "UPDATE USUARIO SET CONTRA = %s WHERE IDUSUARIO = %s",
+                [dni, id_actual],
+            )
+
+    return 1, f'Credenciales restablecidas. Usuario y contraseña: {dni}'
 
 
 def listar_tipos_usuario():

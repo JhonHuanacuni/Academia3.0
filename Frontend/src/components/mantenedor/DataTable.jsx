@@ -324,7 +324,7 @@ export default function DataTable({
                     <button
                       type="button"
                       className="btn-icon"
-                      title="Restablecer contraseña al DNI"
+                      title="Restablecer usuario y contraseña al DNI"
                       onClick={() => onResetContra(row)}
                     >
                       <FontAwesomeIcon icon={faKey} />
