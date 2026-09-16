@@ -14,6 +14,38 @@ def _hoy_db():
     return timezone.localtime().strftime('%d%m%Y')
 
 
+def _sql_fecha_ymd(expr):
+    """CHAR8 DDMMYYYY → YYYYMMDD para comparar y ordenar cronológicamente."""
+    if is_mysql():
+        return f"CONCAT(SUBSTRING({expr}, 5, 4), SUBSTRING({expr}, 3, 2), SUBSTRING({expr}, 1, 2))"
+    return f"(SUBSTRING({expr}, 5, 4) + SUBSTRING({expr}, 3, 2) + SUBSTRING({expr}, 1, 2))"
+
+
+def _fecha_db_a_ymd(fecha_db):
+    d = _fecha_db_a_date(fecha_db)
+    if not d:
+        return timezone.localdate().strftime('%Y%m%d')
+    return d.strftime('%Y%m%d')
+
+
+def _sql_order_mensualidad_en_rango():
+    """Orden: cubren [desde,hasta] primero, luego fin más reciente.
+    Placeholders %s: fecha_hasta_ymd, fecha_desde_ymd.
+    """
+    ymd_ini = _sql_fecha_ymd('m.FECHAINICIO')
+    ymd_fin = _sql_fecha_ymd('m.FECHAFIN')
+    ymd_reg = _sql_fecha_ymd('m.FECHAREGISTRO')
+    cubre = f"""CASE
+                        WHEN (m.FECHAINICIO IS NULL OR m.FECHAINICIO = '' OR {ymd_ini} <= %s)
+                         AND (m.FECHAFIN IS NULL OR m.FECHAFIN = '' OR {ymd_fin} >= %s)
+                        THEN 0 ELSE 1
+                    END"""
+    return f"""{cubre},
+                    {ymd_fin} DESC,
+                    {ymd_ini} DESC,
+                    {ymd_reg} DESC"""
+
+
 def _cursor_rows(cursor):
     columns = [col[0] for col in cursor.description] if cursor.description else []
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -489,26 +521,21 @@ def _listar_estudiantes_informe(
         ))))"""
     )
 
+    order_mem = _sql_order_mensualidad_en_rango()
     if is_mysql():
-        mem_join = """
+        mem_join = f"""
             LEFT JOIN LATERAL (
                 SELECT m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR, m.FECHAINICIO, m.FECHAFIN
                 FROM MENSUALIDAD m
                 WHERE m.IDUSUARIO = u.IDUSUARIO
                   AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
                 ORDER BY
-                    CASE
-                        WHEN (m.FECHAINICIO IS NULL OR m.FECHAINICIO <= %s)
-                         AND (m.FECHAFIN IS NULL OR m.FECHAFIN >= %s)
-                        THEN 0 ELSE 1
-                    END,
-                    m.FECHAREGISTRO DESC,
-                    m.FECHAINICIO DESC
+                    {order_mem}
                 LIMIT 1
             ) mem ON TRUE
             """
     else:
-        mem_join = """
+        mem_join = f"""
             OUTER APPLY (
                 SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR,
                        m.FECHAINICIO, m.FECHAFIN
@@ -516,18 +543,12 @@ def _listar_estudiantes_informe(
                 WHERE m.IDUSUARIO = u.IDUSUARIO
                   AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
                 ORDER BY
-                    CASE
-                        WHEN (m.FECHAINICIO IS NULL OR m.FECHAINICIO <= %s)
-                         AND (m.FECHAFIN IS NULL OR m.FECHAFIN >= %s)
-                        THEN 0 ELSE 1
-                    END,
-                    m.FECHAREGISTRO DESC,
-                    m.FECHAINICIO DESC
+                    {order_mem}
             ) mem
             """
 
     where = ["u.IDTIPOUSUARIO = '1'"]
-    params = [fecha_hasta, fecha_desde]
+    params = [_fecha_db_a_ymd(fecha_hasta), _fecha_db_a_ymd(fecha_desde)]
 
     if estado_usuario:
         where.append(f"UPPER({ifnull}(u.ESTADO, 'Activo')) = UPPER(%s)")
@@ -753,7 +774,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
     try:
         plan_filter = ''
         estado_filter = ''
-        params = [fecha_hasta, fecha_desde]
+        params = [_fecha_db_a_ymd(fecha_hasta), _fecha_db_a_ymd(fecha_desde)]
         if id_plan:
             plan_filter = ' AND mem.IDPLAN = %s'
             params.append(id_plan)
@@ -761,6 +782,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
             estado_filter = ' AND UPPER(' + isnull('u.ESTADO', "'Activo'") + ') = UPPER(%s)'
             params.append(estado_usuario)
 
+        order_mem = _sql_order_mensualidad_en_rango()
         if is_mysql():
             plan_table = '`PLAN`'
             ciclo_expr = f"""UPPER(TRIM(CONCAT(
@@ -768,7 +790,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                         CASE WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
                              THEN CONCAT(' ', tu.DESCRIPCION) ELSE '' END
                     )))"""
-            mem_join = """
+            mem_join = f"""
                 LEFT JOIN (
                     SELECT t.IDUSUARIO, t.IDAULA, t.IDPLAN, t.IDTURNO, t.IDTUTOR,
                            t.FECHAINICIO, t.FECHA_VENCE
@@ -780,13 +802,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                             ROW_NUMBER() OVER (
                                 PARTITION BY m.IDUSUARIO
                                 ORDER BY
-                                    CASE
-                                        WHEN (m.FECHAINICIO IS NULL OR m.FECHAINICIO <= %s)
-                                         AND (m.FECHAFIN IS NULL OR m.FECHAFIN >= %s)
-                                        THEN 0 ELSE 1
-                                    END,
-                                    m.FECHAREGISTRO DESC,
-                                    m.FECHAINICIO DESC
+                                    {order_mem}
                             ) AS RN
                         FROM MENSUALIDAD m
                         WHERE (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
@@ -801,7 +817,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                         CASE WHEN tu.DESCRIPCION IS NOT NULL AND tu.DESCRIPCION <> ''
                              THEN ' ' + tu.DESCRIPCION ELSE '' END
                     )))"""
-            mem_join = """
+            mem_join = f"""
                 OUTER APPLY (
                     SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR,
                            m.FECHAINICIO, m.FECHAFIN AS FECHA_VENCE
@@ -809,13 +825,7 @@ def _meta_estudiantes_sql(fecha_desde, fecha_hasta, id_plan=None, estado_usuario
                     WHERE m.IDUSUARIO = u.IDUSUARIO
                       AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
                     ORDER BY
-                        CASE
-                            WHEN (m.FECHAINICIO IS NULL OR m.FECHAINICIO <= %s)
-                             AND (m.FECHAFIN IS NULL OR m.FECHAFIN >= %s)
-                            THEN 0 ELSE 1
-                        END,
-                        m.FECHAREGISTRO DESC,
-                        m.FECHAINICIO DESC
+                        {order_mem}
                 ) mem
                 """
 
@@ -924,30 +934,34 @@ def informe_estudiantes(buscar=None, id_plan=None, estado_usuario=None, id_aula=
         ))))"""
     )
 
+    order_mem = _sql_order_mensualidad_en_rango()
+    hoy_ymd = timezone.localdate().strftime('%Y%m%d')
     if is_mysql():
-        mem_join = """
+        mem_join = f"""
             LEFT JOIN LATERAL (
                 SELECT m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR, m.FECHAINICIO, m.FECHAFIN
                 FROM MENSUALIDAD m
                 WHERE m.IDUSUARIO = u.IDUSUARIO
                   AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
-                ORDER BY m.FECHAREGISTRO DESC, m.FECHAINICIO DESC
+                ORDER BY
+                    {order_mem}
                 LIMIT 1
             ) mem ON TRUE
             """
     else:
-        mem_join = """
+        mem_join = f"""
             OUTER APPLY (
                 SELECT TOP 1 m.IDAULA, m.IDPLAN, m.IDTURNO, m.IDTUTOR, m.FECHAINICIO, m.FECHAFIN
                 FROM MENSUALIDAD m
                 WHERE m.IDUSUARIO = u.IDUSUARIO
                   AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
-                ORDER BY m.FECHAREGISTRO DESC, m.FECHAINICIO DESC
+                ORDER BY
+                    {order_mem}
             ) mem
             """
 
     where = ["u.IDTIPOUSUARIO = '1'"]
-    params = []
+    params = [hoy_ymd, hoy_ymd]
     if estado_usuario:
         where.append(f"UPPER({ifnull}(u.ESTADO, 'Activo')) = UPPER(%s)")
         params.append(estado_usuario)

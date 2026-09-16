@@ -85,8 +85,6 @@ const Navbar = ({ role, idusuario, onToggleSidebar, onLogout }) => {
 
   useEffect(() => {
     cargarMensajes();
-    const id = setInterval(cargarMensajes, 60000);
-    return () => clearInterval(id);
   }, [cargarMensajes]);
 
   return (

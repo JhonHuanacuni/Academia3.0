@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartColumn,
@@ -254,7 +254,6 @@ export default function InformeAsistenciasSalonPage() {
   const [exportando, setExportando] = useState(false);
   const [error, setError] = useState("");
   const [consultado, setConsultado] = useState(false);
-  const cargaInicialHecha = useRef(false);
 
   const aulasFiltradas = useMemo(() => {
     if (!idTutor) return aulas;
@@ -262,14 +261,11 @@ export default function InformeAsistenciasSalonPage() {
   }, [aulas, idTutor]);
 
   const cargar = useCallback(async () => {
-    if (!idAula) {
-      setError("Selecciona un salón para listar estudiantes.");
-      return;
-    }
     try {
       setCargando(true);
       setError("");
-      const params = new URLSearchParams({ idAula });
+      const params = new URLSearchParams();
+      if (idAula) params.set("idAula", idAula);
       if (buscar.trim()) params.set("buscar", buscar.trim());
       if (idPlan) params.set("idPlan", idPlan);
       if (idTutor) params.set("idTutor", idTutor);
@@ -310,17 +306,6 @@ export default function InformeAsistenciasSalonPage() {
       }
     })();
   }, []);
-
-  useEffect(() => {
-    if (cargaInicialHecha.current) return;
-    if (!idAula && aulas.length) {
-      setIdAula(aulas[0].IDAULA);
-      return;
-    }
-    if (!idAula) return;
-    cargaInicialHecha.current = true;
-    cargar();
-  }, [cargar, idAula, aulas]);
 
   useEffect(() => {
     if (idAula && idTutor) {
@@ -371,7 +356,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Salón
             <select value={idAula} onChange={(e) => setIdAula(e.target.value)}>
-              <option value="">SELECCIONAR SALÓN</option>
+              <option value="">TODOS LOS SALONES</option>
               {aulasFiltradas.map((a) => (
                 <option key={a.IDAULA} value={a.IDAULA}>
                   {a.NOMBRE}
@@ -382,7 +367,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Tutor
             <select value={idTutor} onChange={(e) => setIdTutor(e.target.value)}>
-              <option value="">SELECCIONAR TUTOR</option>
+              <option value="">TODOS LOS TUTORES</option>
               {tutores.map((t) => (
                 <option key={t.IDTUTOR} value={t.IDTUTOR}>
                   {t.NOMBRE}
@@ -393,7 +378,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Tipo de plan
             <select value={idPlan} onChange={(e) => setIdPlan(e.target.value)}>
-              <option value="">SELECCIONAR PLAN</option>
+              <option value="">TODOS LOS PLANES</option>
               {planes.map((p) => (
                 <option key={p.IDPLAN} value={p.IDPLAN}>
                   {p.NOMBRE}
@@ -404,7 +389,7 @@ export default function InformeAsistenciasSalonPage() {
           <label>
             Estado
             <select value={estado} onChange={(e) => setEstado(e.target.value)}>
-              <option value="">SELECCIONAR ESTADO</option>
+              <option value="">TODOS LOS ESTADOS</option>
               <option value="Activo">Activos</option>
               <option value="Retirado">Retirados</option>
             </select>
@@ -446,7 +431,7 @@ export default function InformeAsistenciasSalonPage() {
           <FontAwesomeIcon icon={faSpinner} spin /> Generando informe...
         </div>
       ) : consultado && total === 0 ? (
-        <div className="mantenedor-state">No hay estudiantes en el salón seleccionado.</div>
+        <div className="mantenedor-state">No hay estudiantes para los filtros seleccionados.</div>
       ) : hayDatos ? (
         <div className="ui-tabs-panel">
           <div className="ui-tabs" role="tablist" aria-label="Vista del informe de estudiantes">

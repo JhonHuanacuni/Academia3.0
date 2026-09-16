@@ -350,6 +350,10 @@ export default function MensualidadPage() {
         items={estudianteModal?.items}
         loading={estudianteModalLoading}
         onClose={() => setEstudianteModal(null)}
+        onEditar={async (row) => {
+          setEstudianteModal(null);
+          await abrirEditar(row);
+        }}
         onVerPagos={abrirPagosDesdeEstudiante}
       />
 

@@ -44,6 +44,7 @@ export default function MensualidadEstudianteModal({
   items,
   loading,
   onClose,
+  onEditar,
   onVerPagos,
 }) {
   const [pagina, setPagina] = useState(1);
@@ -148,6 +149,7 @@ export default function MensualidadEstudianteModal({
                 loading={false}
                 error=""
                 onOrden={toggleOrden}
+                onEditar={onEditar}
                 onVerPagos={onVerPagos}
                 onReintentar={() => {}}
                 pagina={pagina}
