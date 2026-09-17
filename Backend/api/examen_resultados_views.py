@@ -39,7 +39,6 @@ def resultados_listar(request):
             idusuario,
             buscar=request.GET.get('buscar'),
             id_examen=request.GET.get('idExamen') or request.GET.get('id_examen'),
-            id_aula=request.GET.get('idAula') or request.GET.get('id_aula'),
             pagina=request.GET.get('pagina') or 1,
             tamanio=request.GET.get('tamanio') or request.GET.get('tamanioPagina') or 10,
             ordenar_por=request.GET.get('ordenarPor') or request.GET.get('ordenar_por'),

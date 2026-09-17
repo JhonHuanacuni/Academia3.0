@@ -148,11 +148,32 @@ def _map_preguntas(preguntas_raw):
     return preguntas
 
 
+def _fecha_desde_orden(fecha_orden):
+    s = str(fecha_orden or '')
+    if len(s) >= 8:
+        return f'{s[6:8]}{s[4:6]}{s[0:4]}'
+    return ''
+
+
+def _map_fila_tabla(r):
+    estado_raw = r.get('ESTADO')
+    if estado_raw is None:
+        estado_raw = 1
+    return {
+        'IDINTENTOEXAMEN': r.get('IDINTENTOEXAMEN'),
+        'ESTUDIANTE': r.get('ESTUDIANTE') or '',
+        'DNI': r.get('DNI') or '',
+        'PUNTAJEOBTENIDO': _serialize_decimal(r.get('PUNTAJEOBTENIDO')),
+        'CANTCORRECTAS': r.get('CANTCORRECTAS'),
+        'CANTINCORRECTAS': r.get('CANTINCORRECTAS'),
+        'ESTADOINTENTO': int(estado_raw or 0),
+    }
+
+
 def listar_resultados(
     id_solicitante: str,
     buscar=None,
     id_examen=None,
-    id_aula=None,
     pagina=1,
     tamanio=10,
     ordenar_por=None,
@@ -164,7 +185,6 @@ def listar_resultados(
 
     buscar = (buscar or '').strip() or None
     id_examen = (id_examen or '').strip() or None
-    id_aula = (id_aula or '').strip() or None
     try:
         pagina = max(1, int(pagina or 1))
     except (TypeError, ValueError):
@@ -175,26 +195,44 @@ def listar_resultados(
         tamanio = 10
 
     return _listar_resultados_sql(
-        id_solicitante, buscar, id_examen, id_aula, pagina, tamanio, ordenar_por, direccion
+        id_solicitante, buscar, id_examen, pagina, tamanio, ordenar_por, direccion
     )
 
 
 def _listar_resultados_sql(
-    id_solicitante, buscar, id_examen, id_aula, pagina, tamanio, ordenar_por=None, direccion=None
+    id_solicitante, buscar, id_examen, pagina, tamanio, ordenar_por=None, direccion=None
 ):
+    vacio = {
+        'data': [],
+        'total': 0,
+        'pagina': pagina,
+        'tamanioPagina': tamanio,
+        'soloPropios': False,
+    }
+    if not id_examen:
+        vacio['soloPropios'] = _es_estudiante(id_solicitante)
+        return vacio
+
     offset = (pagina - 1) * tamanio
     solo_propios = _es_estudiante(id_solicitante)
-    tipo_id, valor_id = _parse_id_resultado(id_examen) if id_examen else (None, None)
-    incluir_virtual = tipo_id != 'importacion'
-    incluir_importado = tipo_id != 'virtual' or not id_examen
-    if tipo_id == 'nota':
-        incluir_virtual = False
-        incluir_importado = True
+    vacio['soloPropios'] = solo_propios
+    tipo_id, valor_id = _parse_id_resultado(id_examen)
+    incluir_virtual = tipo_id == 'virtual'
+    incluir_importado = tipo_id in ('importacion', 'nota')
+    if not incluir_virtual and not incluir_importado:
+        return vacio
 
     ymd_i = _ymd_sql('IFNULL(i.FECHAFIN, i.FECHAINICIO)')
     ymd_imp = _ymd_sql('imp.FECHA_EXAMEN')
+    est_vacio = _txt("''")
+    estudiante_expr = (
+        est_vacio
+        if solo_propios
+        else _txt("UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))))")
+    )
+    dni_expr = est_vacio if solo_propios else _txt('u.DNI')
 
-    virtual_where = ['1 = 1']
+    virtual_where = ['IFNULL(i.ESTADO, 0) = 1']
     virtual_params = []
     import_where = ["IFNULL(imp.ESTADO, 'Activo') = 'Activo'"]
     import_params = []
@@ -213,109 +251,54 @@ def _listar_resultados_sql(
     if tipo_id == 'nota' and valor_id:
         import_where.append('n.IDNOTA = %s')
         import_params.append(valor_id)
-    if id_aula:
-        virtual_where.append(
-            """(
-                IFNULL(e.TODASLASULA, 1) = 1
-                OR EXISTS (
-                    SELECT 1 FROM EXAMEN_AULA ea
-                    WHERE ea.IDEXAMEN = e.IDEXAMEN AND ea.IDAULA = %s
-                )
-                OR EXISTS (
-                    SELECT 1 FROM MENSUALIDAD m
-                    WHERE m.IDUSUARIO = i.IDUSUARIO
-                      AND m.IDAULA = %s
-                      AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
-                )
-            )"""
-        )
-        virtual_params.extend([id_aula, id_aula])
-        import_where.append('imp.IDAULA = %s')
-        import_params.append(id_aula)
-    if buscar:
+    if buscar and not solo_propios:
         virtual_where.append(
             """(
                 u.DNI LIKE CONCAT('%%', %s, '%%')
                 OR u.NOMBRE LIKE CONCAT('%%', %s, '%%')
                 OR u.APELLIDO LIKE CONCAT('%%', %s, '%%')
-                OR e.TITULO LIKE CONCAT('%%', %s, '%%')
-                OR i.IDINTENTOEXAMEN LIKE CONCAT('%%', %s, '%%')
             )"""
         )
-        virtual_params.extend([buscar] * 5)
+        virtual_params.extend([buscar] * 3)
         import_where.append(
             """(
                 u.DNI LIKE CONCAT('%%', %s, '%%')
                 OR u.NOMBRE LIKE CONCAT('%%', %s, '%%')
                 OR u.APELLIDO LIKE CONCAT('%%', %s, '%%')
-                OR imp.NOMBRE_ARCHIVO LIKE CONCAT('%%', %s, '%%')
             )"""
         )
-        import_params.extend([buscar] * 4)
+        import_params.extend([buscar] * 3)
+
+    join_usuario_v = '' if solo_propios else 'LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO'
+    join_usuario_i = '' if solo_propios else 'LEFT JOIN USUARIO u ON u.IDUSUARIO = n.IDUSUARIO'
 
     virtual_sql = f"""
         SELECT
             {_txt('i.IDINTENTOEXAMEN')} AS IDINTENTOEXAMEN,
-            {_txt('i.IDEXAMEN')} AS IDEXAMEN,
-            {_txt('e.TITULO')} AS EXAMEN,
-            {_txt('i.IDUSUARIO')} AS IDUSUARIO,
-            {_txt("UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))))")} AS ESTUDIANTE,
-            {_txt('u.DNI')} AS DNI,
-            CAST(IFNULL(i.NUMEROINTENTO, 1) AS SIGNED) AS NUMEROINTENTO,
-            {_txt('i.FECHAINICIO')} AS FECHAINICIO,
-            {_txt('i.HORAINICIO')} AS HORAINICIO,
-            {_txt('i.FECHAFIN')} AS FECHAFIN,
-            {_txt('i.HORAFIN')} AS HORAFIN,
-            i.PUNTAJEOBTENIDO, i.CANTCORRECTAS, i.CANTINCORRECTAS, i.CANTSINRESPONDER,
-            i.APROBADO, IFNULL(i.ESTADO, 0) AS ESTADO,
-            IFNULL(e.PUNTAJETOTAL, 0) AS PUNTAJETOTAL, e.PUNTAJEAPROBADO,
-            CAST(NULL AS DECIMAL(8,2)) AS PORCENTAJE,
-            {_txt("'virtual'")} AS ORIGEN,
-            {_txt("'virtual'")} AS TIPO_EXAMEN,
-            CAST(NULL AS SIGNED) AS TIPO_IMPORTACION,
-            {_txt("""(
-                SELECT au.NOMBRE FROM MENSUALIDAD m
-                LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
-                WHERE m.IDUSUARIO = i.IDUSUARIO AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
-                ORDER BY m.FECHAREGISTRO DESC LIMIT 1
-            )""")} AS AULA,
+            {estudiante_expr} AS ESTUDIANTE,
+            {dni_expr} AS DNI,
+            i.PUNTAJEOBTENIDO,
+            i.CANTCORRECTAS,
+            i.CANTINCORRECTAS,
+            IFNULL(i.ESTADO, 0) AS ESTADO,
             {_txt(f"CONCAT({ymd_i}, LPAD(REPLACE(IFNULL(NULLIF(TRIM(IFNULL(i.HORAFIN, i.HORAINICIO)), ''), '00:00:00'), ':', ''), 6, '0'))")} AS FECHA_ORDEN
         FROM INTENTO_EXAMEN i
-        INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
-        LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO
+        {join_usuario_v}
         WHERE {' AND '.join(virtual_where)}
     """
     import_sql = f"""
         SELECT
             {_txt("CONCAT('IMPN-', n.IDNOTA)")} AS IDINTENTOEXAMEN,
-            {_txt("CONCAT('IMPI-', imp.IDIMPORTACION)")} AS IDEXAMEN,
-            {_txt('imp.NOMBRE_ARCHIVO')} AS EXAMEN,
-            {_txt('n.IDUSUARIO')} AS IDUSUARIO,
-            {_txt("UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))))")} AS ESTUDIANTE,
-            {_txt('u.DNI')} AS DNI,
-            CAST(1 AS SIGNED) AS NUMEROINTENTO,
-            {_txt('imp.FECHA_EXAMEN')} AS FECHAINICIO,
-            {_txt("''")} AS HORAINICIO,
-            {_txt('imp.FECHA_EXAMEN')} AS FECHAFIN,
-            {_txt("''")} AS HORAFIN,
+            {estudiante_expr} AS ESTUDIANTE,
+            {dni_expr} AS DNI,
             n.PUNTAJE AS PUNTAJEOBTENIDO,
             n.CORRECTAS AS CANTCORRECTAS,
             n.INCORRECTAS AS CANTINCORRECTAS,
-            n.NO_RESPUESTA AS CANTSINRESPONDER,
-            CAST(NULL AS SIGNED) AS APROBADO,
             CAST(1 AS SIGNED) AS ESTADO,
-            CAST(NULL AS DECIMAL(8,2)) AS PUNTAJETOTAL,
-            CAST(NULL AS DECIMAL(8,2)) AS PUNTAJEAPROBADO,
-            n.PORCENTAJE,
-            {_txt("'importado'")} AS ORIGEN,
-            {_txt("IFNULL(NULLIF(imp.TIPO_EXAMEN, ''), 'presencial')")} AS TIPO_EXAMEN,
-            imp.TIPO_IMPORTACION,
-            {_txt('au.NOMBRE')} AS AULA,
             {_txt(f"CONCAT({ymd_imp}, '000000')")} AS FECHA_ORDEN
         FROM NOTA_IMPORTADA n
         INNER JOIN NOTAS_IMPORTACION imp ON imp.IDIMPORTACION = n.IDIMPORTACION
-        LEFT JOIN USUARIO u ON u.IDUSUARIO = n.IDUSUARIO
-        LEFT JOIN AULA au ON au.IDAULA = imp.IDAULA
+        {join_usuario_i}
         WHERE {' AND '.join(import_where)}
     """
 
@@ -328,37 +311,27 @@ def _listar_resultados_sql(
         partes.append(import_sql)
         params.extend(import_params)
     if not partes:
-        return {
-            'data': [],
-            'total': 0,
-            'pagina': pagina,
-            'tamanioPagina': tamanio,
-            'soloPropios': solo_propios,
-        }
+        return vacio
 
     union_sql = ' UNION ALL '.join(partes)
     order_map = {
         'ESTUDIANTE': 't.ESTUDIANTE',
         'DNI': 't.DNI',
-        'EXAMEN': 't.EXAMEN',
-        'TIPO_EXAMEN': 't.TIPO_EXAMEN',
-        'AULA': 't.AULA',
-        'FECHAFIN': 't.FECHA_ORDEN',
-        'FECHAINICIO': 't.FECHA_ORDEN',
         'PUNTAJEOBTENIDO': 't.PUNTAJEOBTENIDO',
         'CANTCORRECTAS': 't.CANTCORRECTAS',
         'CANTINCORRECTAS': 't.CANTINCORRECTAS',
         'ESTADOINTENTO': 't.ESTADO',
-        'APROBADO': 't.APROBADO',
     }
-    col_orden = order_map.get(str(ordenar_por or '').strip().upper(), 't.FECHA_ORDEN')
+    col_orden = order_map.get(str(ordenar_por or '').strip().upper(), 't.PUNTAJEOBTENIDO')
     dir_sql = 'ASC' if str(direccion or '').upper() == 'ASC' else 'DESC'
     with connection.cursor() as cursor:
         cursor.execute(f'SELECT COUNT(*) AS TOTAL FROM ({union_sql}) t', params)
         total = int((_cursor_rows(cursor)[0] or {}).get('TOTAL') or 0)
         cursor.execute(
             f"""
-            SELECT * FROM ({union_sql}) t
+            SELECT IDINTENTOEXAMEN, ESTUDIANTE, DNI, PUNTAJEOBTENIDO,
+                   CANTCORRECTAS, CANTINCORRECTAS, ESTADO
+            FROM ({union_sql}) t
             ORDER BY {col_orden} {dir_sql}, t.PUNTAJEOBTENIDO DESC, t.IDINTENTOEXAMEN DESC
             LIMIT %s OFFSET %s
             """,
@@ -367,7 +340,7 @@ def _listar_resultados_sql(
         rows = _cursor_rows(cursor)
 
     return {
-        'data': [_map_fila_listado(r) for r in rows],
+        'data': [_map_fila_tabla(r) for r in rows],
         'total': total,
         'pagina': pagina,
         'tamanioPagina': tamanio,
@@ -540,13 +513,26 @@ def catalogos_resultados(id_solicitante: str):
     params = [id_solicitante, id_solicitante] if solo_propios else []
 
     sql = f"""
-        SELECT IDEXAMEN, MAX(TITULO) AS TITULO, ORIGEN, MAX(FECHA_ORDEN) AS FECHA_ORDEN
+        SELECT
+            IDEXAMEN,
+            MAX(TITULO) AS TITULO,
+            ORIGEN,
+            MAX(FECHA_ORDEN) AS FECHA_ORDEN,
+            MAX(AULA) AS AULA,
+            MAX(TIPO_IMPORTACION) AS TIPO_IMPORTACION
         FROM (
             SELECT
                 {_txt('e.IDEXAMEN')} AS IDEXAMEN,
                 {_txt('e.TITULO')} AS TITULO,
                 {_txt("'virtual'")} AS ORIGEN,
-                {_txt(f"CONCAT({ymd_i}, LPAD(REPLACE(IFNULL(NULLIF(TRIM(IFNULL(i.HORAFIN, i.HORAINICIO)), ''), '00:00:00'), ':', ''), 6, '0'))")} AS FECHA_ORDEN
+                {_txt(f"CONCAT({ymd_i}, LPAD(REPLACE(IFNULL(NULLIF(TRIM(IFNULL(i.HORAFIN, i.HORAINICIO)), ''), '00:00:00'), ':', ''), 6, '0'))")} AS FECHA_ORDEN,
+                {_txt("""(
+                    SELECT au.NOMBRE FROM EXAMEN_AULA ea
+                    INNER JOIN AULA au ON au.IDAULA = ea.IDAULA
+                    WHERE ea.IDEXAMEN = e.IDEXAMEN
+                    ORDER BY au.NOMBRE LIMIT 1
+                )""")} AS AULA,
+                CAST(NULL AS SIGNED) AS TIPO_IMPORTACION
             FROM INTENTO_EXAMEN i
             INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
             WHERE IFNULL(i.ESTADO, 0) = 1
@@ -556,9 +542,12 @@ def catalogos_resultados(id_solicitante: str):
                 {_txt("CONCAT('IMPI-', imp.IDIMPORTACION)")} AS IDEXAMEN,
                 {_txt('imp.NOMBRE_ARCHIVO')} AS TITULO,
                 {_txt("'importado'")} AS ORIGEN,
-                {_txt(f"CONCAT({ymd_imp}, '000000')")} AS FECHA_ORDEN
+                {_txt(f"CONCAT({ymd_imp}, '000000')")} AS FECHA_ORDEN,
+                {_txt('au.NOMBRE')} AS AULA,
+                imp.TIPO_IMPORTACION
             FROM NOTA_IMPORTADA n
             INNER JOIN NOTAS_IMPORTACION imp ON imp.IDIMPORTACION = n.IDIMPORTACION
+            LEFT JOIN AULA au ON au.IDAULA = imp.IDAULA
             WHERE IFNULL(imp.ESTADO, 'Activo') = 'Activo'
               {filtro_alumno_i}
         ) t
@@ -572,26 +561,18 @@ def catalogos_resultados(id_solicitante: str):
             origen = (row.get('ORIGEN') or 'virtual').lower()
             titulo = row.get('TITULO') or ''
             if origen == 'importado':
-                titulo = f"{_titulo_importacion(titulo)} (Presencial)"
+                titulo = _titulo_importacion(titulo)
             examenes.append({
                 'IDEXAMEN': row.get('IDEXAMEN'),
                 'TITULO': titulo,
                 'ORIGEN': origen,
-                'FECHA_ORDEN': row.get('FECHA_ORDEN') or '',
+                'FECHA': _fecha_desde_orden(row.get('FECHA_ORDEN')),
+                'AULA': row.get('AULA') or '',
+                'TIPO_IMPORTACION': row.get('TIPO_IMPORTACION'),
             })
-        aulas = []
-        if not solo_propios:
-            cursor.execute(
-                """
-                SELECT IDAULA, NOMBRE FROM AULA
-                WHERE IFNULL(ACTIVO, 1) = 1 ORDER BY NOMBRE
-                """
-            )
-            aulas = _cursor_rows(cursor)
     ultimo = examenes[0] if examenes else None
     return {
         'examenes': examenes,
-        'aulas': aulas,
         'soloPropios': solo_propios,
         'ultimoExamen': ultimo,
     }

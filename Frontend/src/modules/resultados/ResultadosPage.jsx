@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCheck,
@@ -31,12 +31,53 @@ function etiquetaTipoExamen(row) {
   return "Virtual";
 }
 
+function ExamenResumen({ examen, mostrarAula }) {
+  if (!examen) return null;
+  return (
+    <div className="resultados-examen-resumen">
+      <div>
+        <span>Examen</span>
+        <strong>{examen.TITULO || "—"}</strong>
+      </div>
+      <div>
+        <span>Tipo</span>
+        <strong>{etiquetaTipoExamen(examen)}</strong>
+      </div>
+      {mostrarAula ? (
+        <div>
+          <span>Aula</span>
+          <strong>{examen.AULA || "—"}</strong>
+        </div>
+      ) : null}
+      <div>
+        <span>Fecha</span>
+        <strong>{dbToView(examen.FECHA) || "—"}</strong>
+      </div>
+    </div>
+  );
+}
+
+function Kpi({ etiqueta, valor, tono }) {
+  return (
+    <div className={`resultados-kpi${tono ? ` resultados-kpi--${tono}` : ""}`}>
+      <span>{etiqueta}</span>
+      <strong>{valor}</strong>
+    </div>
+  );
+}
+
 function DetalleModal({ abierto, detalle, loading, esDocente, onClose }) {
   if (!abierto) return null;
   const intento = detalle?.intento;
   const preguntas = detalle?.preguntas || [];
   const areas = detalle?.areas || [];
   const esImportado = String(intento?.ORIGEN || "").toLowerCase() === "importado";
+  const porcentaje =
+    intento?.PORCENTAJE != null
+      ? intento.PORCENTAJE
+      : intento?.PUNTAJETOTAL
+        ? (Number(intento.PUNTAJEOBTENIDO || 0) * 100) / Number(intento.PUNTAJETOTAL)
+        : null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -46,7 +87,7 @@ function DetalleModal({ abierto, detalle, loading, esDocente, onClose }) {
         role="dialog"
         aria-modal="true"
       >
-        <div className="modal-header">
+        <div className="modal-header resultados-detalle-header">
           <h2>Detalle del resultado</h2>
           <button type="button" className="btn-icon" onClick={onClose} aria-label="Cerrar">
             <FontAwesomeIcon icon={faTimes} />
@@ -61,53 +102,44 @@ function DetalleModal({ abierto, detalle, loading, esDocente, onClose }) {
             <div className="mantenedor-state">No se encontró el resultado.</div>
           ) : (
             <>
-              <dl className="resultados-meta">
-                {esDocente && (
-                  <div className="resultados-meta-item">
-                    <dt>Estudiante</dt>
-                    <dd>
-                      {intento.ESTUDIANTE}
-                      {intento.DNI ? ` · DNI ${intento.DNI}` : ""}
-                    </dd>
-                  </div>
-                )}
-                <div className="resultados-meta-item">
-                  <dt>Examen</dt>
-                  <dd>
-                    {intento.EXAMEN}
-                    <span className="resultados-tipo">{etiquetaTipoExamen(intento)}</span>
-                  </dd>
+              <div className="resultados-detalle-top">
+                <div className="resultados-detalle-titulo">
+                  <h3>{intento.EXAMEN}</h3>
+                  <span className="resultados-tipo">{etiquetaTipoExamen(intento)}</span>
                 </div>
-                <div className="resultados-meta-item">
-                  <dt>Fecha</dt>
-                  <dd>
-                    {dbToView(intento.FECHAFIN || intento.FECHAINICIO) || "—"}
-                    {intento.HORAFIN || intento.HORAINICIO
-                      ? ` ${String(intento.HORAFIN || intento.HORAINICIO).slice(0, 5)}`
-                      : ""}
-                  </dd>
+                {esDocente ? (
+                  <p className="resultados-detalle-alumno">
+                    {intento.ESTUDIANTE}
+                    {intento.DNI ? ` · DNI ${intento.DNI}` : ""}
+                  </p>
+                ) : null}
+                <div className="resultados-detalle-kpis">
+                  <Kpi
+                    etiqueta="Fecha"
+                    valor={
+                      `${dbToView(intento.FECHAFIN || intento.FECHAINICIO) || "—"}` +
+                      (intento.HORAFIN || intento.HORAINICIO
+                        ? ` ${String(intento.HORAFIN || intento.HORAINICIO).slice(0, 5)}`
+                        : "")
+                    }
+                  />
+                  <Kpi
+                    etiqueta="Puntaje"
+                    valor={
+                      intento.PUNTAJETOTAL != null
+                        ? `${formatNota(intento.PUNTAJEOBTENIDO)} / ${formatNota(intento.PUNTAJETOTAL)}`
+                        : formatNota(intento.PUNTAJEOBTENIDO)
+                    }
+                  />
+                  <Kpi
+                    etiqueta="Porcentaje"
+                    valor={porcentaje == null ? "—" : `${formatNota(porcentaje)}%`}
+                  />
+                  <Kpi etiqueta="Correctas" valor={intento.CANTCORRECTAS ?? 0} tono="ok" />
+                  <Kpi etiqueta="Incorrectas" valor={intento.CANTINCORRECTAS ?? 0} tono="no" />
+                  <Kpi etiqueta="En blanco" valor={intento.CANTSINRESPONDER ?? 0} tono="muted" />
                 </div>
-                <div className="resultados-meta-item">
-                  <dt>Puntaje</dt>
-                  <dd>
-                    {formatNota(intento.PUNTAJEOBTENIDO)}
-                    {intento.PUNTAJETOTAL != null ? ` / ${formatNota(intento.PUNTAJETOTAL)}` : ""}
-                    {intento.PORCENTAJE != null ? ` · ${formatNota(intento.PORCENTAJE)}%` : ""}
-                    {intento.APROBADO != null && (
-                      <span className={`resultados-badge ${intento.APROBADO ? "ok" : "no"}`}>
-                        {intento.APROBADO ? "Aprobado" : "No aprobado"}
-                      </span>
-                    )}
-                  </dd>
-                </div>
-                <div className="resultados-meta-item">
-                  <dt>Resumen</dt>
-                  <dd>
-                    {intento.CANTCORRECTAS ?? 0} correctas · {intento.CANTINCORRECTAS ?? 0} incorrectas
-                    · {intento.CANTSINRESPONDER ?? 0} en blanco
-                  </dd>
-                </div>
-              </dl>
+              </div>
 
               {esImportado && areas.length > 0 && (
                 <div className="resultados-areas">
@@ -199,6 +231,17 @@ function DetalleModal({ abierto, detalle, loading, esDocente, onClose }) {
   );
 }
 
+function mapExamenCatalogo(ex) {
+  return {
+    IDEXAMEN: ex.IDEXAMEN || ex.idexamen || "",
+    TITULO: ex.TITULO || ex.titulo || "",
+    ORIGEN: ex.ORIGEN || ex.origen || "",
+    FECHA: ex.FECHA || ex.fecha || "",
+    AULA: ex.AULA || ex.aula || "",
+    TIPO_IMPORTACION: ex.TIPO_IMPORTACION ?? ex.tipo_importacion ?? null,
+  };
+}
+
 export default function ResultadosPage({ role, idusuario }) {
   const esEstudiante = role === "estudiante";
   const [filas, setFilas] = useState([]);
@@ -208,11 +251,8 @@ export default function ResultadosPage({ role, idusuario }) {
   const [buscar, setBuscar] = useState("");
   const [buscarAplicado, setBuscarAplicado] = useState("");
   const [idExamen, setIdExamen] = useState("");
-  const [idAula, setIdAula] = useState("");
   const [idExamenAplicado, setIdExamenAplicado] = useState("");
-  const [idAulaAplicado, setIdAulaAplicado] = useState("");
   const [examenes, setExamenes] = useState([]);
-  const [aulas, setAulas] = useState([]);
   const [filtroInicialListo, setFiltroInicialListo] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -223,6 +263,11 @@ export default function ResultadosPage({ role, idusuario }) {
   const [detalle, setDetalle] = useState(null);
 
   const uid = idusuario || localStorage.getItem("idusuario") || "";
+
+  const examenSeleccionado = useMemo(
+    () => examenes.find((ex) => String(ex.IDEXAMEN) === String(idExamenAplicado)) || null,
+    [examenes, idExamenAplicado],
+  );
 
   const cargarCatalogos = useCallback(async () => {
     if (!uid) return;
@@ -237,12 +282,8 @@ export default function ResultadosPage({ role, idusuario }) {
         throw new Error(data.mensaje || "No se pudieron cargar los catálogos");
       }
       const payload = data.data || {};
-      const listaExamenes = (payload.examenes || []).map((ex) => ({
-        IDEXAMEN: ex.IDEXAMEN || ex.idexamen || "",
-        TITULO: ex.TITULO || ex.titulo || "",
-      }));
+      const listaExamenes = (payload.examenes || []).map(mapExamenCatalogo);
       setExamenes(listaExamenes);
-      setAulas(payload.aulas || []);
       const ultimoId =
         payload.ultimoExamen?.IDEXAMEN ||
         payload.ultimoExamen?.idexamen ||
@@ -254,7 +295,6 @@ export default function ResultadosPage({ role, idusuario }) {
     } catch (err) {
       setToast({ mensaje: err.message, tipo: "error" });
       setExamenes([]);
-      setAulas([]);
       setIdExamen("");
       setIdExamenAplicado("");
     } finally {
@@ -264,7 +304,7 @@ export default function ResultadosPage({ role, idusuario }) {
 
   const cargar = useCallback(async () => {
     if (!uid || !filtroInicialListo) return;
-    if (!idExamenAplicado && !buscarAplicado && examenes.length === 0) {
+    if (!idExamenAplicado) {
       setFilas([]);
       setTotal(0);
       setCargando(false);
@@ -277,12 +317,11 @@ export default function ResultadosPage({ role, idusuario }) {
         idusuario: uid,
         pagina: String(pagina),
         tamanio: String(tamanio),
+        idExamen: idExamenAplicado,
         ordenarPor: orden.campo,
         direccion: orden.direccion,
       });
-      if (buscarAplicado.trim()) params.set("buscar", buscarAplicado.trim());
-      if (idExamenAplicado) params.set("idExamen", idExamenAplicado);
-      if (idAulaAplicado) params.set("idAula", idAulaAplicado);
+      if (!esEstudiante && buscarAplicado.trim()) params.set("buscar", buscarAplicado.trim());
 
       const res = await fetch(`/api/examenes/resultados/?${params}`);
       const data = await parseJsonResponse(res);
@@ -306,9 +345,8 @@ export default function ResultadosPage({ role, idusuario }) {
     tamanio,
     buscarAplicado,
     idExamenAplicado,
-    idAulaAplicado,
     orden,
-    examenes.length,
+    esEstudiante,
   ]);
 
   useEffect(() => {
@@ -321,8 +359,12 @@ export default function ResultadosPage({ role, idusuario }) {
 
   const aplicarBusqueda = () => {
     setBuscarAplicado(buscar.trim());
-    setIdExamenAplicado(idExamen);
-    setIdAulaAplicado(idAula);
+    setPagina(1);
+  };
+
+  const cambiarExamen = (valor) => {
+    setIdExamen(valor);
+    setIdExamenAplicado(valor);
     setPagina(1);
   };
 
@@ -357,56 +399,45 @@ export default function ResultadosPage({ role, idusuario }) {
 
   return (
     <div className="mantenedor-page resultados-page">
-      <div className="mantenedor-card resultados-filtros">
-        <div className="resultados-filtros-grid">
-          {!esEstudiante && (
+      {!esEstudiante && (
+        <div className="mantenedor-card resultados-filtros">
+          <div className="resultados-filtros-grid resultados-filtros-grid--staff">
             <label>
-              Salón
-              <select value={idAula} onChange={(e) => setIdAula(e.target.value)}>
-                <option value="">TODOS</option>
-                {aulas.map((a) => (
-                  <option key={a.IDAULA} value={a.IDAULA}>
-                    {a.NOMBRE}
+              Examen
+              <select value={idExamen} onChange={(e) => cambiarExamen(e.target.value)}>
+                {examenes.map((ex) => (
+                  <option key={ex.IDEXAMEN} value={ex.IDEXAMEN}>
+                    {ex.TITULO}
                   </option>
                 ))}
               </select>
             </label>
-          )}
-          <label>
-            Examen
-            <select value={idExamen} onChange={(e) => setIdExamen(e.target.value)}>
-              <option value="">TODOS</option>
-              {examenes.map((ex) => (
-                <option key={ex.IDEXAMEN} value={ex.IDEXAMEN}>
-                  {ex.TITULO}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="resultados-filtro-buscar">
-            Buscar
-            <input
-              type="text"
-              placeholder={esEstudiante ? "BUSCAR EXAMEN" : "BUSCAR DNI, ESTUDIANTE O EXAMEN"}
-              value={buscar}
-              onChange={(e) => setBuscar(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") aplicarBusqueda();
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={aplicarBusqueda}
-            disabled={cargando}
-          >
-            {cargando ? <FontAwesomeIcon icon={faSpinner} spin /> : "Buscar"}
-          </button>
+            <label className="resultados-filtro-buscar">
+              Buscar
+              <input
+                type="text"
+                placeholder="BUSCAR DNI O ESTUDIANTE"
+                value={buscar}
+                onChange={(e) => setBuscar(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") aplicarBusqueda();
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={aplicarBusqueda}
+              disabled={cargando}
+            >
+              {cargando ? <FontAwesomeIcon icon={faSpinner} spin /> : "Buscar"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mantenedor-card">
+        <ExamenResumen examen={examenSeleccionado} mostrarAula={!esEstudiante} />
         <DataTable
           columnas={esEstudiante ? resultadosColumnasEstudiante : resultadosColumnasStaff}
           items={filas}
