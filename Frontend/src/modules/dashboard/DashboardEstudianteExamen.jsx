@@ -8,21 +8,38 @@ function fmtPuntaje(value) {
   return Number(value).toFixed(1);
 }
 
+function etiquetaTipo(examen) {
+  const origen = String(examen?.ORIGEN || examen?.TIPO_EXAMEN || "").toLowerCase();
+  if (origen === "importado" || origen === "presencial") {
+    const n = examen?.TIPO_IMPORTACION || examen?.TOTALPREGUNTAS;
+    return n ? `Presencial · ${n} preguntas` : "Presencial";
+  }
+  return "Virtual";
+}
+
+function dniRanking(row) {
+  const esYo = row.ES_YO === 1 || row.ES_YO === true;
+  if (esYo && row.DNI) return String(row.DNI);
+  return "••••••••";
+}
+
 export default function DashboardEstudianteExamen({ data, onNavigate }) {
   const examenData = data?.ultimoExamen;
   const examen = examenData?.examen;
   const ranking = examenData?.ranking || [];
+  const hayExamen = Boolean(examen?.TITULO || examen?.IDEXAMEN || examen?.IDIMPORTACION);
 
   return (
     <div className="dash-est">
       <div className="mantenedor-card dash-est-card">
-        {examen?.IDEXAMEN ? (
+        {hayExamen ? (
           <>
             <div className="dash-est-head">
               <div>
                 <h2>{examen.TITULO}</h2>
                 <p>
-                  {examen.AULA_NOMBRE ? `Salón: ${examen.AULA_NOMBRE}` : "Ranking del salón"}
+                  <span className="dash-est-tipo">{etiquetaTipo(examen)}</span>
+                  {examen.AULA_NOMBRE ? `Salón: ${examen.AULA_NOMBRE}` : "Ranking"}
                   {examenData.miPosicion != null && (
                     <span className="dash-est-mi-puesto">
                       Tu puesto: <strong>{examenData.miPosicion}°</strong>
@@ -42,7 +59,7 @@ export default function DashboardEstudianteExamen({ data, onNavigate }) {
               <table className="data-table dash-est-table">
                 <thead>
                   <tr>
-                    <th className="col-num">#</th>
+                    <th className="col-num">N°</th>
                     <th>DNI</th>
                     <th className="col-num">Puntaje</th>
                     <th className="col-num">% Correctas</th>
@@ -54,9 +71,13 @@ export default function DashboardEstudianteExamen({ data, onNavigate }) {
                   {ranking.map((row) => {
                     const esYo = row.ES_YO === 1 || row.ES_YO === true;
                     return (
-                      <tr key={row.IDUSUARIO || row.DNI} className={esYo ? "dash-est-row--yo" : ""}>
+                      <tr key={row.IDUSUARIO || `${row.POSICION}-${row.DNI}`} className={esYo ? "dash-est-row--yo" : ""}>
                         <td className="col-num">{row.POSICION ?? "—"}</td>
-                        <td>{row.DNI || "—"}</td>
+                        <td>
+                          <span className={esYo ? "dash-est-dni dash-est-dni--yo" : "dash-est-dni dash-est-dni--nublado"}>
+                            {dniRanking(row)}
+                          </span>
+                        </td>
                         <td className="col-num col-puntaje">{fmtPuntaje(row.PUNTAJEOBTENIDO)}</td>
                         <td className="col-num col-ok">{fmtPct(row.PCT_CORRECTAS)}</td>
                         <td className="col-num col-err">{fmtPct(row.PCT_ERRORES)}</td>

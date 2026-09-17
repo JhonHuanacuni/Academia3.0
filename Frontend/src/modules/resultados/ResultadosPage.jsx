@@ -20,10 +20,21 @@ function formatNota(val) {
   return n.toFixed(1);
 }
 
+function etiquetaTipoExamen(row) {
+  const origen = String(row?.ORIGEN || row?.TIPO_EXAMEN || "").toLowerCase();
+  if (origen === "importado" || origen === "presencial") {
+    const n = row?.TIPO_IMPORTACION;
+    return n ? `Presencial (${n})` : "Presencial";
+  }
+  return "Virtual";
+}
+
 function DetalleModal({ abierto, detalle, loading, esDocente, onClose }) {
   if (!abierto) return null;
   const intento = detalle?.intento;
   const preguntas = detalle?.preguntas || [];
+  const areas = detalle?.areas || [];
+  const esImportado = String(intento?.ORIGEN || "").toLowerCase() === "importado";
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -60,7 +71,10 @@ function DetalleModal({ abierto, detalle, loading, esDocente, onClose }) {
                 )}
                 <div className="resultados-meta-item">
                   <dt>Examen</dt>
-                  <dd>{intento.EXAMEN}</dd>
+                  <dd>
+                    {intento.EXAMEN}
+                    <span className="resultados-tipo">{etiquetaTipoExamen(intento)}</span>
+                  </dd>
                 </div>
                 <div className="resultados-meta-item">
                   <dt>Fecha</dt>
@@ -76,6 +90,7 @@ function DetalleModal({ abierto, detalle, loading, esDocente, onClose }) {
                   <dd>
                     {formatNota(intento.PUNTAJEOBTENIDO)}
                     {intento.PUNTAJETOTAL != null ? ` / ${formatNota(intento.PUNTAJETOTAL)}` : ""}
+                    {intento.PORCENTAJE != null ? ` · ${formatNota(intento.PORCENTAJE)}%` : ""}
                     {intento.APROBADO != null && (
                       <span className={`resultados-badge ${intento.APROBADO ? "ok" : "no"}`}>
                         {intento.APROBADO ? "Aprobado" : "No aprobado"}
@@ -92,6 +107,27 @@ function DetalleModal({ abierto, detalle, loading, esDocente, onClose }) {
                 </div>
               </dl>
 
+              {esImportado && areas.length > 0 && (
+                <div className="resultados-areas">
+                  <h3>Resultado por áreas</h3>
+                  <ul>
+                    {areas.map((a) => (
+                      <li key={a.clave}>
+                        <span>{a.etiqueta}</span>
+                        <strong>{a.correctas}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {esImportado && preguntas.length === 0 && areas.length === 0 && (
+                <p className="resultados-importado-nota">
+                  Este resultado proviene de un examen presencial importado. No hay detalle pregunta por pregunta.
+                </p>
+              )}
+
+              {!esImportado && (
               <div className="resultados-preguntas">
                 {preguntas.map((p) => (
                   <article
@@ -152,6 +188,7 @@ function DetalleModal({ abierto, detalle, loading, esDocente, onClose }) {
                   </article>
                 ))}
               </div>
+              )}
             </>
           )}
         </div>
@@ -329,7 +366,7 @@ export default function ResultadosPage({ role, idusuario }) {
           </div>
         ) : filas.length === 0 ? (
           <div className="mantenedor-state">
-            No hay intentos para mostrar. El examen debe haber sido iniciado o rendido por un estudiante.
+            No hay resultados para mostrar. Incluye exámenes virtuales y notas importadas.
           </div>
         ) : (
           <div className="table-wrap">
@@ -340,6 +377,7 @@ export default function ResultadosPage({ role, idusuario }) {
                   {!esEstudiante && <th>Estudiante</th>}
                   {!esEstudiante && <th>DNI</th>}
                   <th>Examen</th>
+                  <th>Tipo</th>
                   {!esEstudiante && <th>Aula</th>}
                   <th>Fecha</th>
                   <th>Puntaje</th>
@@ -357,6 +395,7 @@ export default function ResultadosPage({ role, idusuario }) {
                     {!esEstudiante && <td title={row.ESTUDIANTE}>{row.ESTUDIANTE}</td>}
                     {!esEstudiante && <td>{row.DNI || "—"}</td>}
                     <td title={row.EXAMEN}>{row.EXAMEN}</td>
+                    <td>{etiquetaTipoExamen(row)}</td>
                     {!esEstudiante && <td>{row.AULA || "—"}</td>}
                     <td>
                       {dbToView(row.FECHAFIN || row.FECHAINICIO) || "—"}

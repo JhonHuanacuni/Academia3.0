@@ -212,41 +212,230 @@ def finalizar_intento(id_intento: str, id_usuario: str):
     return ok, mensaje, resumen
 
 
-def ranking_aula_ultimo_examen(id_usuario: str):
-    """Último examen finalizado en el aula del estudiante + ranking del salón."""
-    with connection.cursor() as cursor:
-        if sp.is_mysql():
-            cursor.execute('CALL usp_examen_ranking_aula(%s)', [id_usuario])
+def _fecha_ymd_sql(expr):
+    return (
+        f"CONCAT(SUBSTRING({expr}, 5, 4), SUBSTRING({expr}, 3, 2), SUBSTRING({expr}, 1, 2))"
+    )
+
+
+def _nublar_dni(dni, es_yo):
+    if es_yo:
+        return str(dni or '')
+    return ''
+
+
+def _titulo_importacion(nombre):
+    s = str(nombre or 'Examen presencial').strip()
+    lower = s.lower()
+    for ext in ('.xlsx', '.xls', '.csv'):
+        if lower.endswith(ext):
+            s = s[: -len(ext)]
+            break
+    return s.strip() or 'Examen presencial'
+
+
+def _normalizar_ranking_filas(ranking, id_usuario, total_preg=None):
+    id_usuario = str(id_usuario or '')
+    total = float(total_preg or 0) or 0
+    for idx, row in enumerate(ranking, start=1):
+        es_yo = str(row.get('IDUSUARIO') or '') == id_usuario
+        row['ES_YO'] = 1 if es_yo else 0
+        row['POSICION'] = int(row.get('POSICION') or idx)
+        row['DNI'] = _nublar_dni(row.get('DNI'), es_yo)
+        row['DNI_NUBLADO'] = 0 if es_yo else 1
+        if es_yo:
+            row['NOMBRE_COMPLETO'] = row.get('NOMBRE_COMPLETO') or ''
         else:
-            cursor.execute(
-                'EXEC dbo.usp_examen_ranking_aula @IdUsuario=%s',
-                [id_usuario],
-            )
-        examen_rows = sp.cursor_rows(cursor)
-        ranking = []
-        if cursor.nextset() and cursor.description:
-            ranking = sp.cursor_rows(cursor)
-
-    examen = examen_rows[0] if examen_rows else None
-    if examen and not examen.get('IDEXAMEN'):
-        examen = None
-
-    mi_fila = next((r for r in ranking if r.get('ES_YO') in (1, True, '1')), None)
-
-    for row in ranking:
-        for key in ('PUNTAJEOBTENIDO', 'PCT_CORRECTAS', 'PCT_ERRORES', 'PCT_BLANCO'):
+            row['NOMBRE_COMPLETO'] = ''
+        for key in ('PUNTAJEOBTENIDO', 'PCT_CORRECTAS', 'PCT_ERRORES', 'PCT_BLANCO', 'PORCENTAJE'):
             if row.get(key) is not None:
-                row[key] = float(row[key])
+                try:
+                    row[key] = float(row[key])
+                except (TypeError, ValueError):
+                    pass
         for key in ('POSICION', 'CANTCORRECTAS', 'CANTINCORRECTAS', 'CANTSINRESPONDER', 'ES_YO', 'APROBADO'):
             if row.get(key) is not None:
                 try:
                     row[key] = int(row[key])
                 except (TypeError, ValueError):
                     pass
+        if total > 0:
+            c = float(row.get('CANTCORRECTAS') or 0)
+            e = float(row.get('CANTINCORRECTAS') or 0)
+            b = float(row.get('CANTSINRESPONDER') or 0)
+            if row.get('PCT_CORRECTAS') is None:
+                row['PCT_CORRECTAS'] = round(c / total * 100, 1)
+            if row.get('PCT_ERRORES') is None:
+                row['PCT_ERRORES'] = round(e / total * 100, 1)
+            if row.get('PCT_BLANCO') is None:
+                row['PCT_BLANCO'] = round(b / total * 100, 1)
+    return ranking
 
+
+def ranking_aula_ultimo_examen(id_usuario: str):
+    """Último examen que rindió el estudiante (virtual o importado) + ranking."""
+    id_usuario = (id_usuario or '').strip()
+    if not id_usuario:
+        return {'examen': None, 'ranking': [], 'miPosicion': None, 'miPuntaje': None}
+
+    ymd_i = _fecha_ymd_sql('i.FECHAFIN')
+    ymd_imp = _fecha_ymd_sql('imp.FECHA_EXAMEN')
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT
+                i.IDEXAMEN, e.TITULO, IFNULL(e.PUNTAJETOTAL, 0) AS PUNTAJETOTAL,
+                i.FECHAFIN, i.HORAFIN,
+                (SELECT COUNT(*) FROM PREGUNTA p WHERE p.IDEXAMEN = i.IDEXAMEN) AS TOTALPREGUNTAS,
+                CONCAT({ymd_i}, LPAD(REPLACE(IFNULL(NULLIF(TRIM(i.HORAFIN), ''), '00:00:00'), ':', ''), 6, '0')) AS ORDEN
+            FROM INTENTO_EXAMEN i
+            INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
+            WHERE i.IDUSUARIO = %s
+              AND IFNULL(i.ESTADO, 0) = 1
+              AND i.FECHAFIN IS NOT NULL AND CHAR_LENGTH(i.FECHAFIN) = 8
+            ORDER BY ORDEN DESC, i.IDINTENTOEXAMEN DESC
+            LIMIT 1
+            """,
+            [id_usuario],
+        )
+        virtual = sp.cursor_rows(cursor)
+        cursor.execute(
+            f"""
+            SELECT
+                n.IDNOTA, n.IDIMPORTACION, n.PUNTAJE, n.PORCENTAJE,
+                imp.FECHA_EXAMEN, imp.NOMBRE_ARCHIVO, imp.TIPO_IMPORTACION,
+                IFNULL(NULLIF(imp.TIPO_EXAMEN, ''), 'presencial') AS TIPO_EXAMEN,
+                imp.IDAULA, au.NOMBRE AS AULA_NOMBRE,
+                CONCAT({ymd_imp}, '000000') AS ORDEN
+            FROM NOTA_IMPORTADA n
+            INNER JOIN NOTAS_IMPORTACION imp ON imp.IDIMPORTACION = n.IDIMPORTACION
+            LEFT JOIN AULA au ON au.IDAULA = imp.IDAULA
+            WHERE n.IDUSUARIO = %s
+              AND IFNULL(imp.ESTADO, 'Activo') = 'Activo'
+              AND imp.FECHA_EXAMEN IS NOT NULL AND CHAR_LENGTH(imp.FECHA_EXAMEN) = 8
+            ORDER BY ORDEN DESC, n.IDNOTA DESC
+            LIMIT 1
+            """,
+            [id_usuario],
+        )
+        importado = sp.cursor_rows(cursor)
+
+    v = virtual[0] if virtual else None
+    imp = importado[0] if importado else None
+    usar_importado = False
+    if imp and not v:
+        usar_importado = True
+    elif imp and v:
+        usar_importado = str(imp.get('ORDEN') or '') >= str(v.get('ORDEN') or '')
+
+    if usar_importado:
+        return _ranking_importacion(id_usuario, imp)
+    if v:
+        return _ranking_virtual(id_usuario, v)
+    return {'examen': None, 'ranking': [], 'miPosicion': None, 'miPuntaje': None}
+
+
+def _ranking_virtual(id_usuario, examen_row):
+    id_examen = examen_row.get('IDEXAMEN')
+    total_preg = int(examen_row.get('TOTALPREGUNTAS') or 0) or 1
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT au.NOMBRE
+            FROM MENSUALIDAD m
+            LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
+            WHERE m.IDUSUARIO = %s AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
+            ORDER BY m.FECHAREGISTRO DESC, m.IDMENSUALIDAD DESC
+            LIMIT 1
+            """,
+            [id_usuario],
+        )
+        aula_row = cursor.fetchone()
+        aula_nombre = aula_row[0] if aula_row else ''
+        cursor.execute(
+            """
+            SELECT
+                t.IDUSUARIO, u.DNI,
+                UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS NOMBRE_COMPLETO,
+                t.PUNTAJEOBTENIDO, t.CANTCORRECTAS, t.CANTINCORRECTAS, t.CANTSINRESPONDER, t.APROBADO
+            FROM (
+                SELECT
+                    i.IDUSUARIO, i.PUNTAJEOBTENIDO, i.CANTCORRECTAS, i.CANTINCORRECTAS,
+                    i.CANTSINRESPONDER, i.APROBADO,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY i.IDUSUARIO
+                        ORDER BY i.PUNTAJEOBTENIDO DESC, i.NUMEROINTENTO DESC, i.IDINTENTOEXAMEN DESC
+                    ) AS RN
+                FROM INTENTO_EXAMEN i
+                WHERE i.IDEXAMEN = %s AND IFNULL(i.ESTADO, 0) = 1
+            ) t
+            INNER JOIN USUARIO u ON u.IDUSUARIO = t.IDUSUARIO
+            WHERE t.RN = 1
+            ORDER BY t.PUNTAJEOBTENIDO DESC, t.CANTCORRECTAS DESC, NOMBRE_COMPLETO
+            """,
+            [id_examen],
+        )
+        ranking = sp.cursor_rows(cursor)
+
+    ranking = _normalizar_ranking_filas(ranking, id_usuario, total_preg)
+    mi_fila = next((r for r in ranking if r.get('ES_YO') == 1), None)
     return {
-        'examen': examen,
+        'examen': {
+            'IDEXAMEN': id_examen,
+            'TITULO': examen_row.get('TITULO') or '',
+            'PUNTAJETOTAL': examen_row.get('PUNTAJETOTAL'),
+            'AULA_NOMBRE': aula_nombre or '',
+            'ORIGEN': 'virtual',
+            'TIPO_EXAMEN': 'virtual',
+            'TOTALPREGUNTAS': total_preg,
+        },
         'ranking': ranking,
         'miPosicion': mi_fila.get('POSICION') if mi_fila else None,
         'miPuntaje': float(mi_fila['PUNTAJEOBTENIDO']) if mi_fila and mi_fila.get('PUNTAJEOBTENIDO') is not None else None,
     }
+
+
+def _ranking_importacion(id_usuario, imp_row):
+    id_importacion = imp_row.get('IDIMPORTACION')
+    total_preg = int(imp_row.get('TIPO_IMPORTACION') or 0) or 40
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                n.IDUSUARIO, u.DNI,
+                UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS NOMBRE_COMPLETO,
+                n.PUNTAJE AS PUNTAJEOBTENIDO,
+                n.CORRECTAS AS CANTCORRECTAS,
+                n.INCORRECTAS AS CANTINCORRECTAS,
+                n.NO_RESPUESTA AS CANTSINRESPONDER,
+                n.PORCENTAJE
+            FROM NOTA_IMPORTADA n
+            INNER JOIN USUARIO u ON u.IDUSUARIO = n.IDUSUARIO
+            WHERE n.IDIMPORTACION = %s
+            ORDER BY n.PUNTAJE DESC, n.CORRECTAS DESC, NOMBRE_COMPLETO
+            """,
+            [id_importacion],
+        )
+        ranking = sp.cursor_rows(cursor)
+
+    ranking = _normalizar_ranking_filas(ranking, id_usuario, total_preg)
+    mi_fila = next((r for r in ranking if r.get('ES_YO') == 1), None)
+    tipo = (imp_row.get('TIPO_EXAMEN') or 'presencial').strip().lower() or 'presencial'
+    return {
+        'examen': {
+            'IDEXAMEN': f"IMPI-{id_importacion}",
+            'IDIMPORTACION': id_importacion,
+            'TITULO': _titulo_importacion(imp_row.get('NOMBRE_ARCHIVO')),
+            'PUNTAJETOTAL': None,
+            'AULA_NOMBRE': imp_row.get('AULA_NOMBRE') or '',
+            'ORIGEN': 'importado',
+            'TIPO_EXAMEN': tipo,
+            'TIPO_IMPORTACION': total_preg,
+            'TOTALPREGUNTAS': total_preg,
+        },
+        'ranking': ranking,
+        'miPosicion': mi_fila.get('POSICION') if mi_fila else None,
+        'miPuntaje': float(mi_fila['PUNTAJEOBTENIDO']) if mi_fila and mi_fila.get('PUNTAJEOBTENIDO') is not None else None,
+    }
+
