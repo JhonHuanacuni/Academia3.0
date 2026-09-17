@@ -122,6 +122,40 @@ function renderCell(col, row, index = 0, offset = 0) {
       </span>
     );
   }
+  if (col.tipo === "nota") {
+    const n = Number(value);
+    if (value == null || value === "" || Number.isNaN(n)) return "—";
+    return (
+      <strong>
+        {n.toLocaleString("es-PE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+      </strong>
+    );
+  }
+  if (col.tipo === "resultadoTipo") {
+    const origen = String(row.ORIGEN || row.TIPO_EXAMEN || "").toLowerCase();
+    if (origen === "importado" || origen === "presencial") {
+      const n = row.TIPO_IMPORTACION;
+      return n ? `Presencial (${n})` : "Presencial";
+    }
+    return "Virtual";
+  }
+  if (col.tipo === "intentoEstado") {
+    const fin = Number(row.ESTADOINTENTO) === 1;
+    return (
+      <span className={`badge-estado ${fin ? "activo" : ""}`}>
+        {fin ? "Finalizado" : "En curso"}
+      </span>
+    );
+  }
+  if (col.tipo === "aprobadoEstado") {
+    if (value == null || value === "") return "—";
+    const ok = value === true || value === 1 || value === "1";
+    return (
+      <span className={`badge-estado ${ok ? "activo" : "vencido"}`}>
+        {ok ? "Aprobado" : "Desaprobado"}
+      </span>
+    );
+  }
   if (col.tipo === "tipoExamen") {
     const n = Number(value);
     if (Number.isNaN(n)) return String(value ?? "—");
@@ -208,6 +242,7 @@ export default function DataTable({
   pagina = 1,
   tamanio = 10,
   verIcono = "eye",
+  emptyMessage = "No hay registros. Crea el primero.",
 }) {
   const mostrarAcciones = Boolean(
     onVer || onEditar || onEliminar || onRetirar || onCarnet || onResetContra || onWhatsapp || onVerPagos || onVerMensualidades,
@@ -260,7 +295,7 @@ export default function DataTable({
   if (!items.length) {
     return (
       <div className="mantenedor-state">
-        <p>No hay registros. Crea el primero.</p>
+        <p>{emptyMessage}</p>
       </div>
     );
   }

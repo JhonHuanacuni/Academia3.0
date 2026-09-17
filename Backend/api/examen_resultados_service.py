@@ -154,7 +154,9 @@ def listar_resultados(
     id_examen=None,
     id_aula=None,
     pagina=1,
-    tamanio=20,
+    tamanio=10,
+    ordenar_por=None,
+    direccion=None,
 ):
     id_solicitante = (id_solicitante or '').strip()
     if not id_solicitante:
@@ -168,17 +170,18 @@ def listar_resultados(
     except (TypeError, ValueError):
         pagina = 1
     try:
-        tamanio = min(100, max(5, int(tamanio or 20)))
+        tamanio = min(100, max(5, int(tamanio or 10)))
     except (TypeError, ValueError):
-        tamanio = 20
+        tamanio = 10
 
-    # SQL directo: el CALL con 2 resultsets a veces deja el listado vacío en Django/MySQL.
     return _listar_resultados_sql(
-        id_solicitante, buscar, id_examen, id_aula, pagina, tamanio
+        id_solicitante, buscar, id_examen, id_aula, pagina, tamanio, ordenar_por, direccion
     )
 
 
-def _listar_resultados_sql(id_solicitante, buscar, id_examen, id_aula, pagina, tamanio):
+def _listar_resultados_sql(
+    id_solicitante, buscar, id_examen, id_aula, pagina, tamanio, ordenar_por=None, direccion=None
+):
     offset = (pagina - 1) * tamanio
     solo_propios = _es_estudiante(id_solicitante)
     tipo_id, valor_id = _parse_id_resultado(id_examen) if id_examen else (None, None)
@@ -334,13 +337,29 @@ def _listar_resultados_sql(id_solicitante, buscar, id_examen, id_aula, pagina, t
         }
 
     union_sql = ' UNION ALL '.join(partes)
+    order_map = {
+        'ESTUDIANTE': 't.ESTUDIANTE',
+        'DNI': 't.DNI',
+        'EXAMEN': 't.EXAMEN',
+        'TIPO_EXAMEN': 't.TIPO_EXAMEN',
+        'AULA': 't.AULA',
+        'FECHAFIN': 't.FECHA_ORDEN',
+        'FECHAINICIO': 't.FECHA_ORDEN',
+        'PUNTAJEOBTENIDO': 't.PUNTAJEOBTENIDO',
+        'CANTCORRECTAS': 't.CANTCORRECTAS',
+        'CANTINCORRECTAS': 't.CANTINCORRECTAS',
+        'ESTADOINTENTO': 't.ESTADO',
+        'APROBADO': 't.APROBADO',
+    }
+    col_orden = order_map.get(str(ordenar_por or '').strip().upper(), 't.FECHA_ORDEN')
+    dir_sql = 'ASC' if str(direccion or '').upper() == 'ASC' else 'DESC'
     with connection.cursor() as cursor:
         cursor.execute(f'SELECT COUNT(*) AS TOTAL FROM ({union_sql}) t', params)
         total = int((_cursor_rows(cursor)[0] or {}).get('TOTAL') or 0)
         cursor.execute(
             f"""
             SELECT * FROM ({union_sql}) t
-            ORDER BY t.FECHA_ORDEN DESC, t.IDINTENTOEXAMEN DESC
+            ORDER BY {col_orden} {dir_sql}, t.PUNTAJEOBTENIDO DESC, t.IDINTENTOEXAMEN DESC
             LIMIT %s OFFSET %s
             """,
             [*params, tamanio, offset],
@@ -514,51 +533,40 @@ def _detalle_resultado_sql(id_intento, id_solicitante):
 def catalogos_resultados(id_solicitante: str):
     id_solicitante = (id_solicitante or '').strip()
     solo_propios = _es_estudiante(id_solicitante)
+    ymd_i = _ymd_sql('IFNULL(i.FECHAFIN, i.FECHAINICIO)')
+    ymd_imp = _ymd_sql('imp.FECHA_EXAMEN')
+    filtro_alumno_v = 'AND i.IDUSUARIO = %s' if solo_propios else ''
+    filtro_alumno_i = 'AND n.IDUSUARIO = %s' if solo_propios else ''
+    params = [id_solicitante, id_solicitante] if solo_propios else []
+
+    sql = f"""
+        SELECT IDEXAMEN, MAX(TITULO) AS TITULO, ORIGEN, MAX(FECHA_ORDEN) AS FECHA_ORDEN
+        FROM (
+            SELECT
+                {_txt('e.IDEXAMEN')} AS IDEXAMEN,
+                {_txt('e.TITULO')} AS TITULO,
+                {_txt("'virtual'")} AS ORIGEN,
+                {_txt(f"CONCAT({ymd_i}, LPAD(REPLACE(IFNULL(NULLIF(TRIM(IFNULL(i.HORAFIN, i.HORAINICIO)), ''), '00:00:00'), ':', ''), 6, '0'))")} AS FECHA_ORDEN
+            FROM INTENTO_EXAMEN i
+            INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
+            WHERE IFNULL(i.ESTADO, 0) = 1
+              {filtro_alumno_v}
+            UNION ALL
+            SELECT
+                {_txt("CONCAT('IMPI-', imp.IDIMPORTACION)")} AS IDEXAMEN,
+                {_txt('imp.NOMBRE_ARCHIVO')} AS TITULO,
+                {_txt("'importado'")} AS ORIGEN,
+                {_txt(f"CONCAT({ymd_imp}, '000000')")} AS FECHA_ORDEN
+            FROM NOTA_IMPORTADA n
+            INNER JOIN NOTAS_IMPORTACION imp ON imp.IDIMPORTACION = n.IDIMPORTACION
+            WHERE IFNULL(imp.ESTADO, 'Activo') = 'Activo'
+              {filtro_alumno_i}
+        ) t
+        GROUP BY IDEXAMEN, ORIGEN
+        ORDER BY FECHA_ORDEN DESC, TITULO
+    """
     with connection.cursor() as cursor:
-        if solo_propios:
-            cursor.execute(
-                """
-                SELECT IDEXAMEN, TITULO, ORIGEN FROM (
-                    SELECT DISTINCT
-                        CONVERT(e.IDEXAMEN USING utf8mb4) COLLATE utf8mb4_unicode_ci AS IDEXAMEN,
-                        CONVERT(e.TITULO USING utf8mb4) COLLATE utf8mb4_unicode_ci AS TITULO,
-                        CONVERT('virtual' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS ORIGEN
-                    FROM INTENTO_EXAMEN i
-                    INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
-                    WHERE i.IDUSUARIO = %s AND IFNULL(i.ESTADO, 0) = 1
-                    UNION
-                    SELECT DISTINCT
-                        CONVERT(CONCAT('IMPI-', imp.IDIMPORTACION) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS IDEXAMEN,
-                        CONVERT(imp.NOMBRE_ARCHIVO USING utf8mb4) COLLATE utf8mb4_unicode_ci AS TITULO,
-                        CONVERT('importado' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS ORIGEN
-                    FROM NOTA_IMPORTADA n
-                    INNER JOIN NOTAS_IMPORTACION imp ON imp.IDIMPORTACION = n.IDIMPORTACION
-                    WHERE n.IDUSUARIO = %s AND IFNULL(imp.ESTADO, 'Activo') = 'Activo'
-                ) t
-                ORDER BY TITULO
-                """,
-                [id_solicitante, id_solicitante],
-            )
-        else:
-            cursor.execute(
-                """
-                SELECT IDEXAMEN, TITULO, ORIGEN FROM (
-                    SELECT
-                        CONVERT(e.IDEXAMEN USING utf8mb4) COLLATE utf8mb4_unicode_ci AS IDEXAMEN,
-                        CONVERT(e.TITULO USING utf8mb4) COLLATE utf8mb4_unicode_ci AS TITULO,
-                        CONVERT('virtual' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS ORIGEN
-                    FROM EXAMEN e
-                    UNION
-                    SELECT
-                        CONVERT(CONCAT('IMPI-', imp.IDIMPORTACION) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS IDEXAMEN,
-                        CONVERT(imp.NOMBRE_ARCHIVO USING utf8mb4) COLLATE utf8mb4_unicode_ci AS TITULO,
-                        CONVERT('importado' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS ORIGEN
-                    FROM NOTAS_IMPORTACION imp
-                    WHERE IFNULL(imp.ESTADO, 'Activo') = 'Activo'
-                ) t
-                ORDER BY TITULO
-                """
-            )
+        cursor.execute(sql, params)
         examenes = []
         for row in _cursor_rows(cursor):
             origen = (row.get('ORIGEN') or 'virtual').lower()
@@ -569,10 +577,10 @@ def catalogos_resultados(id_solicitante: str):
                 'IDEXAMEN': row.get('IDEXAMEN'),
                 'TITULO': titulo,
                 'ORIGEN': origen,
+                'FECHA_ORDEN': row.get('FECHA_ORDEN') or '',
             })
-        if solo_propios:
-            aulas = []
-        else:
+        aulas = []
+        if not solo_propios:
             cursor.execute(
                 """
                 SELECT IDAULA, NOMBRE FROM AULA
@@ -580,4 +588,10 @@ def catalogos_resultados(id_solicitante: str):
                 """
             )
             aulas = _cursor_rows(cursor)
-    return {'examenes': examenes, 'aulas': aulas, 'soloPropios': solo_propios}
+    ultimo = examenes[0] if examenes else None
+    return {
+        'examenes': examenes,
+        'aulas': aulas,
+        'soloPropios': solo_propios,
+        'ultimoExamen': ultimo,
+    }

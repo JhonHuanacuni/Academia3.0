@@ -2,14 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCheck,
-  faEye,
   faMinus,
   faSpinner,
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
+import DataTable from "../../components/mantenedor/DataTable";
+import Pagination from "../../components/mantenedor/Pagination";
 import Toast from "../../components/mantenedor/feedback/Toast";
 import { parseJsonResponse } from "../../utils/api";
 import { dbToView } from "../../utils/fecha";
+import { resultadosColumnasEstudiante, resultadosColumnasStaff } from "./resultados.config";
 import "../../styles/mantenedor.css";
 import "./resultados.css";
 
@@ -202,7 +204,7 @@ export default function ResultadosPage({ role, idusuario }) {
   const [filas, setFilas] = useState([]);
   const [total, setTotal] = useState(0);
   const [pagina, setPagina] = useState(1);
-  const [tamanio] = useState(15);
+  const [tamanio] = useState(10);
   const [buscar, setBuscar] = useState("");
   const [buscarAplicado, setBuscarAplicado] = useState("");
   const [idExamen, setIdExamen] = useState("");
@@ -211,7 +213,10 @@ export default function ResultadosPage({ role, idusuario }) {
   const [idAulaAplicado, setIdAulaAplicado] = useState("");
   const [examenes, setExamenes] = useState([]);
   const [aulas, setAulas] = useState([]);
+  const [filtroInicialListo, setFiltroInicialListo] = useState(false);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [orden, setOrden] = useState({ campo: "PUNTAJEOBTENIDO", direccion: "DESC" });
   const [toast, setToast] = useState(null);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
   const [detalleLoading, setDetalleLoading] = useState(false);
@@ -220,35 +225,60 @@ export default function ResultadosPage({ role, idusuario }) {
   const uid = idusuario || localStorage.getItem("idusuario") || "";
 
   const cargarCatalogos = useCallback(async () => {
+    if (!uid) return;
+    setFiltroInicialListo(false);
+    setCargando(true);
     try {
       const res = await fetch(
         `/api/examenes/resultados/catalogos/?idusuario=${encodeURIComponent(uid)}`,
       );
       const data = await parseJsonResponse(res);
-      if (res.ok && data.ok) {
-        const payload = data.data || {};
-        const listaExamenes = payload.examenes || [];
-        setExamenes(
-          listaExamenes.map((ex) => ({
-            IDEXAMEN: ex.IDEXAMEN || ex.idexamen || ex.IdExamen,
-            TITULO: ex.TITULO || ex.titulo || ex.Titulo || "",
-          })),
-        );
-        setAulas(payload.aulas || []);
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.mensaje || "No se pudieron cargar los catálogos");
       }
-    } catch {
-      /* opcional */
+      const payload = data.data || {};
+      const listaExamenes = (payload.examenes || []).map((ex) => ({
+        IDEXAMEN: ex.IDEXAMEN || ex.idexamen || "",
+        TITULO: ex.TITULO || ex.titulo || "",
+      }));
+      setExamenes(listaExamenes);
+      setAulas(payload.aulas || []);
+      const ultimoId =
+        payload.ultimoExamen?.IDEXAMEN ||
+        payload.ultimoExamen?.idexamen ||
+        listaExamenes[0]?.IDEXAMEN ||
+        "";
+      setIdExamen(ultimoId);
+      setIdExamenAplicado(ultimoId);
+      setPagina(1);
+    } catch (err) {
+      setToast({ mensaje: err.message, tipo: "error" });
+      setExamenes([]);
+      setAulas([]);
+      setIdExamen("");
+      setIdExamenAplicado("");
+    } finally {
+      setFiltroInicialListo(true);
     }
   }, [uid]);
 
   const cargar = useCallback(async () => {
-    if (!uid) return;
+    if (!uid || !filtroInicialListo) return;
+    if (!idExamenAplicado && !buscarAplicado && examenes.length === 0) {
+      setFilas([]);
+      setTotal(0);
+      setCargando(false);
+      return;
+    }
     setCargando(true);
+    setError("");
     try {
       const params = new URLSearchParams({
         idusuario: uid,
         pagina: String(pagina),
         tamanio: String(tamanio),
+        ordenarPor: orden.campo,
+        direccion: orden.direccion,
       });
       if (buscarAplicado.trim()) params.set("buscar", buscarAplicado.trim());
       if (idExamenAplicado) params.set("idExamen", idExamenAplicado);
@@ -262,13 +292,24 @@ export default function ResultadosPage({ role, idusuario }) {
       setFilas(data.data || []);
       setTotal(data.total || 0);
     } catch (err) {
+      setError(err.message);
       setToast({ mensaje: err.message, tipo: "error" });
       setFilas([]);
       setTotal(0);
     } finally {
       setCargando(false);
     }
-  }, [uid, pagina, tamanio, buscarAplicado, idExamenAplicado, idAulaAplicado]);
+  }, [
+    uid,
+    filtroInicialListo,
+    pagina,
+    tamanio,
+    buscarAplicado,
+    idExamenAplicado,
+    idAulaAplicado,
+    orden,
+    examenes.length,
+  ]);
 
   useEffect(() => {
     cargarCatalogos();
@@ -282,6 +323,14 @@ export default function ResultadosPage({ role, idusuario }) {
     setBuscarAplicado(buscar.trim());
     setIdExamenAplicado(idExamen);
     setIdAulaAplicado(idAula);
+    setPagina(1);
+  };
+
+  const toggleOrden = (campo) => {
+    setOrden((prev) => ({
+      campo,
+      direccion: prev.campo === campo && prev.direccion === "ASC" ? "DESC" : "ASC",
+    }));
     setPagina(1);
   };
 
@@ -306,8 +355,6 @@ export default function ResultadosPage({ role, idusuario }) {
     }
   };
 
-  const totalPaginas = Math.max(1, Math.ceil(total / tamanio));
-
   return (
     <div className="mantenedor-page resultados-page">
       <div className="mantenedor-card resultados-filtros">
@@ -316,7 +363,7 @@ export default function ResultadosPage({ role, idusuario }) {
             <label>
               Salón
               <select value={idAula} onChange={(e) => setIdAula(e.target.value)}>
-                <option value="">SELECCIONAR SALÓN</option>
+                <option value="">TODOS</option>
                 {aulas.map((a) => (
                   <option key={a.IDAULA} value={a.IDAULA}>
                     {a.NOMBRE}
@@ -328,7 +375,7 @@ export default function ResultadosPage({ role, idusuario }) {
           <label>
             Examen
             <select value={idExamen} onChange={(e) => setIdExamen(e.target.value)}>
-              <option value="">SELECCIONAR EXAMEN</option>
+              <option value="">TODOS</option>
               {examenes.map((ex) => (
                 <option key={ex.IDEXAMEN} value={ex.IDEXAMEN}>
                   {ex.TITULO}
@@ -360,111 +407,26 @@ export default function ResultadosPage({ role, idusuario }) {
       </div>
 
       <div className="mantenedor-card">
-        {cargando ? (
-          <div className="mantenedor-state">
-            <FontAwesomeIcon icon={faSpinner} spin /> Cargando resultados...
-          </div>
-        ) : filas.length === 0 ? (
-          <div className="mantenedor-state">
-            No hay resultados para mostrar. Incluye exámenes virtuales y notas importadas.
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>N°</th>
-                  {!esEstudiante && <th>Estudiante</th>}
-                  {!esEstudiante && <th>DNI</th>}
-                  <th>Examen</th>
-                  <th>Tipo</th>
-                  {!esEstudiante && <th>Aula</th>}
-                  <th>Fecha</th>
-                  <th>Puntaje</th>
-                  <th>Correctas</th>
-                  <th>Incorrectas</th>
-                  <th>Intento</th>
-                  <th>Estado</th>
-                  <th>Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map((row, idx) => (
-                  <tr key={row.IDINTENTOEXAMEN}>
-                    <td>{(pagina - 1) * tamanio + idx + 1}</td>
-                    {!esEstudiante && <td title={row.ESTUDIANTE}>{row.ESTUDIANTE}</td>}
-                    {!esEstudiante && <td>{row.DNI || "—"}</td>}
-                    <td title={row.EXAMEN}>{row.EXAMEN}</td>
-                    <td>{etiquetaTipoExamen(row)}</td>
-                    {!esEstudiante && <td>{row.AULA || "—"}</td>}
-                    <td>
-                      {dbToView(row.FECHAFIN || row.FECHAINICIO) || "—"}
-                      {row.HORAFIN ? ` ${String(row.HORAFIN).slice(0, 5)}` : ""}
-                    </td>
-                    <td>
-                      <strong>{formatNota(row.PUNTAJEOBTENIDO)}</strong>
-                      {row.PUNTAJETOTAL != null ? (
-                        <span className="muted"> / {formatNota(row.PUNTAJETOTAL)}</span>
-                      ) : null}
-                    </td>
-                    <td>{row.CANTCORRECTAS ?? "—"}</td>
-                    <td>{row.CANTINCORRECTAS ?? "—"}</td>
-                    <td>
-                      {Number(row.ESTADOINTENTO) === 1 ? (
-                        <span className="badge-estado activo">Finalizado</span>
-                      ) : (
-                        <span className="badge-estado">En curso</span>
-                      )}
-                    </td>
-                    <td>
-                      {row.APROBADO == null ? (
-                        "—"
-                      ) : (
-                        <span className={`badge-estado ${row.APROBADO ? "activo" : "vencido"}`}>
-                          {row.APROBADO ? "Aprobado" : "Desaprobado"}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn-icon"
-                        title="Ver detalle"
-                        onClick={() => abrirDetalle(row)}
-                      >
-                        <FontAwesomeIcon icon={faEye} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {total > tamanio && (
-          <div className="resultados-paginacion">
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={pagina <= 1 || cargando}
-              onClick={() => setPagina((p) => Math.max(1, p - 1))}
-            >
-              Anterior
-            </button>
-            <span>
-              Página {pagina} de {totalPaginas} · {total} resultado{total !== 1 ? "s" : ""}
-            </span>
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={pagina >= totalPaginas || cargando}
-              onClick={() => setPagina((p) => p + 1)}
-            >
-              Siguiente
-            </button>
-          </div>
-        )}
+        <DataTable
+          columnas={esEstudiante ? resultadosColumnasEstudiante : resultadosColumnasStaff}
+          items={filas}
+          pk="IDINTENTOEXAMEN"
+          orden={orden}
+          loading={cargando || !filtroInicialListo}
+          error={error}
+          onOrden={toggleOrden}
+          onVer={abrirDetalle}
+          onReintentar={cargar}
+          pagina={pagina}
+          tamanio={tamanio}
+          emptyMessage="No hay resultados para mostrar."
+        />
+        <Pagination
+          pagina={pagina}
+          tamanio={tamanio}
+          total={total}
+          onChange={setPagina}
+        />
       </div>
 
       <DetalleModal
