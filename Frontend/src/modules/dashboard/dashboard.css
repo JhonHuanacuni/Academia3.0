@@ -652,3 +652,73 @@
   .dash-filtro-acciones { display: grid; grid-template-columns: 1fr 1fr; }
   .dash-asist-stats { grid-template-columns: repeat(2, 1fr); }
 }
+
+@media (max-width: 720px) {
+  .dash-est-card {
+    padding: 0.7rem 0.75rem;
+  }
+
+  .dash-est-head {
+    gap: 0.55rem;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  .dash-est-head h2 {
+    font-size: 0.78rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .dash-est-head p {
+    font-size: 0.7rem;
+    gap: 0.3rem 0.45rem;
+  }
+
+  .dash-est-tipo {
+    font-size: 0.58rem;
+    padding: 0.08rem 0.35rem;
+  }
+
+  .dash-est-mi-nota {
+    padding: 0.3rem 0.45rem;
+    min-width: 3.6rem;
+  }
+
+  .dash-est-mi-nota-val {
+    font-size: 1rem;
+  }
+
+  .dash-est-mi-nota-lbl {
+    font-size: 0.52rem;
+  }
+
+  .dash-est-table {
+    font-size: 0.72rem;
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .dash-est-table th,
+  .dash-est-table td {
+    padding: 0.38rem 0.28rem;
+  }
+
+  .dash-est-table .col-num {
+    width: auto;
+  }
+
+  .dash-est-col-extra {
+    display: none;
+  }
+
+  .dash-est-th-full {
+    display: none;
+  }
+
+  .dash-est-dni--nublado {
+    letter-spacing: 0.02em;
+    filter: blur(3.5px);
+  }
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCheck,
+  faEye,
   faMinus,
   faSpinner,
   faTimes,
@@ -405,7 +406,7 @@ export default function ResultadosPage({ role, idusuario }) {
   };
 
   return (
-    <div className="mantenedor-page resultados-page">
+    <div className={`mantenedor-page resultados-page${esEstudiante ? " resultados-page--estudiante" : ""}`}>
       {!esEstudiante && (
         <div className="mantenedor-card resultados-filtros">
           <div className="resultados-filtros-grid resultados-filtros-grid--staff">
@@ -447,20 +448,68 @@ export default function ResultadosPage({ role, idusuario }) {
         {!esEstudiante && (
           <ExamenResumen examen={examenSeleccionado} mostrarAula />
         )}
-        <DataTable
-          columnas={esEstudiante ? resultadosColumnasEstudiante : resultadosColumnasStaff}
-          items={filas}
-          pk="IDINTENTOEXAMEN"
-          orden={orden}
-          loading={cargando || !filtroInicialListo}
-          error={error}
-          onOrden={toggleOrden}
-          onVer={abrirDetalle}
-          onReintentar={cargar}
-          pagina={pagina}
-          tamanio={tamanio}
-          emptyMessage="No hay resultados para mostrar."
-        />
+        {esEstudiante && (
+          <div className="resultados-cards-wrap">
+            {cargando || !filtroInicialListo ? (
+              <div className="mantenedor-state">
+                <FontAwesomeIcon icon={faSpinner} spin /> Cargando resultados...
+              </div>
+            ) : error ? (
+              <div className="mantenedor-state error">
+                <p>{error}</p>
+                <button type="button" className="btn-secondary" onClick={cargar}>
+                  Reintentar
+                </button>
+              </div>
+            ) : filas.length === 0 ? (
+              <div className="mantenedor-state">
+                <p>No hay resultados para mostrar.</p>
+              </div>
+            ) : (
+              <ul className="resultados-cards">
+                {filas.map((row) => (
+                  <li key={row.IDINTENTOEXAMEN} className="resultados-card">
+                    <div className="resultados-card-main">
+                      <p className="resultados-card-examen">{row.EXAMEN || "Examen"}</p>
+                      <span className="resultados-card-fecha">
+                        {dbToView(row.FECHAFIN) || "—"}
+                      </span>
+                      <div className="resultados-card-stats">
+                        <strong>{formatNota(row.PUNTAJEOBTENIDO)}</strong>
+                        <span>{row.CANTCORRECTAS ?? 0} correctas</span>
+                        <span>{row.CANTINCORRECTAS ?? 0} incorrectas</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      title="Ver detalle"
+                      onClick={() => abrirDetalle(row)}
+                    >
+                      <FontAwesomeIcon icon={faEye} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        <div className={esEstudiante ? "resultados-tabla-desktop" : undefined}>
+          <DataTable
+            columnas={esEstudiante ? resultadosColumnasEstudiante : resultadosColumnasStaff}
+            items={filas}
+            pk="IDINTENTOEXAMEN"
+            orden={orden}
+            loading={cargando || !filtroInicialListo}
+            error={error}
+            onOrden={toggleOrden}
+            onVer={abrirDetalle}
+            onReintentar={cargar}
+            pagina={pagina}
+            tamanio={tamanio}
+            emptyMessage="No hay resultados para mostrar."
+          />
+        </div>
         <Pagination
           pagina={pagina}
           tamanio={tamanio}

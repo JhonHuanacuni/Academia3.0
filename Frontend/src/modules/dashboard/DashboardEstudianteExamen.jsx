@@ -62,9 +62,9 @@ export default function DashboardEstudianteExamen({ data, onNavigate }) {
                     <th className="col-num">N°</th>
                     <th>DNI</th>
                     <th className="col-num">Puntaje</th>
-                    <th className="col-num">% Correctas</th>
-                    <th className="col-num">% Errores</th>
-                    <th className="col-num">% Blanco</th>
+                    <th className="col-num">%<span className="dash-est-th-full"> Correctas</span></th>
+                    <th className="col-num dash-est-col-extra">%<span className="dash-est-th-full"> Errores</span></th>
+                    <th className="col-num dash-est-col-extra">%<span className="dash-est-th-full"> Blanco</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -80,8 +80,8 @@ export default function DashboardEstudianteExamen({ data, onNavigate }) {
                         </td>
                         <td className="col-num col-puntaje">{fmtPuntaje(row.PUNTAJEOBTENIDO)}</td>
                         <td className="col-num col-ok">{fmtPct(row.PCT_CORRECTAS)}</td>
-                        <td className="col-num col-err">{fmtPct(row.PCT_ERRORES)}</td>
-                        <td className="col-num col-blank">{fmtPct(row.PCT_BLANCO)}</td>
+                        <td className="col-num col-err dash-est-col-extra">{fmtPct(row.PCT_ERRORES)}</td>
+                        <td className="col-num col-blank dash-est-col-extra">{fmtPct(row.PCT_BLANCO)}</td>
                       </tr>
                     );
                   })}

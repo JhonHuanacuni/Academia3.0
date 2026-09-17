@@ -7,6 +7,7 @@ import DataTable from "../../components/mantenedor/DataTable";
 import Pagination from "../../components/mantenedor/Pagination";
 import { dbToInput, hoyInput, inputToDb, primerDiaMesInput } from "../../utils/fecha";
 import "../../styles/mantenedor.css";
+import "./asistencia.css";
 
 export default function AsistenciaListadoPage({ role, idusuario }) {
   const cfg = asistenciaListadoConfig;
@@ -60,7 +61,7 @@ export default function AsistenciaListadoPage({ role, idusuario }) {
   };
 
   return (
-    <div className="mantenedor-page">
+    <div className={`mantenedor-page${esEstudiante ? " asistencia-listado-est" : ""}`}>
       <PageHeader
         modulo={esEstudiante ? "Académico" : cfg.modulo}
         vista={esEstudiante ? "Asistencias" : cfg.titulo}
@@ -68,7 +69,7 @@ export default function AsistenciaListadoPage({ role, idusuario }) {
       />
 
       <div className="mantenedor-card">
-        <div className="mantenedor-toolbar">
+        <div className={`mantenedor-toolbar${esEstudiante ? " asistencia-toolbar-est" : ""}`}>
           {!esEstudiante && (
             <Toolbar
               buscar={crud.buscar}
@@ -77,7 +78,7 @@ export default function AsistenciaListadoPage({ role, idusuario }) {
             />
           )}
           <label className="toolbar-date">
-            <span>Fecha inicio</span>
+            <span>Desde</span>
             <input
               type="date"
               value={fechaInicioInput}
@@ -85,7 +86,7 @@ export default function AsistenciaListadoPage({ role, idusuario }) {
             />
           </label>
           <label className="toolbar-date">
-            <span>Fecha fin</span>
+            <span>Hasta</span>
             <input
               type="date"
               value={fechaFinInput}
