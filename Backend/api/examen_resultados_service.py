@@ -34,6 +34,11 @@ def _ymd_sql(expr):
     return f"CONCAT(SUBSTRING({expr}, 5, 4), SUBSTRING({expr}, 3, 2), SUBSTRING({expr}, 1, 2))"
 
 
+def _txt(expr):
+    """Fuerza utf8mb4_unicode_ci para que UNION no mezcle collations."""
+    return f"CONVERT(({expr}) USING utf8mb4) COLLATE utf8mb4_unicode_ci"
+
+
 def _titulo_importacion(nombre):
     s = str(nombre or 'Examen presencial').strip()
     lower = s.lower()
@@ -247,28 +252,31 @@ def _listar_resultados_sql(id_solicitante, buscar, id_examen, id_aula, pagina, t
 
     virtual_sql = f"""
         SELECT
-            i.IDINTENTOEXAMEN AS IDINTENTOEXAMEN,
-            i.IDEXAMEN AS IDEXAMEN,
-            e.TITULO AS EXAMEN,
-            i.IDUSUARIO,
-            UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE,
-            u.DNI,
+            {_txt('i.IDINTENTOEXAMEN')} AS IDINTENTOEXAMEN,
+            {_txt('i.IDEXAMEN')} AS IDEXAMEN,
+            {_txt('e.TITULO')} AS EXAMEN,
+            {_txt('i.IDUSUARIO')} AS IDUSUARIO,
+            {_txt("UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))))")} AS ESTUDIANTE,
+            {_txt('u.DNI')} AS DNI,
             CAST(IFNULL(i.NUMEROINTENTO, 1) AS SIGNED) AS NUMEROINTENTO,
-            i.FECHAINICIO, i.HORAINICIO, i.FECHAFIN, i.HORAFIN,
+            {_txt('i.FECHAINICIO')} AS FECHAINICIO,
+            {_txt('i.HORAINICIO')} AS HORAINICIO,
+            {_txt('i.FECHAFIN')} AS FECHAFIN,
+            {_txt('i.HORAFIN')} AS HORAFIN,
             i.PUNTAJEOBTENIDO, i.CANTCORRECTAS, i.CANTINCORRECTAS, i.CANTSINRESPONDER,
             i.APROBADO, IFNULL(i.ESTADO, 0) AS ESTADO,
             IFNULL(e.PUNTAJETOTAL, 0) AS PUNTAJETOTAL, e.PUNTAJEAPROBADO,
             CAST(NULL AS DECIMAL(8,2)) AS PORCENTAJE,
-            'virtual' AS ORIGEN,
-            'virtual' AS TIPO_EXAMEN,
+            {_txt("'virtual'")} AS ORIGEN,
+            {_txt("'virtual'")} AS TIPO_EXAMEN,
             CAST(NULL AS SIGNED) AS TIPO_IMPORTACION,
-            (
+            {_txt("""(
                 SELECT au.NOMBRE FROM MENSUALIDAD m
                 LEFT JOIN AULA au ON au.IDAULA = m.IDAULA
                 WHERE m.IDUSUARIO = i.IDUSUARIO AND (m.ESTADO IS NULL OR m.ESTADO = 'Activo')
                 ORDER BY m.FECHAREGISTRO DESC LIMIT 1
-            ) AS AULA,
-            CONCAT({ymd_i}, LPAD(REPLACE(IFNULL(NULLIF(TRIM(IFNULL(i.HORAFIN, i.HORAINICIO)), ''), '00:00:00'), ':', ''), 6, '0')) AS FECHA_ORDEN
+            )""")} AS AULA,
+            {_txt(f"CONCAT({ymd_i}, LPAD(REPLACE(IFNULL(NULLIF(TRIM(IFNULL(i.HORAFIN, i.HORAINICIO)), ''), '00:00:00'), ':', ''), 6, '0'))")} AS FECHA_ORDEN
         FROM INTENTO_EXAMEN i
         INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
         LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO
@@ -276,17 +284,17 @@ def _listar_resultados_sql(id_solicitante, buscar, id_examen, id_aula, pagina, t
     """
     import_sql = f"""
         SELECT
-            CONCAT('IMPN-', n.IDNOTA) AS IDINTENTOEXAMEN,
-            CONCAT('IMPI-', imp.IDIMPORTACION) AS IDEXAMEN,
-            imp.NOMBRE_ARCHIVO AS EXAMEN,
-            n.IDUSUARIO,
-            UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, '')))) AS ESTUDIANTE,
-            u.DNI,
+            {_txt("CONCAT('IMPN-', n.IDNOTA)")} AS IDINTENTOEXAMEN,
+            {_txt("CONCAT('IMPI-', imp.IDIMPORTACION)")} AS IDEXAMEN,
+            {_txt('imp.NOMBRE_ARCHIVO')} AS EXAMEN,
+            {_txt('n.IDUSUARIO')} AS IDUSUARIO,
+            {_txt("UPPER(TRIM(CONCAT(IFNULL(u.APELLIDO, ''), ' ', IFNULL(u.NOMBRE, ''))))")} AS ESTUDIANTE,
+            {_txt('u.DNI')} AS DNI,
             CAST(1 AS SIGNED) AS NUMEROINTENTO,
-            imp.FECHA_EXAMEN AS FECHAINICIO,
-            CAST('' AS CHAR) AS HORAINICIO,
-            imp.FECHA_EXAMEN AS FECHAFIN,
-            CAST('' AS CHAR) AS HORAFIN,
+            {_txt('imp.FECHA_EXAMEN')} AS FECHAINICIO,
+            {_txt("''")} AS HORAINICIO,
+            {_txt('imp.FECHA_EXAMEN')} AS FECHAFIN,
+            {_txt("''")} AS HORAFIN,
             n.PUNTAJE AS PUNTAJEOBTENIDO,
             n.CORRECTAS AS CANTCORRECTAS,
             n.INCORRECTAS AS CANTINCORRECTAS,
@@ -296,11 +304,11 @@ def _listar_resultados_sql(id_solicitante, buscar, id_examen, id_aula, pagina, t
             CAST(NULL AS DECIMAL(8,2)) AS PUNTAJETOTAL,
             CAST(NULL AS DECIMAL(8,2)) AS PUNTAJEAPROBADO,
             n.PORCENTAJE,
-            'importado' AS ORIGEN,
-            IFNULL(NULLIF(imp.TIPO_EXAMEN, ''), 'presencial') AS TIPO_EXAMEN,
+            {_txt("'importado'")} AS ORIGEN,
+            {_txt("IFNULL(NULLIF(imp.TIPO_EXAMEN, ''), 'presencial')")} AS TIPO_EXAMEN,
             imp.TIPO_IMPORTACION,
-            au.NOMBRE AS AULA,
-            CONCAT({ymd_imp}, '000000') AS FECHA_ORDEN
+            {_txt('au.NOMBRE')} AS AULA,
+            {_txt(f"CONCAT({ymd_imp}, '000000')")} AS FECHA_ORDEN
         FROM NOTA_IMPORTADA n
         INNER JOIN NOTAS_IMPORTACION imp ON imp.IDIMPORTACION = n.IDIMPORTACION
         LEFT JOIN USUARIO u ON u.IDUSUARIO = n.IDUSUARIO
@@ -511,13 +519,18 @@ def catalogos_resultados(id_solicitante: str):
             cursor.execute(
                 """
                 SELECT IDEXAMEN, TITULO, ORIGEN FROM (
-                    SELECT DISTINCT e.IDEXAMEN AS IDEXAMEN, e.TITULO AS TITULO, 'virtual' AS ORIGEN
+                    SELECT DISTINCT
+                        CONVERT(e.IDEXAMEN USING utf8mb4) COLLATE utf8mb4_unicode_ci AS IDEXAMEN,
+                        CONVERT(e.TITULO USING utf8mb4) COLLATE utf8mb4_unicode_ci AS TITULO,
+                        CONVERT('virtual' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS ORIGEN
                     FROM INTENTO_EXAMEN i
                     INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN
                     WHERE i.IDUSUARIO = %s AND IFNULL(i.ESTADO, 0) = 1
                     UNION
-                    SELECT DISTINCT CONCAT('IMPI-', imp.IDIMPORTACION) AS IDEXAMEN,
-                           imp.NOMBRE_ARCHIVO AS TITULO, 'importado' AS ORIGEN
+                    SELECT DISTINCT
+                        CONVERT(CONCAT('IMPI-', imp.IDIMPORTACION) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS IDEXAMEN,
+                        CONVERT(imp.NOMBRE_ARCHIVO USING utf8mb4) COLLATE utf8mb4_unicode_ci AS TITULO,
+                        CONVERT('importado' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS ORIGEN
                     FROM NOTA_IMPORTADA n
                     INNER JOIN NOTAS_IMPORTACION imp ON imp.IDIMPORTACION = n.IDIMPORTACION
                     WHERE n.IDUSUARIO = %s AND IFNULL(imp.ESTADO, 'Activo') = 'Activo'
@@ -530,11 +543,16 @@ def catalogos_resultados(id_solicitante: str):
             cursor.execute(
                 """
                 SELECT IDEXAMEN, TITULO, ORIGEN FROM (
-                    SELECT e.IDEXAMEN AS IDEXAMEN, e.TITULO AS TITULO, 'virtual' AS ORIGEN
+                    SELECT
+                        CONVERT(e.IDEXAMEN USING utf8mb4) COLLATE utf8mb4_unicode_ci AS IDEXAMEN,
+                        CONVERT(e.TITULO USING utf8mb4) COLLATE utf8mb4_unicode_ci AS TITULO,
+                        CONVERT('virtual' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS ORIGEN
                     FROM EXAMEN e
                     UNION
-                    SELECT CONCAT('IMPI-', imp.IDIMPORTACION) AS IDEXAMEN,
-                           imp.NOMBRE_ARCHIVO AS TITULO, 'importado' AS ORIGEN
+                    SELECT
+                        CONVERT(CONCAT('IMPI-', imp.IDIMPORTACION) USING utf8mb4) COLLATE utf8mb4_unicode_ci AS IDEXAMEN,
+                        CONVERT(imp.NOMBRE_ARCHIVO USING utf8mb4) COLLATE utf8mb4_unicode_ci AS TITULO,
+                        CONVERT('importado' USING utf8mb4) COLLATE utf8mb4_unicode_ci AS ORIGEN
                     FROM NOTAS_IMPORTACION imp
                     WHERE IFNULL(imp.ESTADO, 'Activo') = 'Activo'
                 ) t
