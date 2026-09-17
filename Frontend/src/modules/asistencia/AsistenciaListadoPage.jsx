@@ -5,19 +5,22 @@ import PageHeader from "../../components/mantenedor/PageHeader";
 import Toolbar from "../../components/mantenedor/Toolbar";
 import DataTable from "../../components/mantenedor/DataTable";
 import Pagination from "../../components/mantenedor/Pagination";
-import { dbToInput, hoyInput, inputToDb } from "../../utils/fecha";
+import { dbToInput, hoyInput, inputToDb, primerDiaMesInput } from "../../utils/fecha";
 import "../../styles/mantenedor.css";
 
-export default function AsistenciaListadoPage() {
+export default function AsistenciaListadoPage({ role, idusuario }) {
   const cfg = asistenciaListadoConfig;
+  const esEstudiante = role === "estudiante";
   const hoy = hoyInput();
+  const idUsuario = idusuario || localStorage.getItem("idusuario") || "";
   const crud = useCrud({
     entidad: cfg.entidad,
     pk: cfg.pk,
     ordenInicial: { campo: "FECHAREGISTRO", direccion: "DESC" },
     filtrosIniciales: {
-      fechaInicio: inputToDb(hoy),
+      fechaInicio: inputToDb(esEstudiante ? primerDiaMesInput() : hoy),
       fechaFin: inputToDb(hoy),
+      ...(esEstudiante && idUsuario ? { idusuario: idUsuario } : {}),
     },
   });
 
@@ -58,15 +61,21 @@ export default function AsistenciaListadoPage() {
 
   return (
     <div className="mantenedor-page">
-      <PageHeader modulo={cfg.modulo} vista={cfg.titulo} mostrarNuevo={false} />
+      <PageHeader
+        modulo={esEstudiante ? "Académico" : cfg.modulo}
+        vista={esEstudiante ? "Asistencias" : cfg.titulo}
+        mostrarNuevo={false}
+      />
 
       <div className="mantenedor-card">
         <div className="mantenedor-toolbar">
-          <Toolbar
-            buscar={crud.buscar}
-            onBuscarChange={crud.onBuscarChange}
-            placeholder="Buscar por DNI o nombre..."
-          />
+          {!esEstudiante && (
+            <Toolbar
+              buscar={crud.buscar}
+              onBuscarChange={crud.onBuscarChange}
+              placeholder="Buscar por DNI o nombre..."
+            />
+          )}
           <label className="toolbar-date">
             <span>Fecha inicio</span>
             <input
@@ -86,7 +95,7 @@ export default function AsistenciaListadoPage() {
         </div>
 
         <DataTable
-          columnas={cfg.columnas}
+          columnas={esEstudiante ? cfg.columnasEstudiante : cfg.columnas}
           items={items}
           pk={cfg.pk}
           orden={crud.orden}

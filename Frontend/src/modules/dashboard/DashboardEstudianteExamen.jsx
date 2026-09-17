@@ -15,24 +15,6 @@ export default function DashboardEstudianteExamen({ data, onNavigate }) {
 
   return (
     <div className="dash-est">
-      <header className="dash-head">
-        <h1>Dashboard</h1>
-        {data?.acciones?.length > 0 && (
-          <div className="dash-shortcuts">
-            {data.acciones.map((a) => (
-              <button
-                key={a.page}
-                type="button"
-                className="dash-shortcut"
-                onClick={() => onNavigate(a.page)}
-              >
-                {a.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </header>
-
       <div className="mantenedor-card dash-est-card">
         {examen?.IDEXAMEN ? (
           <>

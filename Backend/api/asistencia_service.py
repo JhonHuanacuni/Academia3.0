@@ -211,6 +211,87 @@ def marcar_asistencia_orm(dni: str, id_registrador: str = None):
     return 1, 'Asistencia registrada.', id_asist, row
 
 
+def _sql_fecha_ymd(expr):
+    if is_mysql():
+        return f"CONCAT(SUBSTRING({expr}, 5, 4), SUBSTRING({expr}, 3, 2), SUBSTRING({expr}, 1, 2))"
+    return f"(SUBSTRING({expr}, 5, 4) + SUBSTRING({expr}, 3, 2) + SUBSTRING({expr}, 1, 2))"
+
+
+def _fecha_a_ymd(fecha_db):
+    s = str(fecha_db or '').strip()
+    if len(s) == 8 and s.isdigit():
+        return f'{s[4:8]}{s[2:4]}{s[0:2]}'
+    return s
+
+
+def _listar_asistencias_por_usuario(
+    id_usuario,
+    fecha_desde=None,
+    fecha_hasta=None,
+    pagina=1,
+    tamanio=50,
+    ordenar_por=None,
+    direccion=None,
+):
+    """Historial de un estudiante: no usa el SP (evita ver marcas ajenas)."""
+    desde = (fecha_desde or '').strip() or timezone.localtime().strftime('%d%m%Y')
+    hasta = (fecha_hasta or '').strip() or desde
+    ymd_desde, ymd_hasta = _fecha_a_ymd(desde), _fecha_a_ymd(hasta)
+    if ymd_desde and ymd_hasta and ymd_desde > ymd_hasta:
+        ymd_desde, ymd_hasta = ymd_hasta, ymd_desde
+
+    pagina = max(int(pagina or 1), 1)
+    tamanio = max(int(tamanio or 50), 1)
+    offset = (pagina - 1) * tamanio
+    campo = _normalizar_orden_asistencia(ordenar_por)
+    dir_ = 'ASC' if str(direccion or '').upper() == 'ASC' else 'DESC'
+    ymd_a = _sql_fecha_ymd('a.FECHAREGISTRO')
+    estado_expr = (
+        "IF(IFNULL(a.JUSTIFICADO, 0) = 1, 'Justificado', a.ESTADO)"
+        if is_mysql()
+        else "CASE WHEN ISNULL(a.JUSTIFICADO, 0) = 1 THEN 'Justificado' ELSE a.ESTADO END"
+    )
+    order_sql = {
+        'FECHAREGISTRO': f'{ymd_a} {dir_}, a.HORAINICIO DESC',
+        'HORAINICIO': f'a.HORAINICIO {dir_}, {ymd_a} DESC',
+        'ESTADO': f'{estado_expr} {dir_}, {ymd_a} DESC',
+    }.get(campo, f'{ymd_a} DESC, a.HORAINICIO DESC')
+
+    where = f"a.IDUSUARIO = %s AND {ymd_a} BETWEEN %s AND %s"
+    params = [id_usuario, ymd_desde, ymd_hasta]
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT COUNT(*) AS C
+            FROM ASISTENCIA a
+            WHERE {where}
+            """,
+            params,
+        )
+        total = int((cursor.fetchone() or [0])[0] or 0)
+        cursor.execute(
+            f"""
+            SELECT
+                a.IDASISTENCIA,
+                a.FECHAREGISTRO,
+                a.HORAINICIO,
+                a.ESTADO,
+                a.JUSTIFICADO,
+                u.IDUSUARIO,
+                u.NOMBRE,
+                u.APELLIDO,
+                u.DNI
+            FROM ASISTENCIA a
+            INNER JOIN USUARIO u ON u.IDUSUARIO = a.IDUSUARIO
+            WHERE {where}
+            ORDER BY {order_sql}
+            LIMIT %s OFFSET %s
+            """,
+            params + [tamanio, offset],
+        )
+        return _cursor_rows(cursor), total
+
+
 def listar_asistencias(
     fecha_desde=None,
     fecha_hasta=None,
@@ -220,8 +301,21 @@ def listar_asistencias(
     fecha=None,
     ordenar_por=None,
     direccion=None,
+    id_usuario=None,
 ):
     """Lista asistencias. Acepta rango (fechaDesde/fechaHasta) o fecha única (legacy)."""
+    id_usuario = (id_usuario or '').strip() or None
+    if id_usuario:
+        return _listar_asistencias_por_usuario(
+            id_usuario,
+            fecha_desde=fecha_desde or fecha,
+            fecha_hasta=fecha_hasta,
+            pagina=pagina,
+            tamanio=tamanio,
+            ordenar_por=ordenar_por,
+            direccion=direccion,
+        )
+
     desde = (fecha_desde or fecha or '').strip() or None
     hasta = (fecha_hasta or '').strip() or None
     if desde and not hasta:
@@ -271,7 +365,7 @@ def _normalizar_orden_asistencia(campo):
     return mapa.get(raw, 'FECHAREGISTRO')
 
 
-def listar_asistencias_orm(fecha_desde=None, fecha_hasta=None, buscar=None, fecha=None):
+def listar_asistencias_orm(fecha_desde=None, fecha_hasta=None, buscar=None, fecha=None, id_usuario=None):
     from django.db.models import Q
     from .models import Asistencia, Usuario
 
@@ -289,6 +383,9 @@ def listar_asistencias_orm(fecha_desde=None, fecha_hasta=None, buscar=None, fech
         ymd_desde, ymd_hasta = ymd_hasta, ymd_desde
 
     qs = Asistencia.objects.all()
+    id_usuario = (id_usuario or '').strip() or None
+    if id_usuario:
+        qs = qs.filter(IDUSUARIO=id_usuario)
     if buscar:
         user_ids = Usuario.objects.filter(
             Q(DNI__icontains=buscar)

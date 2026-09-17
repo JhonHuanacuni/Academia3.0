@@ -63,7 +63,7 @@ export default function ClaseGrabadaEstudiantePage() {
 
   return (
     <div className="mantenedor-page">
-      <PageHeader modulo={cfg.modulo} vista={cfg.titulo} />
+      <PageHeader modulo={cfg.modulo} vista={cfg.titulo} mostrarNuevo={false} />
 
       <div className="mantenedor-card">
         <MateriaChipBar

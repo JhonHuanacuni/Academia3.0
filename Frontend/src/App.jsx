@@ -177,6 +177,11 @@ const pageContent = {
     description: "",
     component: ResultadosPage,
   },
+  "academico-asistencias": {
+    title: "Asistencias",
+    description: "Consulta tu historial de asistencias.",
+    component: AsistenciaListadoPage,
+  },
   informes: {
     title: "Informes",
     description: "Reportes y estadísticas del instituto.",

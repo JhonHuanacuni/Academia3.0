@@ -535,11 +535,7 @@ def obtener_dashboard(id_usuario, fecha_desde=None, fecha_hasta=None, estado_usu
         ranking = ranking_aula_ultimo_examen(id_usuario)
         base.update({
             'kpis': {},
-            'acciones': [
-                {'page': 'academico-examenes', 'label': 'Exámenes'},
-                {'page': 'academico-biblioteca', 'label': 'Biblioteca'},
-                {'page': 'academico-horario', 'label': 'Horario'},
-            ],
+            'acciones': [],
             'ultimoExamen': ranking,
         })
         return base

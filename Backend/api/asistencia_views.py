@@ -19,6 +19,7 @@ def asistencias_api(request):
         fecha_desde = request.GET.get('fechaInicio') or request.GET.get('fechaDesde') or request.GET.get('fecha')
         fecha_hasta = request.GET.get('fechaFin') or request.GET.get('fechaHasta')
         buscar = request.GET.get('buscar')
+        id_usuario = request.GET.get('idusuario') or request.GET.get('idUsuario')
         pagina = int(request.GET.get('pagina', 1))
         tamanio = int(request.GET.get('tamanio', 50))
         try:
@@ -30,12 +31,14 @@ def asistencias_api(request):
                 tamanio=tamanio,
                 ordenar_por=request.GET.get('ordenarPor'),
                 direccion=request.GET.get('direccion'),
+                id_usuario=id_usuario,
             )
         except Exception:
             data, total = listar_asistencias_orm(
                 fecha_desde=fecha_desde,
                 fecha_hasta=fecha_hasta,
                 buscar=buscar,
+                id_usuario=id_usuario,
             )
         return JsonResponse({
             'data': data,
