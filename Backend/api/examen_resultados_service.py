@@ -167,6 +167,8 @@ def _map_fila_tabla(r):
         'CANTCORRECTAS': r.get('CANTCORRECTAS'),
         'CANTINCORRECTAS': r.get('CANTINCORRECTAS'),
         'ESTADOINTENTO': int(estado_raw or 0),
+        'EXAMEN': _titulo_importacion(r.get('EXAMEN')) if r.get('EXAMEN') else '',
+        'FECHAFIN': r.get('FECHAFIN') or '',
     }
 
 
@@ -209,18 +211,22 @@ def _listar_resultados_sql(
         'tamanioPagina': tamanio,
         'soloPropios': False,
     }
-    if not id_examen:
-        vacio['soloPropios'] = _es_estudiante(id_solicitante)
-        return vacio
-
     offset = (pagina - 1) * tamanio
     solo_propios = _es_estudiante(id_solicitante)
     vacio['soloPropios'] = solo_propios
-    tipo_id, valor_id = _parse_id_resultado(id_examen)
-    incluir_virtual = tipo_id == 'virtual'
-    incluir_importado = tipo_id in ('importacion', 'nota')
-    if not incluir_virtual and not incluir_importado:
+    if not id_examen and not solo_propios:
         return vacio
+
+    if id_examen:
+        tipo_id, valor_id = _parse_id_resultado(id_examen)
+        incluir_virtual = tipo_id == 'virtual'
+        incluir_importado = tipo_id in ('importacion', 'nota')
+        if not incluir_virtual and not incluir_importado:
+            return vacio
+    else:
+        tipo_id, valor_id = None, None
+        incluir_virtual = True
+        incluir_importado = True
 
     ymd_i = _ymd_sql('IFNULL(i.FECHAFIN, i.FECHAINICIO)')
     ymd_imp = _ymd_sql('imp.FECHA_EXAMEN')
@@ -271,18 +277,26 @@ def _listar_resultados_sql(
 
     join_usuario_v = '' if solo_propios else 'LEFT JOIN USUARIO u ON u.IDUSUARIO = i.IDUSUARIO'
     join_usuario_i = '' if solo_propios else 'LEFT JOIN USUARIO u ON u.IDUSUARIO = n.IDUSUARIO'
+    join_examen = 'INNER JOIN EXAMEN e ON e.IDEXAMEN = i.IDEXAMEN' if solo_propios else ''
+    examen_v = _txt('e.TITULO') if solo_propios else _txt("''")
+    examen_i = _txt('imp.NOMBRE_ARCHIVO') if solo_propios else _txt("''")
+    fecha_v = _txt('IFNULL(i.FECHAFIN, i.FECHAINICIO)') if solo_propios else _txt("''")
+    fecha_i = _txt('imp.FECHA_EXAMEN') if solo_propios else _txt("''")
 
     virtual_sql = f"""
         SELECT
             {_txt('i.IDINTENTOEXAMEN')} AS IDINTENTOEXAMEN,
             {estudiante_expr} AS ESTUDIANTE,
             {dni_expr} AS DNI,
+            {examen_v} AS EXAMEN,
+            {fecha_v} AS FECHAFIN,
             i.PUNTAJEOBTENIDO,
             i.CANTCORRECTAS,
             i.CANTINCORRECTAS,
             IFNULL(i.ESTADO, 0) AS ESTADO,
             {_txt(f"CONCAT({ymd_i}, LPAD(REPLACE(IFNULL(NULLIF(TRIM(IFNULL(i.HORAFIN, i.HORAINICIO)), ''), '00:00:00'), ':', ''), 6, '0'))")} AS FECHA_ORDEN
         FROM INTENTO_EXAMEN i
+        {join_examen}
         {join_usuario_v}
         WHERE {' AND '.join(virtual_where)}
     """
@@ -291,6 +305,8 @@ def _listar_resultados_sql(
             {_txt("CONCAT('IMPN-', n.IDNOTA)")} AS IDINTENTOEXAMEN,
             {estudiante_expr} AS ESTUDIANTE,
             {dni_expr} AS DNI,
+            {examen_i} AS EXAMEN,
+            {fecha_i} AS FECHAFIN,
             n.PUNTAJE AS PUNTAJEOBTENIDO,
             n.CORRECTAS AS CANTCORRECTAS,
             n.INCORRECTAS AS CANTINCORRECTAS,
@@ -317,19 +333,22 @@ def _listar_resultados_sql(
     order_map = {
         'ESTUDIANTE': 't.ESTUDIANTE',
         'DNI': 't.DNI',
+        'EXAMEN': 't.EXAMEN',
+        'FECHAFIN': 't.FECHA_ORDEN',
         'PUNTAJEOBTENIDO': 't.PUNTAJEOBTENIDO',
         'CANTCORRECTAS': 't.CANTCORRECTAS',
         'CANTINCORRECTAS': 't.CANTINCORRECTAS',
         'ESTADOINTENTO': 't.ESTADO',
     }
-    col_orden = order_map.get(str(ordenar_por or '').strip().upper(), 't.PUNTAJEOBTENIDO')
+    default_orden = 't.FECHA_ORDEN' if solo_propios else 't.PUNTAJEOBTENIDO'
+    col_orden = order_map.get(str(ordenar_por or '').strip().upper(), default_orden)
     dir_sql = 'ASC' if str(direccion or '').upper() == 'ASC' else 'DESC'
     with connection.cursor() as cursor:
         cursor.execute(f'SELECT COUNT(*) AS TOTAL FROM ({union_sql}) t', params)
         total = int((_cursor_rows(cursor)[0] or {}).get('TOTAL') or 0)
         cursor.execute(
             f"""
-            SELECT IDINTENTOEXAMEN, ESTUDIANTE, DNI, PUNTAJEOBTENIDO,
+            SELECT IDINTENTOEXAMEN, ESTUDIANTE, DNI, EXAMEN, FECHAFIN, PUNTAJEOBTENIDO,
                    CANTCORRECTAS, CANTINCORRECTAS, ESTADO
             FROM ({union_sql}) t
             ORDER BY {col_orden} {dir_sql}, t.PUNTAJEOBTENIDO DESC, t.IDINTENTOEXAMEN DESC

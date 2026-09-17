@@ -253,10 +253,13 @@ export default function ResultadosPage({ role, idusuario }) {
   const [idExamen, setIdExamen] = useState("");
   const [idExamenAplicado, setIdExamenAplicado] = useState("");
   const [examenes, setExamenes] = useState([]);
-  const [filtroInicialListo, setFiltroInicialListo] = useState(false);
+  const [filtroInicialListo, setFiltroInicialListo] = useState(esEstudiante);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
-  const [orden, setOrden] = useState({ campo: "PUNTAJEOBTENIDO", direccion: "DESC" });
+  const [orden, setOrden] = useState({
+    campo: esEstudiante ? "FECHAFIN" : "PUNTAJEOBTENIDO",
+    direccion: "DESC",
+  });
   const [toast, setToast] = useState(null);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
   const [detalleLoading, setDetalleLoading] = useState(false);
@@ -270,7 +273,7 @@ export default function ResultadosPage({ role, idusuario }) {
   );
 
   const cargarCatalogos = useCallback(async () => {
-    if (!uid) return;
+    if (!uid || esEstudiante) return;
     setFiltroInicialListo(false);
     setCargando(true);
     try {
@@ -300,11 +303,11 @@ export default function ResultadosPage({ role, idusuario }) {
     } finally {
       setFiltroInicialListo(true);
     }
-  }, [uid]);
+  }, [uid, esEstudiante]);
 
   const cargar = useCallback(async () => {
     if (!uid || !filtroInicialListo) return;
-    if (!idExamenAplicado) {
+    if (!esEstudiante && !idExamenAplicado) {
       setFilas([]);
       setTotal(0);
       setCargando(false);
@@ -317,10 +320,10 @@ export default function ResultadosPage({ role, idusuario }) {
         idusuario: uid,
         pagina: String(pagina),
         tamanio: String(tamanio),
-        idExamen: idExamenAplicado,
         ordenarPor: orden.campo,
         direccion: orden.direccion,
       });
+      if (!esEstudiante && idExamenAplicado) params.set("idExamen", idExamenAplicado);
       if (!esEstudiante && buscarAplicado.trim()) params.set("buscar", buscarAplicado.trim());
 
       const res = await fetch(`/api/examenes/resultados/?${params}`);
@@ -350,8 +353,12 @@ export default function ResultadosPage({ role, idusuario }) {
   ]);
 
   useEffect(() => {
+    if (esEstudiante) {
+      setFiltroInicialListo(true);
+      return;
+    }
     cargarCatalogos();
-  }, [cargarCatalogos]);
+  }, [esEstudiante, cargarCatalogos]);
 
   useEffect(() => {
     cargar();
@@ -437,7 +444,9 @@ export default function ResultadosPage({ role, idusuario }) {
       )}
 
       <div className="mantenedor-card">
-        <ExamenResumen examen={examenSeleccionado} mostrarAula={!esEstudiante} />
+        {!esEstudiante && (
+          <ExamenResumen examen={examenSeleccionado} mostrarAula />
+        )}
         <DataTable
           columnas={esEstudiante ? resultadosColumnasEstudiante : resultadosColumnasStaff}
           items={filas}
