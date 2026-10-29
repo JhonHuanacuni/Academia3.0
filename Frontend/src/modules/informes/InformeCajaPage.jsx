@@ -29,11 +29,13 @@ function IndicadoresCaja({ resumen, chartDiario }) {
     { key: "med", valor: resumen.cantidadMedios, etiqueta: "Medios usados", tono: "tard" },
     { key: "prom", valor: formatSoles(resumen.promedioDiario), etiqueta: "Promedio diario", tono: "primary" },
   ];
-  const puntos = chartDiario || [];
-  const maxVal = Math.max(...puntos.map((d) => d.valor), 1);
+  const puntosChart = chartDiario || [];
+  const puntosRank = [...puntosChart].sort((a, b) => b.valor - a.valor);
+  const maxVal = Math.max(...puntosChart.map((d) => d.valor), 1);
+  const esMes = Number(resumen.mes) > 0;
 
   return (
-    <div className="informes-dashboard">
+    <div className="informes-dashboard informe-caja-indicadores">
       <div className="informes-kpi-row informes-kpi-row--4">
         {kpis.map((k) => (
           <div key={k.key} className={`informes-kpi informes-kpi--${k.tono}`}>
@@ -42,32 +44,65 @@ function IndicadoresCaja({ resumen, chartDiario }) {
           </div>
         ))}
       </div>
-      <div className="informes-resumen-panel">
-        <section className="informes-chart-side informes-chart-side--full">
+
+      <div className="informe-caja-ind-grid">
+        <section className="informe-caja-panel">
           <div className="informes-panel-header">
             <h2>{resumen.chartTitulo || "Ingresos por día"}</h2>
-            <p>
-              {resumen.periodo} · solo días/meses con movimiento · pagos de mensualidad y extraordinarios
-            </p>
+            <p>{resumen.periodo} · solo fechas con movimiento</p>
           </div>
-          {puntos.length === 0 ? (
+          {puntosChart.length === 0 ? (
             <div className="mantenedor-state">Sin movimientos en el periodo.</div>
           ) : (
-            <div className="informes-chart-bars informes-chart-bars--caja">
-              {puntos.map((d) => {
-                const altura = Math.max(Math.round((d.valor / maxVal) * 100), 10);
+            <div className="informe-caja-bars">
+              {puntosChart.map((d) => {
+                const altura = Math.max(Math.round((d.valor / maxVal) * 100), 8);
                 return (
-                  <div key={d.etiqueta} className="informes-chart-col" title={`${d.etiqueta}: ${formatSoles(d.valor)}`}>
-                    <span className="informes-chart-pct-small">{formatSoles(d.valor)}</span>
-                    <div className="informes-chart-bar-wrap">
-                      <div className="informes-chart-bar informes-chart-bar--asist" style={{ height: `${altura}%` }} />
+                  <div key={d.etiqueta} className="informe-caja-bar-col" title={`${d.etiqueta}: ${formatSoles(d.valor)}`}>
+                    <span className="informe-caja-bar-monto">{formatSoles(d.valor)}</span>
+                    <div className="informe-caja-bar-track">
+                      <div className="informe-caja-bar-fill" style={{ height: `${altura}%` }} />
                     </div>
-                    <span className="informes-chart-label">{d.etiqueta}</span>
+                    <span className="informe-caja-bar-label">
+                      {esMes ? `Día ${d.etiqueta}` : d.etiqueta}
+                    </span>
                   </div>
                 );
               })}
             </div>
           )}
+        </section>
+
+        <section className="informe-caja-panel">
+          <div className="informes-panel-header">
+            <h2>Ranking del periodo</h2>
+            <p>De mayor a menor ingreso</p>
+          </div>
+          <div className="informe-tabla-outer">
+            <table className="informe-asistencias-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>{esMes ? "DÍA" : "MES"}</th>
+                  <th>MONTO</th>
+                  <th>%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {puntosRank.map((d, i) => {
+                  const pct = resumen.totalIngresos > 0 ? Math.round((d.valor / resumen.totalIngresos) * 100) : 0;
+                  return (
+                    <tr key={d.etiqueta}>
+                      <td>{i + 1}</td>
+                      <td>{esMes ? `Día ${d.etiqueta}` : d.etiqueta}</td>
+                      <td className="informes-num--ok">{formatSoles(d.valor)}</td>
+                      <td>{pct}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
     </div>
@@ -98,59 +133,53 @@ function PorMedio({ medios, totalIngresos }) {
 
   return (
     <div className="informe-caja-medios">
-      <section className="informe-caja-medios-card">
+      <section className="informe-caja-panel informe-caja-medios-top">
         <div className="informes-panel-header">
           <h2>Distribución por medio</h2>
           <p>Participación del total ingresado en el periodo</p>
         </div>
-        <div className="informes-pie-wrap informe-caja-pie">
-          <div className="informes-pie" style={{ background: `conic-gradient(${gradient})` }}>
-            <div className="informes-pie-hole">
-              <strong>{formatSoles(totalIngresos)}</strong>
-              <span>total</span>
+        <div className="informe-caja-medios-top-body">
+          <div className="informe-caja-pie-block">
+            <div
+              className="informes-pie informe-caja-pie-lg"
+              style={{ background: `conic-gradient(${gradient})` }}
+            >
+              <div className="informes-pie-hole informe-caja-pie-hole">
+                <strong>{formatSoles(totalIngresos)}</strong>
+                <span>total</span>
+              </div>
             </div>
           </div>
-          <ul className="informes-pie-legend">
+          <div className="informe-caja-medios-cards">
             {segmentos.map((s) => (
-              <li key={s.etiqueta}>
-                <span className="informes-pie-dot" style={{ background: s.color }} />
-                <span className="informes-pie-legend-text">
-                  {s.etiqueta} · {formatSoles(s.monto)} ({s.pct}%)
-                </span>
-              </li>
+              <article key={s.etiqueta} className="informe-caja-medio-card">
+                <header>
+                  <span className="informes-pie-dot" style={{ background: s.color }} />
+                  <strong>{s.etiqueta}</strong>
+                  <em>{s.pct}%</em>
+                </header>
+                <div className="informe-caja-medio-card-monto">{formatSoles(s.monto)}</div>
+                <div className="informes-dist-track">
+                  <div
+                    className="informes-dist-fill"
+                    style={{ width: `${Math.max(s.pct, 2)}%`, background: s.color }}
+                  />
+                </div>
+                <footer>
+                  {s.cantidad} pago{s.cantidad === 1 ? "" : "s"}
+                </footer>
+              </article>
             ))}
-          </ul>
+          </div>
         </div>
       </section>
 
-      <section className="informe-caja-medios-card">
+      <section className="informe-caja-panel">
         <div className="informes-panel-header">
-          <h2>Comparativo</h2>
-          <p>Monto, cantidad y peso de cada medio</p>
+          <h2>Resumen tabular</h2>
+          <p>Montos consolidados por medio de pago</p>
         </div>
-        <div className="informe-caja-medios-barras">
-          {segmentos.map((s) => (
-            <div key={s.etiqueta} className="informe-caja-medio-row">
-              <div className="informe-caja-medio-meta">
-                <span className="informe-caja-medio-nombre">
-                  <span className="informes-pie-dot" style={{ background: s.color }} />
-                  {s.etiqueta}
-                </span>
-                <span className="informe-caja-medio-monto">{formatSoles(s.monto)}</span>
-              </div>
-              <div className="informes-dist-track">
-                <div
-                  className="informes-dist-fill"
-                  style={{ width: `${Math.max(s.pct, s.monto > 0 ? 2 : 0)}%`, background: s.color }}
-                />
-              </div>
-              <div className="informe-caja-medio-sub">
-                {s.cantidad} pago{s.cantidad === 1 ? "" : "s"} · {s.pct}%
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="informe-tabla-outer" style={{ marginTop: "1rem" }}>
+        <div className="informe-tabla-outer">
           <table className="informe-asistencias-table">
             <thead>
               <tr>
