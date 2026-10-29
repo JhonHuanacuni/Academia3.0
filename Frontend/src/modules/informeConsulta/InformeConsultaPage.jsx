@@ -183,12 +183,6 @@ export default function InformeConsultaPage() {
           ]}
         />
 
-        <p className="mantenedor-hint" style={{ margin: "0 0 0.75rem", color: "var(--color-muted)", fontSize: "0.85rem" }}>
-          Resultados: <strong>No aplica</strong> (no sigue), <strong>Interesado</strong> (prospecto),{" "}
-          <strong>En seguimiento</strong> (sigue preguntando), <strong>Matriculado</strong> (ya se inscribió).
-          La conversión = matriculados ÷ interesados del mes.
-        </p>
-
         <DataTable
           columnas={cfg.columnas}
           items={crud.items}
