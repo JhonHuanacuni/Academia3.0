@@ -35,43 +35,139 @@ function BarraOcupacion({ pct }) {
   );
 }
 
-function IndicadoresAulas({ resumen }) {
+function IndicadoresAulas({ resumen, filas }) {
   if (!resumen) return null;
-  const kpis = [
-    { key: "aulas", valor: resumen.totalAulas, etiqueta: "Aulas", tono: "primary" },
-    { key: "alum", valor: resumen.alumnos, etiqueta: "Alumnos", tono: "asist" },
-    {
-      key: "ocup",
-      valor: resumen.ocupacion != null ? `${resumen.ocupacion}%` : "—",
-      etiqueta: "Ocupación",
-      tono: "tard",
-    },
-    { key: "ing", valor: formatSoles(resumen.ingresoMes), etiqueta: "Ingreso mes", tono: "primary" },
-    { key: "cob", valor: formatSoles(resumen.cobrado), etiqueta: "Cobrado", tono: "asist" },
-    { key: "por", valor: formatSoles(resumen.porCobrar), etiqueta: "Por cobrar", tono: "falta" },
-  ];
+
+  const pctCobrado = Math.min(Number(resumen.pctCobrado) || 0, 100);
+  const pctPendiente = Math.max(0, 100 - pctCobrado);
+  const ocupacion = resumen.ocupacion != null ? Number(resumen.ocupacion) : null;
+
+  const ranking = [...(filas || [])]
+    .filter((f) => (f.ingresoMes || 0) > 0 || (f.alumnos || 0) > 0)
+    .sort((a, b) => (b.porCobrar || 0) - (a.porCobrar || 0) || (b.alumnos || 0) - (a.alumnos || 0))
+    .slice(0, 8);
+
+  const maxPorCobrar = Math.max(...ranking.map((f) => f.porCobrar || 0), 1);
+
   return (
-    <div className="informes-dashboard">
-      <div className="informes-kpi-row informes-kpi-row--6">
-        {kpis.map((k) => (
-          <div key={k.key} className={`informes-kpi informes-kpi--${k.tono}`}>
-            <span className="informes-kpi-valor informes-kpi-valor--sm">{k.valor}</span>
-            <span className="informes-kpi-etiqueta">{k.etiqueta}</span>
-          </div>
-        ))}
+    <div className="informes-dashboard informe-aulas-indicadores">
+      <div className="informe-aulas-kpi-grid">
+        <article className="informe-aulas-kpi informe-aulas-kpi--primary">
+          <span className="informe-aulas-kpi-label">Aulas</span>
+          <strong>{resumen.totalAulas}</strong>
+        </article>
+        <article className="informe-aulas-kpi informe-aulas-kpi--asist">
+          <span className="informe-aulas-kpi-label">Alumnos</span>
+          <strong>{resumen.alumnos}</strong>
+        </article>
+        <article className="informe-aulas-kpi informe-aulas-kpi--tard">
+          <span className="informe-aulas-kpi-label">Ocupación</span>
+          <strong>{ocupacion != null ? `${ocupacion}%` : "—"}</strong>
+        </article>
+        <article className="informe-aulas-kpi informe-aulas-kpi--primary">
+          <span className="informe-aulas-kpi-label">Ingreso mes</span>
+          <strong className="informe-aulas-kpi-money">{formatSoles(resumen.ingresoMes)}</strong>
+        </article>
+        <article className="informe-aulas-kpi informe-aulas-kpi--asist">
+          <span className="informe-aulas-kpi-label">Cobrado</span>
+          <strong className="informe-aulas-kpi-money">{formatSoles(resumen.cobrado)}</strong>
+        </article>
+        <article className="informe-aulas-kpi informe-aulas-kpi--falta">
+          <span className="informe-aulas-kpi-label">Por cobrar</span>
+          <strong className="informe-aulas-kpi-money">{formatSoles(resumen.porCobrar)}</strong>
+        </article>
       </div>
-      <div className="informes-resumen-panel">
-        <section className="informes-chart-side informes-chart-side--full">
+
+      <div className="informe-aulas-ind-grid">
+        <section className="informe-caja-panel">
           <div className="informes-panel-header">
             <h2>Cobranza del mes</h2>
-            <p>{resumen.pctCobrado}% del ingreso esperado ya cobrado</p>
+            <p>
+              {resumen.periodo || "Periodo"} · {pctCobrado}% del ingreso esperado ya cobrado
+            </p>
           </div>
-          <div className="informes-dist-track informes-dist-track--lg">
+
+          <div className="informe-aulas-cobranza">
             <div
-              className="informes-dist-fill"
-              style={{ width: `${Math.min(resumen.pctCobrado || 0, 100)}%` }}
-            />
+              className="informe-aulas-cobranza-pct"
+              style={{ background: `conic-gradient(#1e9e5a 0 ${pctCobrado}%, #eef1f8 ${pctCobrado}% 100%)` }}
+            >
+              <strong>{pctCobrado}%</strong>
+              <span>cobrado</span>
+            </div>
+            <div className="informe-aulas-cobranza-bars">
+              <div className="informe-aulas-stack">
+                <div className="informe-aulas-stack-fill informe-aulas-stack-fill--ok" style={{ width: `${pctCobrado}%` }} />
+                <div className="informe-aulas-stack-fill informe-aulas-stack-fill--warn" style={{ width: `${pctPendiente}%` }} />
+              </div>
+              <div className="informe-aulas-cobranza-legend">
+                <span>
+                  <i className="informe-aulas-dot informe-aulas-dot--ok" /> Cobrado · {formatSoles(resumen.cobrado)}
+                </span>
+                <span>
+                  <i className="informe-aulas-dot informe-aulas-dot--warn" /> Por cobrar · {formatSoles(resumen.porCobrar)}
+                </span>
+              </div>
+            </div>
           </div>
+
+          <div className="informe-aulas-mini-grid">
+            <div className="informe-aulas-mini">
+              <span>Ingreso esperado</span>
+              <strong>{formatSoles(resumen.ingresoMes)}</strong>
+            </div>
+            <div className="informe-aulas-mini">
+              <span>Ocupación global</span>
+              <strong>{ocupacion != null ? `${ocupacion}%` : "—"}</strong>
+              {ocupacion != null && (
+                <div className="informes-ocupacion-track" style={{ marginTop: "0.45rem" }}>
+                  <div
+                    className={`informes-ocupacion-fill ${
+                      ocupacion > 100
+                        ? "informes-ocupacion-fill--falta"
+                        : ocupacion >= 80
+                          ? "informes-ocupacion-fill--tard"
+                          : "informes-ocupacion-fill--asist"
+                    }`}
+                    style={{ width: `${Math.min(ocupacion, 100)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="informe-caja-panel">
+          <div className="informes-panel-header">
+            <h2>Aulas con mayor pendiente</h2>
+            <p>Top por monto por cobrar</p>
+          </div>
+          {ranking.length === 0 ? (
+            <div className="mantenedor-state">Sin aulas con movimiento.</div>
+          ) : (
+            <div className="informe-aulas-rank">
+              {ranking.map((f, idx) => {
+                const ancho = Math.max(((f.porCobrar || 0) / maxPorCobrar) * 100, f.porCobrar > 0 ? 4 : 0);
+                return (
+                  <div key={f.idAula} className="informe-aulas-rank-row">
+                    <div className="informe-aulas-rank-meta">
+                      <span className="informe-aulas-rank-pos">{idx + 1}</span>
+                      <div className="informe-aulas-rank-text">
+                        <strong title={f.aula}>{f.aula}</strong>
+                        <em>
+                          {f.alumnos} alum. · ocup. {f.ocupacion != null ? `${f.ocupacion}%` : "—"}
+                        </em>
+                      </div>
+                      <span className="informe-aulas-rank-monto">{formatSoles(f.porCobrar)}</span>
+                    </div>
+                    <div className="informes-dist-track">
+                      <div className="informes-dist-fill informes-ocupacion-fill--falta" style={{ width: `${ancho}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -325,7 +421,9 @@ export default function InformeAulasPage() {
             ))}
           </div>
           <div className="ui-tabs-panel-body" role="tabpanel">
-            {tabActiva === "indicadores" && <IndicadoresAulas resumen={data.resumen} />}
+            {tabActiva === "indicadores" && (
+              <IndicadoresAulas resumen={data.resumen} filas={data.filas} />
+            )}
             {tabActiva === "aulas" && <TablaAulas filas={data.filas} totales={data.totales} />}
             {tabActiva === "ciclos" && <MatrizCiclos matriz={data.matrizCiclos} />}
           </div>
