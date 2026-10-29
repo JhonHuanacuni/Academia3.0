@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartColumn,
@@ -7,10 +7,33 @@ import {
   faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { parseJsonResponse } from "../../utils/api";
+import DataTable from "../../components/mantenedor/DataTable";
+import Pagination from "../../components/mantenedor/Pagination";
 import "../../styles/mantenedor.css";
 import "./informes.css";
 import { exportarInformeSeguimientoExcel } from "./exportarSeguimientoExcel";
 import { MESES_ES, aniosInforme, periodoInicial } from "./informePeriodoUtils";
+
+const CONSULTAS_COLUMNAS = [
+  { campo: "FECHA", etiqueta: "Fecha", ordenable: true },
+  { campo: "NOMBRE", etiqueta: "Nombre", ordenable: true },
+  { campo: "TELEFONO", etiqueta: "Teléfono", ordenable: true },
+  { campo: "CICLO", etiqueta: "Ciclo", ordenable: true },
+  { campo: "CANAL", etiqueta: "Cómo llegó", ordenable: true },
+  { campo: "RESULTADO", etiqueta: "Resultado", ordenable: true },
+  { campo: "SE_ENTERO", etiqueta: "Se enteró", ordenable: true },
+  { campo: "OBSERVACION", etiqueta: "Observación", ordenable: false },
+];
+
+const TAMANIOS = [10, 20, 50, 100];
+
+function parseFechaSort(fechaVista) {
+  // DD/MM/YYYY → YYYYMMDD
+  const s = String(fechaVista || "");
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return s;
+  return `${m[3]}${m[2]}${m[1]}`;
+}
 
 const TABS = [
   { id: "indicadores", label: "Indicadores", icon: faChartColumn },
@@ -196,42 +219,106 @@ function IndicadoresSeguimiento({ resumen }) {
 }
 
 function TablaSeguimiento({ filas }) {
-  if (!filas?.length) {
-    return <div className="mantenedor-state">No hay consultas en el periodo.</div>;
-  }
+  const [orden, setOrden] = useState({ campo: "FECHA", direccion: "DESC" });
+  const [pagina, setPagina] = useState(1);
+  const [tamanio, setTamanio] = useState(10);
+
+  const items = useMemo(
+    () =>
+      (filas || []).map((f) => ({
+        id: f.id,
+        FECHA: f.fecha || "",
+        NOMBRE: f.enAlumnos ? `${f.nombre || ""} · En alumnos` : f.nombre || "",
+        TELEFONO: f.telefono || "—",
+        CICLO: f.ciclo || "—",
+        CANAL: f.canal || "—",
+        RESULTADO: f.resultado || "—",
+        SE_ENTERO: f.seEntero || "—",
+        OBSERVACION: f.observacion || "—",
+        _fechaSort: parseFechaSort(f.fecha),
+      })),
+    [filas],
+  );
+
+  useEffect(() => {
+    setPagina(1);
+  }, [filas, tamanio]);
+
+  const ordenados = useMemo(() => {
+    const copia = [...items];
+    const { campo, direccion } = orden;
+    const mult = direccion === "ASC" ? 1 : -1;
+    copia.sort((a, b) => {
+      let va = a[campo];
+      let vb = b[campo];
+      if (campo === "FECHA") {
+        va = a._fechaSort;
+        vb = b._fechaSort;
+      }
+      const sa = String(va ?? "").toLowerCase();
+      const sb = String(vb ?? "").toLowerCase();
+      if (sa < sb) return -1 * mult;
+      if (sa > sb) return 1 * mult;
+      return 0;
+    });
+    return copia;
+  }, [items, orden]);
+
+  const total = ordenados.length;
+  const paginaSegura = Math.min(pagina, Math.max(1, Math.ceil(total / tamanio) || 1));
+  const visibles = useMemo(() => {
+    const inicio = (paginaSegura - 1) * tamanio;
+    return ordenados.slice(inicio, inicio + tamanio);
+  }, [ordenados, paginaSegura, tamanio]);
+
+  const toggleOrden = (campo) => {
+    setOrden((prev) =>
+      prev.campo === campo
+        ? { campo, direccion: prev.direccion === "ASC" ? "DESC" : "ASC" }
+        : { campo, direccion: campo === "FECHA" ? "DESC" : "ASC" },
+    );
+    setPagina(1);
+  };
+
   return (
-    <div className="informe-tabla-outer">
-      <table className="informe-asistencias-table">
-        <thead>
-          <tr>
-            <th>FECHA</th>
-            <th>NOMBRE</th>
-            <th>TELÉFONO</th>
-            <th>CICLO</th>
-            <th>CÓMO LLEGÓ</th>
-            <th>RESULTADO</th>
-            <th>SE ENTERÓ</th>
-            <th>OBSERVACIÓN</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filas.map((f) => (
-            <tr key={f.id} className={f.enAlumnos ? "informe-fila--alumno" : undefined}>
-              <td>{f.fecha}</td>
-              <td>
-                {f.nombre}
-                {f.enAlumnos && <span className="informe-badge-alumno"> En alumnos</span>}
-              </td>
-              <td>{f.telefono || "—"}</td>
-              <td>{f.ciclo || "—"}</td>
-              <td>{f.canal}</td>
-              <td>{f.resultado}</td>
-              <td>{f.seEntero || "—"}</td>
-              <td>{f.observacion || "—"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="informe-seguimiento-tabla">
+      <div className="informe-seguimiento-tabla-toolbar">
+        <span>{total} consulta{total === 1 ? "" : "s"}</span>
+        <label>
+          Mostrar
+          <select
+            value={tamanio}
+            onChange={(e) => setTamanio(Number(e.target.value))}
+            aria-label="Filas por página"
+          >
+            {TAMANIOS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <DataTable
+        columnas={CONSULTAS_COLUMNAS}
+        items={visibles}
+        pk="id"
+        orden={orden}
+        loading={false}
+        error=""
+        onOrden={toggleOrden}
+        pagina={paginaSegura}
+        tamanio={tamanio}
+        emptyMessage="No hay consultas en el periodo."
+      />
+
+      <Pagination
+        pagina={paginaSegura}
+        tamanio={tamanio}
+        total={total}
+        onChange={setPagina}
+      />
     </div>
   );
 }
