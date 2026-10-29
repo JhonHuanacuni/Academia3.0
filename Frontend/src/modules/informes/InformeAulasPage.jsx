@@ -221,6 +221,10 @@ export default function InformeAulasPage() {
     }
   }, [anio, mes, idAula]);
 
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
   const exportarExcel = useCallback(async () => {
     if (!data?.filas?.length) {
       setError("No hay datos para exportar.");
@@ -281,15 +285,6 @@ export default function InformeAulasPage() {
             </select>
           </label>
           <div className="informes-filtros-acciones">
-            <button type="button" className="btn-primary informes-btn-generar" onClick={cargar} disabled={cargando}>
-              {cargando ? (
-                <>
-                  <FontAwesomeIcon icon={faSpinner} spin /> Generando...
-                </>
-              ) : (
-                "Generar informe"
-              )}
-            </button>
             {hayDatos && (
               <button type="button" className="btn-secondary" onClick={exportarExcel} disabled={exportando}>
                 <FontAwesomeIcon icon={faFileExcel} spin={exportando} />

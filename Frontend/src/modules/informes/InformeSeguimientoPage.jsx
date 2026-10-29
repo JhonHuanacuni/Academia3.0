@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartColumn,
@@ -265,6 +265,10 @@ export default function InformeSeguimientoPage() {
     }
   }, [anio, mes]);
 
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
   const exportarExcel = useCallback(async () => {
     if (!data?.filas?.length) {
       setError("No hay datos para exportar.");
@@ -313,15 +317,6 @@ export default function InformeSeguimientoPage() {
             </select>
           </label>
           <div className="informes-filtros-acciones">
-            <button type="button" className="btn-primary informes-btn-generar" onClick={cargar} disabled={cargando}>
-              {cargando ? (
-                <>
-                  <FontAwesomeIcon icon={faSpinner} spin /> Generando...
-                </>
-              ) : (
-                "Generar informe"
-              )}
-            </button>
             {hayDatos && (
               <button type="button" className="btn-secondary" onClick={exportarExcel} disabled={exportando}>
                 <FontAwesomeIcon icon={faFileExcel} spin={exportando} />
