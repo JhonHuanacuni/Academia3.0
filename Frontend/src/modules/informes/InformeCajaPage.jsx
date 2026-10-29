@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartColumn,
@@ -24,12 +24,13 @@ const PIE_COLORS = ["#1e9e5a", "#6a42e5", "#2563eb", "#c7891b", "#d23b3b", "#089
 function IndicadoresCaja({ resumen, chartDiario }) {
   if (!resumen) return null;
   const kpis = [
-    { key: "ing", valor: formatSoles(resumen.totalIngresos), etiqueta: "Ingresos del mes", tono: "asist" },
+    { key: "ing", valor: formatSoles(resumen.totalIngresos), etiqueta: "Ingresos del periodo", tono: "asist" },
     { key: "cant", valor: resumen.cantidadPagos, etiqueta: "Pagos registrados", tono: "primary" },
     { key: "med", valor: resumen.cantidadMedios, etiqueta: "Medios usados", tono: "tard" },
     { key: "prom", valor: formatSoles(resumen.promedioDiario), etiqueta: "Promedio diario", tono: "primary" },
   ];
-  const maxVal = Math.max(...(chartDiario || []).map((d) => d.valor), 1);
+  const puntos = chartDiario || [];
+  const maxVal = Math.max(...puntos.map((d) => d.valor), 1);
 
   return (
     <div className="informes-dashboard">
@@ -44,22 +45,29 @@ function IndicadoresCaja({ resumen, chartDiario }) {
       <div className="informes-resumen-panel">
         <section className="informes-chart-side informes-chart-side--full">
           <div className="informes-panel-header">
-            <h2>Ingresos por día</h2>
-            <p>Pagos mensuales y extraordinarios del mes</p>
+            <h2>{resumen.chartTitulo || "Ingresos por día"}</h2>
+            <p>
+              {resumen.periodo} · solo días/meses con movimiento · pagos de mensualidad y extraordinarios
+            </p>
           </div>
-          <div className="informes-chart-bars informes-chart-bars--distrito">
-            {(chartDiario || []).map((d) => {
-              const altura = Math.max(Math.round((d.valor / maxVal) * 100), d.valor > 0 ? 8 : 0);
-              return (
-                <div key={d.etiqueta} className="informes-chart-col" title={`${d.etiqueta}: ${formatSoles(d.valor)}`}>
-                  <div className="informes-chart-bar-wrap">
-                    <div className="informes-chart-bar informes-chart-bar--asist" style={{ height: `${altura}%` }} />
+          {puntos.length === 0 ? (
+            <div className="mantenedor-state">Sin movimientos en el periodo.</div>
+          ) : (
+            <div className="informes-chart-bars informes-chart-bars--caja">
+              {puntos.map((d) => {
+                const altura = Math.max(Math.round((d.valor / maxVal) * 100), 10);
+                return (
+                  <div key={d.etiqueta} className="informes-chart-col" title={`${d.etiqueta}: ${formatSoles(d.valor)}`}>
+                    <span className="informes-chart-pct-small">{formatSoles(d.valor)}</span>
+                    <div className="informes-chart-bar-wrap">
+                      <div className="informes-chart-bar informes-chart-bar--asist" style={{ height: `${altura}%` }} />
+                    </div>
+                    <span className="informes-chart-label">{d.etiqueta}</span>
                   </div>
-                  <span className="informes-chart-label">{d.etiqueta}</span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -75,7 +83,13 @@ function PorMedio({ medios, totalIngresos }) {
     const pctRaw = totalIngresos > 0 ? (m.monto / totalIngresos) * 100 : 0;
     const inicio = acumulado;
     acumulado += pctRaw;
-    return { ...m, color: PIE_COLORS[i % PIE_COLORS.length], inicio, fin: acumulado, pct: Math.round(pctRaw) };
+    return {
+      ...m,
+      color: PIE_COLORS[i % PIE_COLORS.length],
+      inicio,
+      fin: acumulado,
+      pct: Math.round(pctRaw),
+    };
   });
   const gradient =
     segmentos.length === 1
@@ -83,13 +97,13 @@ function PorMedio({ medios, totalIngresos }) {
       : segmentos.map((s) => `${s.color} ${s.inicio}% ${s.fin}%`).join(", ");
 
   return (
-    <div className="informes-resumen-grid">
-      <section className="informes-dist-side">
+    <div className="informe-caja-medios">
+      <section className="informe-caja-medios-card">
         <div className="informes-panel-header">
           <h2>Distribución por medio</h2>
-          <p>Participación del total ingresado</p>
+          <p>Participación del total ingresado en el periodo</p>
         </div>
-        <div className="informes-pie-wrap">
+        <div className="informes-pie-wrap informe-caja-pie">
           <div className="informes-pie" style={{ background: `conic-gradient(${gradient})` }}>
             <div className="informes-pie-hole">
               <strong>{formatSoles(totalIngresos)}</strong>
@@ -108,12 +122,35 @@ function PorMedio({ medios, totalIngresos }) {
           </ul>
         </div>
       </section>
-      <section className="informes-dist-side">
+
+      <section className="informe-caja-medios-card">
         <div className="informes-panel-header">
-          <h2>Detalle por medio</h2>
-          <p>Monto y cantidad de pagos</p>
+          <h2>Comparativo</h2>
+          <p>Monto, cantidad y peso de cada medio</p>
         </div>
-        <div className="informe-tabla-outer">
+        <div className="informe-caja-medios-barras">
+          {segmentos.map((s) => (
+            <div key={s.etiqueta} className="informe-caja-medio-row">
+              <div className="informe-caja-medio-meta">
+                <span className="informe-caja-medio-nombre">
+                  <span className="informes-pie-dot" style={{ background: s.color }} />
+                  {s.etiqueta}
+                </span>
+                <span className="informe-caja-medio-monto">{formatSoles(s.monto)}</span>
+              </div>
+              <div className="informes-dist-track">
+                <div
+                  className="informes-dist-fill"
+                  style={{ width: `${Math.max(s.pct, s.monto > 0 ? 2 : 0)}%`, background: s.color }}
+                />
+              </div>
+              <div className="informe-caja-medio-sub">
+                {s.cantidad} pago{s.cantidad === 1 ? "" : "s"} · {s.pct}%
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="informe-tabla-outer" style={{ marginTop: "1rem" }}>
           <table className="informe-asistencias-table">
             <thead>
               <tr>
@@ -124,15 +161,34 @@ function PorMedio({ medios, totalIngresos }) {
               </tr>
             </thead>
             <tbody>
-              {medios.map((m) => (
+              {segmentos.map((m) => (
                 <tr key={m.etiqueta}>
-                  <td>{m.etiqueta}</td>
+                  <td>
+                    <span className="informes-pie-dot" style={{ background: m.color, marginRight: 8 }} />
+                    {m.etiqueta}
+                  </td>
                   <td>{m.cantidad}</td>
-                  <td>{formatSoles(m.monto)}</td>
+                  <td className="informes-num--ok">{formatSoles(m.monto)}</td>
                   <td>{m.pct}%</td>
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="informe-caja-total-row">
+                <td>
+                  <strong>TOTAL</strong>
+                </td>
+                <td>
+                  <strong>{medios.reduce((a, m) => a + m.cantidad, 0)}</strong>
+                </td>
+                <td>
+                  <strong>{formatSoles(totalIngresos)}</strong>
+                </td>
+                <td>
+                  <strong>100%</strong>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </section>
@@ -140,50 +196,81 @@ function PorMedio({ medios, totalIngresos }) {
   );
 }
 
-function DetalleCaja({ gruposFecha }) {
+function DetalleCaja({ gruposFecha, totalIngresos, periodo }) {
   if (!gruposFecha?.length) {
     return <div className="mantenedor-state">No hay ingresos en el periodo.</div>;
   }
+  const totalPagos = gruposFecha.reduce((a, g) => a + (g.cantidad || g.items?.length || 0), 0);
+
   return (
     <div className="informe-caja-detalle">
-      {gruposFecha.map((g) => (
-        <div key={g.fecha} className="informe-caja-dia">
-          <div className="informe-tabla-outer">
-            <table className="informe-asistencias-table">
-              <thead>
-                <tr>
-                  <th>FECHA</th>
-                  <th>RECIBO</th>
-                  <th>NOMBRE</th>
-                  <th>CICLO / CONCEPTO</th>
-                  <th>MEDIO</th>
-                  <th>MONTO</th>
-                </tr>
-              </thead>
-              <tbody>
+      <div className="informe-caja-detalle-meta">
+        <div>
+          <strong>{periodo}</strong>
+          <span>
+            {totalPagos} pago{totalPagos === 1 ? "" : "s"} · {gruposFecha.length} día
+            {gruposFecha.length === 1 ? "" : "s"} con movimiento
+          </span>
+        </div>
+        <div className="informe-caja-detalle-total">
+          Total periodo: <strong>{formatSoles(totalIngresos)}</strong>
+        </div>
+      </div>
+
+      <div className="informe-tabla-outer">
+        <table className="informe-asistencias-table informe-caja-detalle-table">
+          <thead>
+            <tr>
+              <th>FECHA</th>
+              <th>RECIBO</th>
+              <th>NOMBRE</th>
+              <th>CICLO / CONCEPTO</th>
+              <th>MEDIO</th>
+              <th>MONTO</th>
+            </tr>
+          </thead>
+          <tbody>
+            {gruposFecha.map((g) => (
+              <Fragment key={g.fecha}>
                 {g.items.map((item) => (
                   <tr key={`${item.tipo}-${item.id}`}>
                     <td>{item.fecha}</td>
                     <td>{item.recibo}</td>
-                    <td>{item.nombre}</td>
+                    <td title={item.nombre}>{item.nombre}</td>
                     <td>{item.ciclo || "—"}</td>
-                    <td>{item.medio}</td>
-                    <td>{formatSoles(item.monto)}</td>
+                    <td>
+                      <span className="informe-caja-chip">{item.medio}</span>
+                    </td>
+                    <td className="informes-num--ok">{formatSoles(item.monto)}</td>
                   </tr>
                 ))}
                 <tr className="informe-caja-subtotal">
                   <td colSpan={5}>
                     <strong>Total {g.fecha}</strong>
+                    <span className="informe-caja-subtotal-count">
+                      {" "}
+                      · {g.cantidad || g.items.length} pago{(g.cantidad || g.items.length) === 1 ? "" : "s"}
+                    </span>
                   </td>
                   <td>
                     <strong>{formatSoles(g.monto)}</strong>
                   </td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ))}
+              </Fragment>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="informe-caja-total-row">
+              <td colSpan={5}>
+                <strong>TOTAL {periodo?.toUpperCase() || "PERIODO"}</strong>
+              </td>
+              <td>
+                <strong>{formatSoles(totalIngresos)}</strong>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }
@@ -192,7 +279,7 @@ export default function InformeCajaPage() {
   const ini = periodoInicial();
   const [anio, setAnio] = useState(ini.anio);
   const [mes, setMes] = useState(ini.mes);
-  const [tabActiva, setTabActiva] = useState("indicadores");
+  const [tabActiva, setTabActiva] = useState("detalle");
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [exportando, setExportando] = useState(false);
@@ -206,7 +293,7 @@ export default function InformeCajaPage() {
       const params = new URLSearchParams({ anio, mes });
       const res = await fetch(`/api/informes/caja/?${params}`);
       const json = await parseJsonResponse(res);
-      if (!res.ok) throw new Error(json.error || "Error al generar el informe");
+      if (!res.ok) throw new Error(json.error || "Error al cargar el informe");
       setData(json);
       setConsultado(true);
     } catch (err) {
@@ -228,6 +315,7 @@ export default function InformeCajaPage() {
     }
     try {
       setExportando(true);
+      setError("");
       await exportarInformeCajaExcel({ filas: data.filas, meta: { periodo: data.periodo } });
     } catch (err) {
       setError(err.message || "No se pudo exportar");
@@ -240,40 +328,48 @@ export default function InformeCajaPage() {
 
   return (
     <div className="informes-page">
-      <div className="mantenedor-card informes-filtros">
-        <div className="informes-filtros-grid informes-filtros-grid--periodo">
-          <label>
-            Año
-            <select value={anio} onChange={(e) => setAnio(e.target.value)}>
-              {aniosInforme().map((a) => (
-                <option key={a.value} value={a.value}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Mes
-            <select value={mes} onChange={(e) => setMes(e.target.value)}>
-              {MESES_ES.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="informes-filtros-acciones">
-            {hayDatos && (
-              <button type="button" className="btn-secondary" onClick={exportarExcel} disabled={exportando}>
-                <FontAwesomeIcon icon={faFileExcel} spin={exportando} />
-                {exportando ? "Exportando..." : "Exportar Excel"}
-              </button>
+      <div className="mantenedor-card informes-filtros informe-caja-toolbar">
+        <div className="informe-caja-toolbar-row">
+          <div className="informe-caja-toolbar-filtros">
+            <label>
+              Año
+              <select value={anio} onChange={(e) => setAnio(e.target.value)}>
+                {aniosInforme().map((a) => (
+                  <option key={a.value} value={a.value}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Periodo
+              <select value={mes} onChange={(e) => setMes(e.target.value)}>
+                <option value="0">Todo el año</option>
+                {MESES_ES.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {data?.periodo && (
+              <span className="informe-caja-periodo-pill">{data.periodo}</span>
             )}
           </div>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={exportarExcel}
+            disabled={exportando || !hayDatos || cargando}
+            title={!hayDatos ? "No hay datos para exportar" : "Descargar Excel del periodo"}
+          >
+            <FontAwesomeIcon icon={faFileExcel} spin={exportando} />
+            {exportando ? "Exportando..." : "Descargar Excel"}
+          </button>
         </div>
         <p className="informes-filtro-nota">
-          Solo ingresos reales del mes (pagos de mensualidad + pagos extraordinarios). No hay egresos ni cuadre en
-          Vita; este informe no calcula disponible.
+          Elige mes o “Todo el año”. La descarga Excel incluye todos los pagos del periodo seleccionado (mensualidades
+          + extraordinarios).
         </p>
       </div>
 
@@ -281,7 +377,7 @@ export default function InformeCajaPage() {
 
       {cargando ? (
         <div className="mantenedor-state">
-          <FontAwesomeIcon icon={faSpinner} spin /> Generando informe...
+          <FontAwesomeIcon icon={faSpinner} spin /> Cargando caja...
         </div>
       ) : consultado && !hayDatos ? (
         <div className="mantenedor-state">No hay ingresos para el periodo seleccionado.</div>
@@ -309,7 +405,13 @@ export default function InformeCajaPage() {
             {tabActiva === "medios" && (
               <PorMedio medios={data.medios} totalIngresos={data.resumen?.totalIngresos || 0} />
             )}
-            {tabActiva === "detalle" && <DetalleCaja gruposFecha={data.gruposFecha} />}
+            {tabActiva === "detalle" && (
+              <DetalleCaja
+                gruposFecha={data.gruposFecha}
+                totalIngresos={data.resumen?.totalIngresos || 0}
+                periodo={data.periodo}
+              />
+            )}
           </div>
         </div>
       ) : null}

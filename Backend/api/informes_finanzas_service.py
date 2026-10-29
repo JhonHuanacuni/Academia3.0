@@ -28,21 +28,27 @@ def _cursor_rows(cursor):
     return [dict(zip(cols, r)) for r in cursor.fetchall()]
 
 
-def _parse_anio_mes(anio, mes):
+def _parse_anio_mes(anio, mes, permitir_anio_completo=False):
     hoy = timezone.localdate()
     try:
-        anio_i = int(anio) if anio else hoy.year
-        mes_i = int(mes) if mes else hoy.month
+        anio_i = int(anio) if anio not in (None, '') else hoy.year
     except (TypeError, ValueError):
-        raise ValueError('Año o mes inválido')
-    if mes_i < 1 or mes_i > 12:
-        raise ValueError('El mes debe estar entre 1 y 12')
+        raise ValueError('Año inválido')
     if anio_i < 2000 or anio_i > 2100:
         raise ValueError('Año fuera de rango')
+
+    mes_raw = '' if mes is None else str(mes).strip().lower()
+    if permitir_anio_completo and mes_raw in ('', '0', 'all', 'todos', 'anio', 'año'):
+        return anio_i, 0, date(anio_i, 1, 1), date(anio_i, 12, 31)
+
+    try:
+        mes_i = int(mes) if mes not in (None, '') else hoy.month
+    except (TypeError, ValueError):
+        raise ValueError('Mes inválido')
+    if mes_i < 1 or mes_i > 12:
+        raise ValueError('El mes debe estar entre 1 y 12')
     ultimo = monthrange(anio_i, mes_i)[1]
-    desde = date(anio_i, mes_i, 1)
-    hasta = date(anio_i, mes_i, ultimo)
-    return anio_i, mes_i, desde, hasta
+    return anio_i, mes_i, date(anio_i, mes_i, 1), date(anio_i, mes_i, ultimo)
 
 
 def _ymd(d: date) -> str:
@@ -237,8 +243,8 @@ def informe_aulas(anio=None, mes=None, id_aula=None):
 
 
 def informe_caja(anio=None, mes=None):
-    """Ingresos del mes desde PAGOMENSUALIDAD + PAGOEXTRAORDINARIO."""
-    anio_i, mes_i, desde, hasta = _parse_anio_mes(anio, mes)
+    """Ingresos del mes (o todo el año) desde PAGOMENSUALIDAD + PAGOEXTRAORDINARIO."""
+    anio_i, mes_i, desde, hasta = _parse_anio_mes(anio, mes, permitir_anio_completo=True)
     fs_pago = fecha_sort_expr('p.FECHAPAGO')
     nombre = concat_nombre_usuario('u')
     plan_tbl = plan_table()
@@ -321,8 +327,13 @@ def informe_caja(anio=None, mes=None):
         por_fecha[fecha_vista]['cantidad'] += 1
         por_fecha[fecha_vista]['items'].append(item)
         if r.get('FECHAPAGO') and len(str(r.get('FECHAPAGO'))) == 8:
-            dia = int(str(r.get('FECHAPAGO'))[0:2])
-            por_dia_chart[dia] += monto
+            fp = str(r.get('FECHAPAGO'))
+            if mes_i == 0:
+                mes_num = int(fp[2:4])
+                por_dia_chart[mes_num] += monto
+            else:
+                dia = int(fp[0:2])
+                por_dia_chart[dia] += monto
 
     medios = [
         {
@@ -350,19 +361,38 @@ def informe_caja(anio=None, mes=None):
             'items': g['items'],
         })
 
-    chartDiario = [
-        {'etiqueta': str(d), 'valor': _fmt_monto(por_dia_chart.get(d, 0))}
-        for d in range(1, hasta.day + 1)
-    ]
+    if mes_i == 0:
+        chartDiario = [
+            {
+                'etiqueta': MESES_ES[m][:3],
+                'valor': _fmt_monto(por_dia_chart.get(m, 0)),
+            }
+            for m in range(1, 13)
+            if por_dia_chart.get(m, 0) > 0
+        ]
+        dias_periodo = max((hasta - desde).days + 1, 1)
+        periodo_label = f'Año {anio_i}'
+        chart_titulo = 'Ingresos por mes'
+    else:
+        # Solo días con movimiento: evita barras vacías y scroll inútil
+        chartDiario = [
+            {'etiqueta': str(d), 'valor': _fmt_monto(v)}
+            for d, v in sorted(por_dia_chart.items())
+            if v > 0
+        ]
+        dias_periodo = max(hasta.day, 1)
+        periodo_label = f'{MESES_ES[mes_i]} {anio_i}'
+        chart_titulo = 'Ingresos por día'
 
     resumen = {
-        'periodo': f'{MESES_ES[mes_i]} {anio_i}',
+        'periodo': periodo_label,
         'anio': anio_i,
         'mes': mes_i,
+        'chartTitulo': chart_titulo,
         'totalIngresos': _fmt_monto(total_ingresos),
         'cantidadPagos': len(filas),
         'cantidadMedios': len(medios),
-        'promedioDiario': _fmt_monto(total_ingresos / hasta.day) if hasta.day else 0,
+        'promedioDiario': _fmt_monto(total_ingresos / dias_periodo) if dias_periodo else 0,
         'porMedio': medios,
     }
 
