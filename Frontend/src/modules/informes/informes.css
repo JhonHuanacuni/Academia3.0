@@ -743,6 +743,118 @@
   font-weight: 700;
 }
 
+.informes-filtros-grid--periodo {
+  grid-template-columns: minmax(100px, 120px) minmax(140px, 180px) minmax(160px, 220px) auto;
+}
+
+.informes-filtro-nota {
+  margin: 0.85rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted, #6b7280);
+  line-height: 1.45;
+}
+
+.informes-kpi-row--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.informes-kpi-row--6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.informes-kpi-valor--sm {
+  font-size: 1.15rem;
+}
+
+.informes-kpi-extra {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-muted, #6b7280);
+  margin-top: 0.15rem;
+}
+
+.informes-ocupacion {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 110px;
+}
+
+.informes-ocupacion-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: #e8ebf3;
+  overflow: hidden;
+}
+
+.informes-ocupacion-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.informes-ocupacion-fill--asist {
+  background: #1e9e5a;
+}
+
+.informes-ocupacion-fill--tard {
+  background: #c7891b;
+}
+
+.informes-ocupacion-fill--falta {
+  background: #d23b3b;
+}
+
+.informes-dist-track--lg {
+  height: 14px;
+  border-radius: 999px;
+  background: #e8ebf3;
+  overflow: hidden;
+}
+
+.informes-num--ok {
+  color: #0d5c36;
+  font-weight: 600;
+}
+
+.informes-num--warn {
+  color: #9b1c1c;
+  font-weight: 600;
+}
+
+.informes-muted {
+  color: var(--color-muted, #6b7280);
+}
+
+.informe-caja-subtotal td {
+  background: #f6f7fb !important;
+  border-top: 1px solid var(--color-border, #e3e6ef);
+}
+
+.informe-caja-dia + .informe-caja-dia {
+  margin-top: 1rem;
+}
+
+.informe-fila--alumno {
+  background: #f3eefc !important;
+}
+
+.informe-badge-alumno {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6a42e5;
+  background: #efe9ff;
+}
+
+.informe-matriz-ciclos th {
+  white-space: nowrap;
+  font-size: 0.72rem;
+}
+
 .informes-nota {
   padding: 0.85rem 1.1rem;
 }

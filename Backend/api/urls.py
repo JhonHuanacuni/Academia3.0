@@ -24,6 +24,7 @@ from . import auditoria_views
 from . import dashboard_views
 from . import clase_grabada_views
 from . import mensaje_views
+from . import informe_consulta_views
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -57,6 +58,12 @@ urlpatterns = [
     path('planes/<str:id_plan>/', plan_views.planes_mantenedor, name='planes_mantenedor_detail'),
     path('informes/asistencias/', informes_views.informe_asistencias_api, name='informe_asistencias_api'),
     path('informes/estudiantes/', informes_views.informe_estudiantes_api, name='informe_estudiantes_api'),
+    path('informes/aulas/', informes_views.informe_aulas_api, name='informe_aulas_api'),
+    path('informes/caja/', informes_views.informe_caja_api, name='informe_caja_api'),
+    path('informes/seguimiento/', informes_views.informe_seguimiento_api, name='informe_seguimiento_api'),
+    path('informes-consulta/catalogos/', informe_consulta_views.informes_consulta_catalogos, name='informes_consulta_catalogos'),
+    path('informes-consulta/', informe_consulta_views.informes_consulta_mantenedor, name='informes_consulta_mantenedor'),
+    path('informes-consulta/<str:id_informe>/', informe_consulta_views.informes_consulta_mantenedor, name='informes_consulta_mantenedor_detail'),
     path('dashboard/', dashboard_views.dashboard_api, name='dashboard_api'),
     path('mensualidades/catalogos/', mensualidad_views.mensualidades_catalogos, name='mensualidades_catalogos'),
     path('mensualidades/estudiantes/', mensualidad_views.mensualidades_estudiantes, name='mensualidades_estudiantes'),

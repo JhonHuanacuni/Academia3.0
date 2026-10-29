@@ -1,6 +1,11 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
+from .informes_finanzas_service import (
+    informe_aulas,
+    informe_caja,
+    informe_seguimiento,
+)
 from .informes_service import (
     informe_asistencias,
     informe_asistencias_orm,
@@ -61,6 +66,55 @@ def informe_estudiantes_api(request):
             estado_usuario=request.GET.get('estado') or request.GET.get('estadoUsuario'),
             id_aula=request.GET.get('idAula') or request.GET.get('id_aula'),
             id_tutor=request.GET.get('idTutor') or request.GET.get('id_tutor'),
+        )
+        return JsonResponse(data)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@csrf_exempt
+def informe_aulas_api(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        data = informe_aulas(
+            anio=request.GET.get('anio'),
+            mes=request.GET.get('mes'),
+            id_aula=request.GET.get('idAula') or request.GET.get('id_aula'),
+        )
+        return JsonResponse(data)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@csrf_exempt
+def informe_caja_api(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        data = informe_caja(
+            anio=request.GET.get('anio'),
+            mes=request.GET.get('mes'),
+        )
+        return JsonResponse(data)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@csrf_exempt
+def informe_seguimiento_api(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        data = informe_seguimiento(
+            anio=request.GET.get('anio'),
+            mes=request.GET.get('mes'),
         )
         return JsonResponse(data)
     except ValueError as exc:

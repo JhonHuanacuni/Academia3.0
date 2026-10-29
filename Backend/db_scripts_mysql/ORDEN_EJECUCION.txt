@@ -133,6 +133,9 @@
 25_08_2026/1.mensaje_cargo_autor.sql
 25_08_2026/2.submodulo_inclusion_usuario.sql
 
+28_10_2026/1.informe_consulta_tabla.sql
+28_10_2026/2.submodulos_aulas_caja_informes.sql
+
 # --- Importación de datos (opcional, una sola vez) ---
 # No pegar en phpMyAdmin: los .sql usan sintaxis T-SQL.
 # Ejecutar con: venv/bin/python scripts/import_datos_mysql.py

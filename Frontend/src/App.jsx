@@ -22,6 +22,10 @@ import ExamenPage from "./modules/examen/ExamenPage";
 import ExamenEstudiantePage from "./modules/examenEstudiante/ExamenEstudiantePage";
 import InformeAsistenciasPage from "./modules/informes/InformeAsistenciasPage";
 import InformeAsistenciasSalonPage from "./modules/informes/InformeAsistenciasSalonPage";
+import InformeAulasPage from "./modules/informes/InformeAulasPage";
+import InformeCajaPage from "./modules/informes/InformeCajaPage";
+import InformeSeguimientoPage from "./modules/informes/InformeSeguimientoPage";
+import InformeConsultaPage from "./modules/informeConsulta/InformeConsultaPage";
 import DashboardPage from "./modules/dashboard/DashboardPage";
 import NotasPage from "./modules/notas/NotasPage";
 import AuditoriaPage from "./modules/auditoria/AuditoriaPage";
@@ -182,6 +186,11 @@ const pageContent = {
     description: "Consulta tu historial de asistencias.",
     component: AsistenciaListadoPage,
   },
+  "academico-informes": {
+    title: "Informes",
+    description: "Registro de personas que solicitan información.",
+    component: InformeConsultaPage,
+  },
   informes: {
     title: "Informes",
     description: "Reportes y estadísticas del instituto.",
@@ -195,6 +204,21 @@ const pageContent = {
     title: "Estudiantes",
     description: "Listado de estudiantes por salón, tutor, plan y estado.",
     component: InformeAsistenciasSalonPage,
+  },
+  "informes-aulas": {
+    title: "Aulas",
+    description: "Ocupación y cobranza por aula / salón.",
+    component: InformeAulasPage,
+  },
+  "informes-caja": {
+    title: "Caja",
+    description: "Ingresos del mes por medio de pago.",
+    component: InformeCajaPage,
+  },
+  "informes-seguimiento": {
+    title: "Seguimiento",
+    description: "Conversión de interesados a matrículas.",
+    component: InformeSeguimientoPage,
   },
 };
 

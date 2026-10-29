@@ -1,0 +1,3 @@
+# 28/10/2026 — Informes Aulas/Caja/Seguimiento + CRUD Académico Informes
+1.informe_consulta_tabla.sql
+2.submodulos_aulas_caja_informes.sql
